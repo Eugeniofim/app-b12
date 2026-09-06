@@ -1,5 +1,5 @@
 /* Estação B12 — service worker. SUBIR A VERSÃO A CADA PUBLICAÇÃO. */
-const CACHE = 'b12-v1.9.0';
+const CACHE = 'b12-v1.10.0';
 const ESSENCIAL = ['./', './index.html', './estilo.css', './dados.js', './nucleo.js',
   './oceano.js', './formularios.js', './acesso.js', './mensagens.js', './turista.js', './adm.js', './app.js', './manifest.webmanifest',
   './fotos/heroi.jpg', './fotos/farol.jpg', './fotos/passeio1.jpg', './fotos/passeio2.jpg',

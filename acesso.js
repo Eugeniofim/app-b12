@@ -154,8 +154,19 @@ B12.formAjustes = function (depois) {
         ajuda:'A confirmar com a B12. É o número em laranja na tela de reserva.' }) +
       B12.f_campo('Meta do mês', 'metaMensal', { tipo:'number', modo:'numeric', valor: a.metaMensal }) +
       B12.f_campo('Reserva mínima de caixa', 'reservaMinima', { tipo:'number', modo:'numeric', valor: a.reservaMinima,
-        ajuda:'O intocável da baixa temporada. Entra na conta do "quanto posso retirar".' }),
+        ajuda:'O intocável da baixa temporada. Entra na conta do "quanto posso retirar".' }) +
+      '<div class="grupo">Demonstração</div>' +
+      '<div class="ajuda">Os passageiros, carros e lançamentos de exemplo se renovam sozinhos a cada dia. ' +
+      'O que você registrar de verdade fica. Para recomeçar a demonstração agora:</div>' +
+      '<button type="button" class="btn sec" id="b-refrescar-demo" style="margin-top:10px">Recarregar dados de demonstração</button>',
     acao: 'Salvar ajustes',
+    aoAbrir: function (form) {
+      var b = form.querySelector('#b-refrescar-demo');
+      if (b) b.onclick = function () {
+        B12.refrescarDemo(true); B12.fecharFolha();
+        if (B12.admDesenhar) B12.admDesenhar();
+      };
+    },
     aoSalvar: function (d) {
       function lista(t) { return String(t || '').split(',').map(function (x) { return x.trim(); })
         .filter(function (x) { return /^\d{1,2}:\d{2}$/.test(x); }).sort(); }

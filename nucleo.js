@@ -90,6 +90,7 @@ B12.carregar = function () {
   });
   if (!B12.DB.ajustes.patio) B12.DB.ajustes.patio = { regra: 'dia', tolerancia: 60, cobranca: 'saida' };
   if (!B12.DB.semeado) { B12.semear(); }
+  else if (B12.DB.demoDia !== B12.hoje()) { B12.refrescarDemo(); }
   return B12.DB;
 };
 
@@ -164,12 +165,12 @@ B12.semear = function () {
     var venc = ym + '-' + String(c.dia).padStart(2,'0');
     var paga = c.dia <= diaHoje;
     D.contas.push({ id:'c'+i, tipo:'pagar', desc:c.desc, valor:c.valor, venc:venc,
-      cat:c.cat, centro:c.centro, fixa:true, paga:paga, avisar:true });
+      cat:c.cat, centro:c.centro, fixa:true, paga:paga, avisar:true, demo:true });
     if (paga) D.lancamentos.push(lanc(venc,'saida',c.cat,c.centro,c.desc,c.valor,'pix'));
     /* e a do mês que vem, ainda em aberto */
     D.contas.push({ id:'c'+i+'b', tipo:'pagar', desc:c.desc, valor:c.valor,
       venc:B12.mesMais(ym,1)+'-'+String(c.dia).padStart(2,'0'),
-      cat:c.cat, centro:c.centro, fixa:true, paga:false, avisar:true });
+      cat:c.cat, centro:c.centro, fixa:true, paga:false, avisar:true, demo:true });
   });
 
   /* manutenção pontual e uma conta a receber de parceiro */
@@ -177,25 +178,94 @@ B12.semear = function () {
     'Troca de óleo e filtros', 1180, 'credito'));
   D.contas.push({ id:'r1', tipo:'receber', desc:'Comissão de hospedagem · Grajagan',
     valor:1840, venc:B12.diaMais(hoje,9), cat:'Comissões de hospedagem',
-    centro:'Receptivo B12', paga:false, avisar:true });
+    centro:'Receptivo B12', paga:false, avisar:true, demo:true });
   D.contas.push({ id:'r2', tipo:'receber', desc:'Pacote fechado · casamento na Ilha',
     valor:4200, venc:B12.diaMais(hoje,22), cat:'Outras receitas',
-    centro:'Lancha', paga:false, avisar:true });
+    centro:'Lancha', paga:false, avisar:true, demo:true });
 
   /* saídas programadas para hoje e amanhã (o que a equipe opera) */
   ['08:30','10:00','11:30','13:00','15:00','17:00','19:00'].forEach(function (h,i) {
     D.saidas.push({ id:'s'+i, data:hoje, hora:h, embarcacao:'l01', destino: i%2?'Encantadas':'Brasília',
-      sentido:'ida', vagas:12, ocupadas: Math.max(0, 11-i*2 + (i%3)), marinheiro:'Ismael' });
+      sentido:'ida', vagas:12, ocupadas: Math.max(0, 11-i*2 + (i%3)), marinheiro:'Ismael', demo:true });
   });
   ['09:30','12:00','16:00','18:00','20:30'].forEach(function (h,i) {
     D.saidas.push({ id:'v'+i, data:hoje, hora:h, embarcacao:'l01', destino:'Pontal do Sul',
-      sentido:'volta', vagas:12, ocupadas: Math.max(0, 9-i*2), marinheiro:'Ismael' });
+      sentido:'volta', vagas:12, ocupadas: Math.max(0, 9-i*2), marinheiro:'Ismael', demo:true });
   });
 
   semearOperacao(D, hoje);
+  semearTurista(D, hoje);
 
   D.semeado = true;
+  D.demoDia = hoje;
   try { localStorage.setItem(CHAVE, JSON.stringify(D)); } catch (e) {}
+};
+
+/* ---- três reservas como se fossem deste celular, em três momentos ---- */
+function semearTurista(D, hoje) {
+  function faixaTxt(f) { var t = B12.TABELA[f]; return t.de + ' às ' + t.ate; }
+  function tot(pax, cri, faixa, dd) {
+    var p = B12.preco({ produto: 'regular', pax: pax, criancas: cri, faixa: faixa, diarias: dd, pg: 'pix' });
+    return p ? p.total : 0;
+  }
+  /* 1. voltando hoje, sem horário marcado: aparecem os botões de volta */
+  var ontem = B12.diaMais(hoje, -1);
+  D.reservas.unshift({ id: 'rs-app-demo-1', cod: 'B12-3172', origem: 'app', demo: true,
+    nome: 'Carlos Menezes', zap: '41991234567', email: 'carlos.menezes@exemplo.com', instagram: '',
+    pax: 2, criancas: 0, ida: ontem, volta: hoje, destino: 'Brasília', pousada: 'Grajagan Surf Resort',
+    produto: 'Travessia regular', faixa: faixaTxt('dia'), estacionamento: 0, placa: '', pg: 'Pix',
+    total: tot(2, 0, 'dia', 0), situacao: 'confirmada', saidaId: null, saidaVoltaId: null,
+    aceitaOfertas: true, aceites: { termos: ontem + 'T09:12:00.000Z', ofertas: ontem + 'T09:12:00.000Z', versao: 'termos-v1' },
+    criada: ontem + 'T09:12:00.000Z', confirmadaEm: ontem + 'T09:40:00.000Z' });
+
+  /* 2. chegando hoje com carro, volta marcada daqui a dois dias */
+  var depois = B12.diaMais(hoje, 2);
+  var ida10 = D.saidas.filter(function (x) { return x.data === hoje && x.sentido === 'ida' && x.hora === '10:00'; })[0];
+  B12.materializarDia(depois);
+  var volta16 = D.saidas.filter(function (x) { return x.data === depois && x.sentido === 'volta' && x.hora === '16:00'; })[0];
+  D.reservas.unshift({ id: 'rs-app-demo-2', cod: 'B12-5809', origem: 'app', demo: true,
+    nome: 'Fernanda Klein', zap: '41998765432', email: 'fe.klein@exemplo.com', instagram: 'fe.klein',
+    pax: 3, criancas: 1, ida: hoje, volta: depois, destino: 'Encantadas', pousada: 'Pousada das Gêmeas',
+    produto: 'Travessia regular', faixa: faixaTxt('dia'), estacionamento: 2, placa: 'FKL2D34', pg: 'Cartão de crédito',
+    total: tot(3, 1, 'dia', 2), situacao: 'confirmada', saidaId: ida10 ? ida10.id : null,
+    saidaVoltaId: volta16 ? volta16.id : null,
+    aceitaOfertas: true, aceites: { termos: ontem + 'T20:05:00.000Z', ofertas: ontem + 'T20:05:00.000Z', versao: 'termos-v1' },
+    criada: ontem + 'T20:05:00.000Z', confirmadaEm: ontem + 'T20:30:00.000Z' });
+  if (ida10) ida10.ocupadas = Math.min(ida10.vagas, (ida10.ocupadas || 0) + 3);
+  if (volta16) volta16.ocupadas = (volta16.ocupadas || 0) + 3;
+
+  /* 3. pedido de amanhã, ainda esperando a B12 confirmar */
+  var amanha = B12.diaMais(hoje, 1);
+  D.reservas.unshift({ id: 'rs-app-demo-3', cod: 'B12-7420', origem: 'app', demo: true,
+    nome: 'Pedro Alencar', zap: '41997700123', email: '', instagram: 'pedroalencar.foto',
+    pax: 4, criancas: 1, ida: amanha, volta: B12.diaMais(hoje, 3), destino: 'Brasília', pousada: 'Ainda não escolhi',
+    produto: 'Travessia regular', faixa: faixaTxt('tarde'), estacionamento: 0, placa: '', pg: 'Pix',
+    total: tot(4, 1, 'tarde', 0), situacao: 'pedida', saidaId: null, saidaVoltaId: null,
+    aceitaOfertas: false, aceites: { termos: hoje + 'T08:41:00.000Z', ofertas: null, versao: 'termos-v1' },
+    criada: hoje + 'T08:41:00.000Z' });
+
+  /* as três viram ficha, como qualquer reserva */
+  D.reservas.filter(function (r) { return /^rs-app-demo-/.test(r.id); }).forEach(function (r) {
+    var fc = B12.salvarCliente({ nome: r.nome, whats: r.zap, email: r.email, instagram: r.instagram,
+      pousada: r.pousada !== 'Ainda não escolhi' ? r.pousada : '', aceitaOfertas: r.aceitaOfertas, origem: 'app' });
+    if (fc.ok) { r.clienteId = fc.cliente.id; fc.cliente.demo = true; }
+  });
+}
+
+/* ---- a demonstração se renova a cada dia: some o que é demo, fica o que é de verdade ---- */
+B12.refrescarDemo = function (forcar) {
+  var D = B12.DB, hoje = B12.hoje();
+  if (!forcar && D.demoDia === hoje) return false;
+  var ehDemo = function (x) { return x && (x.demo || x.origem === 'demo' ||
+    /^(rs-demo-|rs-app-demo-|pt-demo-|mn-demo-|cl-demo-|s\d+$|v\d+$|c\d+b?$|r[12]$)/.test(x.id || '')); };
+  ['reservas','lancamentos','contas','saidas','patio','manutencoes','clientes'].forEach(function (k) {
+    D[k] = (D[k] || []).filter(function (x) { return !ehDemo(x); });
+  });
+  /* saídas criadas pela grade em dias que já passaram também saem, para não acumular */
+  D.saidas = D.saidas.filter(function (x) { return !(x.grade && x.data < hoje && !B12.DB.reservas.some(function (r) { return r.saidaId === x.id || r.saidaVoltaId === x.id; })); });
+  D.semeado = false;
+  B12.semear();
+  return true;
 };
 
 /* ---- clientes, passageiros do dia, pátio e manutenção (demonstração) ---- */

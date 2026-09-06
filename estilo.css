@@ -692,3 +692,39 @@ body:not(.adm) .semninguem{border-color:var(--risco);color:var(--tinta-3)}
 @media (hover:hover) and (pointer:fine){
   .adm-quem button:hover,.sair-peq:hover{background:rgba(255,255,255,.28)}
 }
+
+/* ============================================================================
+   TELA GRANDE — laptop e computador
+   O turista continua numa coluna de celular, agora com moldura sobre um fundo
+   de mar; o painel do dono ganha duas colunas e usa a largura.
+   ========================================================================== */
+@media (min-width: 900px){
+  body:not(.adm){background:radial-gradient(120% 90% at 50% -10%,#12608E 0%,#0B2A4A 45%,#061726 100%) fixed}
+  body:not(.adm) .proto{max-width:560px;margin:0 auto;border-radius:0 0 12px 12px}
+  body:not(.adm) .app{background:var(--fundo);min-height:calc(100vh - 34px);
+    box-shadow:0 0 0 1px rgba(255,255,255,.07),0 30px 80px rgba(0,0,0,.5)}
+  body:not(.adm) .rodape-nav{left:50%;right:auto;transform:translateX(-50%);width:560px;
+    border-radius:16px 16px 0 0;overflow:hidden}
+  body:not(.adm) .barra-nova{left:50%;right:auto;transform:translateX(-50%);width:540px}
+  body:not(.adm) .instalar-x{right:-4px}
+}
+@media (min-width: 1100px){
+  body.adm .app{max-width:1180px}
+  body.adm .proto{max-width:1180px;margin:0 auto}
+  body.adm #adm-corpo{column-count:2;column-gap:0;padding-bottom:20px}
+  body.adm #adm-corpo .cx,body.adm #adm-corpo .grade2,body.adm #adm-corpo .lista,
+  body.adm #adm-corpo .faixa-sec,body.adm #adm-corpo .busca{break-inside:avoid}
+  body.adm #adm-corpo .placar{column-span:all}
+  body.adm .rodape-nav .in{max-width:640px}
+  body.adm .mais-btn{right:calc(50% - 590px + 18px)}
+  body.adm .barra-nova{left:50%;right:auto;transform:translateX(-50%);width:640px}
+  body.adm .adm-topo{padding-left:24px;padding-right:24px}
+  body.adm .abas{padding-left:24px;padding-right:24px}
+  body.adm .adm-quem{right:24px}
+}
+@media (min-width: 1500px){
+  body.adm .app{max-width:1360px}
+  body.adm .proto{max-width:1360px}
+  body.adm .mais-btn{right:calc(50% - 680px + 18px)}
+  body.adm #adm-corpo{column-count:3}
+}
