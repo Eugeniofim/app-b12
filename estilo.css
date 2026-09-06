@@ -758,6 +758,10 @@ body:not(.adm) .semninguem{border-color:var(--risco);color:var(--tinta-3)}
 .creditos{margin:14px 12px 22px;font-size:11.5px;color:var(--tinta-3);text-align:center;line-height:1.5}
 .creditos button{background:0;border:0;color:var(--turq-600);font-weight:700;font-size:11.5px;padding:6px 4px;text-decoration:underline;font-family:inherit}
 
+/* botão que abre o seletor de arquivo (a cópia de segurança) */
+.btn.arquivo{position:relative;cursor:pointer;text-transform:none;letter-spacing:0;font-size:16px;display:flex}
+.btn.arquivo input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;padding:0;margin:0}
+
 /* cartão de passeio na lista */
 .pcard{display:block;width:100%;background:var(--carta);border:0;border-radius:var(--r-m);overflow:hidden;padding:0;
   margin:12px;width:calc(100% - 24px);text-align:left;box-shadow:var(--sombra-1);font:inherit;color:inherit;

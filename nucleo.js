@@ -1197,3 +1197,42 @@ B12.porDiaDaSemana = function () {
   var nomes = ['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
   return d.map(function (v, i) { return { dia: nomes[i], total: Math.round(v), lanc: n[i] }; });
 };
+
+/* ======================================================= sair e voltar inteiro
+   Regra Ti Artes: os dados do dono saem do app em formato aberto a qualquer
+   hora, e voltam de um arquivo se o aparelho quebrar. Só aqui se toca no banco. */
+B12.exportarDados = function () {
+  var d = JSON.parse(JSON.stringify(B12.DB));
+  if (d.ajustes) d.ajustes.pins = null;          /* a cópia nunca leva senha */
+  return { app: 'estacao-b12', formato: 1, geradoEm: new Date().toISOString(),
+           aparelho: navigator.userAgent.slice(0, 80), dados: d };
+};
+B12.contagens = function (d) {
+  d = d || B12.DB;
+  return { clientes:(d.clientes||[]).length, lancamentos:(d.lancamentos||[]).length,
+           reservas:(d.reservas||[]).length, patio:(d.patio||[]).length,
+           manutencoes:(d.manutencoes||[]).length, contas:(d.contas||[]).length };
+};
+/* recebe o objeto de uma cópia (.json) e troca o banco por ele, guardando o atual antes */
+B12.restaurar = function (copia) {
+  var d = copia && copia.dados ? copia.dados : copia;
+  if (!d || typeof d !== 'object' || !Array.isArray(d.lancamentos) || !Array.isArray(d.clientes))
+    return { erro: 'Esse arquivo não é uma cópia do app da B12.' };
+  B12.cofreGuardar('mao');                        /* dá para voltar atrás do voltar atrás */
+  var pins = B12.DB.ajustes && B12.DB.ajustes.pins;
+  B12.DB = d;
+  if (!B12.DB.ajustes) B12.DB.ajustes = vazio().ajustes;
+  B12.DB.ajustes.pins = pins || null;             /* a senha é deste aparelho, não da cópia */
+  ['clientes','patio','manutencoes','lancamentos','contas','saidas','reservas'].forEach(function (k) {
+    if (!Array.isArray(B12.DB[k])) B12.DB[k] = [];
+  });
+  B12.DB.semeado = true;
+  try { localStorage.setItem(CHAVE, JSON.stringify(B12.DB)); }
+  catch (e) { return { erro: 'Não coube no aparelho.' }; }
+  return { ok: true, contagens: B12.contagens() };
+};
+B12.cofreVoltar = function (i) {
+  var c = cofreLer().copias[i];
+  if (!c) return { erro: 'Essa cópia não existe mais.' };
+  return B12.restaurar(c.dados);
+};

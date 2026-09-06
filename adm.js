@@ -187,7 +187,7 @@ var ABAS = [
   ['hoje','Hoje'], ['escala','Escala'], ['painel','Painel'], ['gestao','Gestão'],
   ['caixa','Caixa'], ['lanc','Lançamentos'],
   ['clientes','Clientes'], ['patio','Pátio'], ['manut','Manutenção'],
-  ['contas','Contas'], ['relat','Relatórios'], ['oper','Operação'],
+  ['contas','Contas'], ['relat','Relatórios'], ['dados','Dados'], ['oper','Operação'],
   ['prosp','Prospecção'], ['msgs','Mensagens'], ['intel','Inteligência']
 ];
 var abaAtual = 'hoje';
@@ -207,7 +207,7 @@ B12.admDesenhar = function (aba) {
   ({ hoje:pHoje, painel:pPainel, caixa:pCaixa, lanc:pLanc, contas:pContas,
      relat:pRelat, oper:pOper, prosp:pProsp, intel:pIntel,
      clientes:pClientes, patio:pPatio, manut:pManut, gestao:pGestao,
-     escala:pEscala, msgs:pMsgs }[abaAtual] || pHoje)(raiz);
+     escala:pEscala, msgs:pMsgs, dados:pDados }[abaAtual] || pHoje)(raiz);
   B12.animarPlacar(raiz);
   raiz.scrollIntoView({ block:'nearest' });
 };
@@ -1288,6 +1288,92 @@ function pMsgs(raiz) {
     '<p>Na aba <b>Escala</b>, cada passageiro tem um botão verde do WhatsApp ao lado do nome. ' +
     'Toque nele e escolha o modelo: confirmar, lembrar da véspera, mandar os horários de volta ' +
     'ou avisar que o mar virou. Na aba <b>Clientes</b>, o mesmo vale para quem já viajou.</p></div>'));
+}
+
+
+/* ------------------------------------------------------------------ DADOS
+   Tudo sai do app: Excel, PDF para o contador e cópia completa. */
+function pDados(raiz) {
+  var n = B12.contagens(), cofre = B12.cofreCopias();
+  var opcoes = [['tudo','Tudo, desde o começo'],['mes','Este mês'],['mesPassado','Mês passado'],['ano','Este ano']];
+  raiz.appendChild(bloco(
+    '<div class="cx entra"><h3>Seus dados saem do app quando você quiser</h3>' +
+    '<p>Tudo o que está no painel pode ser baixado em Excel, em PDF para o contador e numa cópia completa ' +
+    'para guardar. Hoje o banco mora neste aparelho; com a nuvem ligada ele mora no servidor, e continua ' +
+    'saindo por aqui do mesmo jeito.</p>' +
+    '<div class="placar" style="margin-top:12px">' +
+    tile(n.clientes,'Clientes','n') + tile(n.lancamentos,'Lançamentos','n') + tile(n.reservas,'Reservas','n') +
+    tile(n.patio,'Carros','n') + tile(n.manutencoes,'Manutenções','n') + tile(n.contas,'Contas','n') + '</div>' +
+    '<label for="exp-periodo" style="margin-top:14px">Período</label>' +
+    '<select id="exp-periodo">' + opcoes.map(function (o) { return '<option value="' + o[0] + '">' + o[1] + '</option>'; }).join('') + '</select>' +
+    '<div class="ajuda">Vale para lançamentos, reservas, pátio, manutenção e contas. A lista de clientes e o histórico da planilha vão sempre inteiros.</div>' +
+    '<button type="button" class="btn pri" id="b-xlsx">Baixar o Excel completo (.xlsx)</button>' +
+    '<button type="button" class="btn sec" id="b-pdf-cont">PDF para o contador</button>' +
+    '<button type="button" class="btn sec" id="b-pdf-cli">PDF da lista de clientes</button>' +
+    '<div id="exp-aviso" class="ajuda" style="margin-top:10px"></div>' +
+    '<p style="font-size:12px;margin-top:10px">O Excel tem 8 abas: Resumo, Entradas e saídas, Clientes, Reservas, ' +
+    'Estacionamento, Manutenção, Contas e o Histórico da planilha (2015 a 2025). Datas e valores vão como número, ' +
+    'para o contador somar e filtrar.</p></div>' +
+
+    '<div class="cx entra entra-1"><h3>Cópia de segurança</h3>' +
+    '<p>A cópia completa (.json) é o app inteiro num arquivo. Guarde uma por semana no Drive ou no e-mail. ' +
+    'Se o celular quebrar, abra o app noutro aparelho e restaure a partir dela.</p>' +
+    '<button type="button" class="btn sec" id="b-json">Baixar a cópia completa (.json)</button>' +
+    '<label class="btn sec arquivo" for="i-json">Restaurar de um arquivo' +
+    '<input type="file" id="i-json" accept=".json,application/json"></label>' +
+    '<h4 style="margin-top:16px;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--gelo-3)">Cópias automáticas neste aparelho</h4>' +
+    '<p style="font-size:12px;margin:4px 0 8px">O app guarda sozinho até 12 cópias, e nunca deixa uma cópia vazia apagar uma cheia.</p>' +
+    (cofre.length ? '<table class="tabela">' + cofre.map(function (c, i) {
+      var d = new Date(c.em);
+      return '<tr><td><b>' + B12.dataBR(c.dia) + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') +
+        '</b><div style="font-size:11.5px;color:var(--gelo-3)">' + c.peso + ' registros · ' + (c.motivo === 'mao' ? 'antes de restaurar' : 'automática') + '</div></td>' +
+        '<td class="n"><button type="button" class="mini-btn" data-cofre="' + i + '">Voltar para esta</button></td></tr>'; }).join('') + '</table>'
+      : '<p style="font-size:12px;color:var(--gelo-3)">Ainda não há cópias.</p>') +
+    '</div>'
+  ));
+
+  function avisar(t, ok) { var a = document.getElementById('exp-aviso'); a.textContent = t; a.style.color = ok ? 'var(--bom)' : 'var(--ruim)'; }
+  function per() { return document.getElementById('exp-periodo').value; }
+  document.getElementById('b-xlsx').onclick = function () {
+    var r = B12.exportarExcel(per());
+    avisar('Excel gerado: ' + r.linhas + ' lançamentos e ' + r.clientes + ' clientes, ' + Math.round(r.bytes/1024) + ' KB. Procure na pasta de downloads.', true);
+  };
+  document.getElementById('b-pdf-cont').onclick = function () {
+    var r = B12.exportarPDFContador(per());
+    avisar('PDF gerado: ' + r.paginas + ' página' + (r.paginas > 1 ? 's' : '') + '. Procure na pasta de downloads.', true);
+  };
+  document.getElementById('b-pdf-cli').onclick = function () {
+    var r = B12.exportarPDFClientes();
+    avisar('PDF de clientes gerado: ' + r.paginas + ' página' + (r.paginas > 1 ? 's' : '') + '.', true);
+  };
+  document.getElementById('b-json').onclick = function () {
+    var r = B12.baixarCopia();
+    avisar('Cópia completa gerada, ' + Math.round(r.bytes/1024) + ' KB. Guarde num lugar seguro.', true);
+  };
+  document.getElementById('i-json').onchange = function (ev) {
+    var f = ev.target.files && ev.target.files[0]; if (!f) return;
+    B12.lerCopia(f, function (r) {
+      if (r.erro) return avisar(r.erro, false);
+      var c = r.contagens, aqui = B12.contagens();
+      var ok = confirm('Restaurar esta cópia?\n\nAqui hoje: ' + aqui.lancamentos + ' lançamentos · ' + aqui.clientes + ' clientes\n' +
+        'No arquivo: ' + c.lancamentos + ' lançamentos · ' + c.clientes + ' clientes\n\nO que está aqui vai para as cópias automáticas antes da troca.');
+      if (!ok) return;
+      var x = B12.restaurar(r.copia);
+      if (x.erro) return avisar(x.erro, false);
+      B12.admDesenhar('dados');
+      setTimeout(function () { avisar('Cópia restaurada: ' + x.contagens.lancamentos + ' lançamentos e ' + x.contagens.clientes + ' clientes.', true); }, 50);
+    });
+    ev.target.value = '';
+  };
+  raiz.querySelectorAll('[data-cofre]').forEach(function (b) {
+    b.onclick = function () {
+      var c = cofre[+b.dataset.cofre];
+      if (!confirm('Voltar para a cópia de ' + B12.dataBR(c.dia) + ' (' + c.peso + ' registros)?\n\nO que está aqui agora vai para as cópias automáticas antes.')) return;
+      var x = B12.cofreVoltar(+b.dataset.cofre);
+      if (x.erro) return alert(x.erro);
+      B12.admDesenhar('dados');
+    };
+  });
 }
 
 })();
