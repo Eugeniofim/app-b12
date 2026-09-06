@@ -213,9 +213,11 @@ B12.formCliente = function (cliente, depois) {
 
 /* ======================================================== ESTACIONAMENTO */
 B12.formEntradaPatio = function (depois) {
+  var cfg = B12.DB.ajustes.patio || { regra: 'dia', cobranca: 'saida' };
   B12.folha({
     titulo: 'Carro entrando',
-    sub: 'Diária de ' + B12.brl(B12.DB.ajustes.diaria) + ' · cobra na saída',
+    sub: 'Diária de ' + B12.brl(B12.DB.ajustes.diaria) + ' · ' +
+         (cfg.regra === '24h' ? 'conta a cada 24 horas' : 'conta por dia de calendário'),
     corpo:
       campo('Placa', 'placa', { dica:'ABC1D23', obrig:true, max:8 }) +
       campo('Nome do dono', 'nome', { dica:'quem deixou o carro', max:60 }) +
@@ -227,13 +229,33 @@ B12.formEntradaPatio = function (depois) {
       '</div>' +
       '<div class="par">' +
         '<div>' + campo('Entrada', 'entrada', { tipo:'date', valor: B12.hoje() }) + '</div>' +
-        '<div>' + campo('Saída prevista', 'saidaPrevista', { tipo:'date' }) + '</div>' +
+        '<div>' + campo('Hora', 'hora', { tipo:'time', valor: B12.horaBR(new Date().toISOString()) }) + '</div>' +
       '</div>' +
+      campo('Saída prevista', 'saidaPrevista', { tipo:'date',
+        ajuda:'Com a data prevista o app já diz quanto vai dar, e cobra agora se for o caso.' }) +
       campo('Vaga', 'vaga', { dica:'opcional, ex: A12', max:8 }) +
       campo('Valor da diária', 'diaria', { tipo:'number', passo:'1', modo:'numeric',
-        valor: B12.DB.ajustes.diaria }),
+        valor: B12.DB.ajustes.diaria }) +
+      lista('Quando cobrar', 'cobrarAgora', [['0','Na saída, pelo tempo real'],
+        ['1','Agora, pelo tempo previsto (acerta a diferença na saída)']],
+        cfg.cobranca === 'chegada' ? '1' : '0') +
+      lista('Forma de pagamento (se cobrar agora)', 'pg', PAGAMENTOS, 'pix') +
+      '<div class="previa" id="previa-patio"><span>Previsto</span><b>—</b></div>',
     acao: 'Registrar entrada',
-    aoSalvar: function (d) { return B12.entradaPatio(d); },
+    aoAbrir: function (form) {
+      function calc() {
+        var d = form.querySelector('[name=entrada]').value, h = form.querySelector('[name=hora]').value;
+        var sp = form.querySelector('[name=saidaPrevista]').value, di = +form.querySelector('[name=diaria]').value || 0;
+        var falso = { entrada: d, entradaEm: B12.instante(d, h), diaria: di };
+        var dias = sp ? B12.diariasDe(falso, B12.instante(sp, h)) : 1;
+        form.querySelector('#previa-patio').innerHTML = '<span>' + (sp ? dias + (dias > 1 ? ' diárias previstas' : ' diária prevista') : 'sem data de saída: 1 diária') +
+          '</span><b>' + B12.brl(dias * di) + '</b>';
+      }
+      form.querySelectorAll('[name=entrada],[name=hora],[name=saidaPrevista],[name=diaria]')
+        .forEach(function (c) { c.oninput = calc; c.onchange = calc; });
+      calc();
+    },
+    aoSalvar: function (d) { d.cobrarAgora = d.cobrarAgora === '1'; return B12.entradaPatio(d); },
     depois: depois
   });
 };
@@ -241,20 +263,32 @@ B12.formEntradaPatio = function (depois) {
 B12.confirmarSaidaPatio = function (id, depois) {
   var v = B12.DB.patio.filter(function (x) { return x.id === id; })[0];
   if (!v) return;
-  var dias = B12.diariasDe(v), total = dias * v.diaria;
+  var cfg = B12.DB.ajustes.patio || { regra: 'dia' };
   B12.folha({
     titulo: 'Carro saindo',
     sub: 'Placa ' + v.placa + (v.nome ? ' · ' + v.nome : ''),
     corpo:
-      '<div class="resumo-saida">' +
-        '<div><span>Entrou em</span><b>' + B12.dataBR(v.entrada) + '</b></div>' +
-        '<div><span>Diárias</span><b>' + dias + '</b></div>' +
-        '<div><span>Valor da diária</span><b>' + B12.brl(v.diaria) + '</b></div>' +
-        '<div class="tot"><span>Total a cobrar</span><b>' + B12.brl(total) + '</b></div>' +
-      '</div>' +
+      campo('Hora da saída', 'hora', { tipo:'time', valor: B12.horaBR(new Date().toISOString()) }) +
+      '<div class="resumo-saida" id="resumo-patio"></div>' +
       lista('Como pagou', 'pg', PAGAMENTOS, 'pix'),
-    acao: 'Confirmar saída e cobrar',
-    aoSalvar: function (d) { return B12.saidaPatio(id, d.pg); },
+    acao: 'Confirmar saída',
+    aoAbrir: function (form) {
+      function calc() {
+        var h = form.querySelector('[name=hora]').value;
+        var c = B12.valorPatio(v, B12.instante(B12.hoje(), h));
+        form.querySelector('#resumo-patio').innerHTML =
+          '<div><span>Entrou</span><b>' + B12.dataBR(v.entrada) + (v.entradaEm ? ' às ' + B12.horaBR(v.entradaEm) : '') + '</b></div>' +
+          '<div><span>Regra</span><b>' + (cfg.regra === '24h' ? 'a cada 24 h' : 'por dia') + '</b></div>' +
+          '<div><span>Diárias</span><b>' + c.dias + '</b></div>' +
+          '<div><span>Valor da diária</span><b>' + B12.brl(v.diaria) + '</b></div>' +
+          (c.pago ? '<div><span>Já pago na chegada</span><b>− ' + B12.brl(c.pago) + '</b></div>' : '') +
+          '<div class="tot"><span>' + (c.resta ? 'A cobrar agora' : 'Nada a cobrar') + '</span><b>' + B12.brl(c.resta) + '</b></div>' +
+          (c.credito ? '<div><span>Ficou a menos do que o pago</span><b>' + B12.brl(c.credito) + ' de crédito</b></div>' : '');
+        form.querySelector('button[type=submit]').textContent = c.resta ? 'Confirmar saída e cobrar' : 'Confirmar saída';
+      }
+      form.querySelector('[name=hora]').onchange = calc; form.querySelector('[name=hora]').oninput = calc; calc();
+    },
+    aoSalvar: function (d) { return B12.saidaPatio(id, d.pg, d.hora); },
     depois: depois
   });
 };

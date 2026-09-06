@@ -769,11 +769,14 @@ function pPatio(raiz) {
   raiz.appendChild(bloco(
     '<div class="placar entra">' +
       tile(r.dentro,'Carros no pátio','n','destaque') +
-      tile(r.aReceber,'A receber','brl') +
+      tile(r.aReceber,'A receber na saída','brl') +
       tile(r.vencendo.length,'Passaram do dia','n', r.vencendo.length ? 'alerta' : '') +
       tile(mes.porCat['Estacionamento']||0,'Recebido no mês','brl','destaque') +
       tile(B12.DB.ajustes.diaria,'Diária','brl') +
-      tile(B12.DB.patio.length,'Total histórico','n') +
+      '<div class="pl"><div class="v" style="font-size:13px;line-height:1.3;padding-top:3px">' +
+      ((B12.DB.ajustes.patio||{}).regra === '24h' ? 'a cada 24 h' : 'por dia') + '<br>' +
+      ((B12.DB.ajustes.patio||{}).cobranca === 'chegada' ? 'cobra na chegada' : 'cobra na saída') +
+      '</div><div class="k">Regra (Ajustes)</div></div>' +
     '</div>' +
     '<div style="padding:0 12px"><button class="btn pri" style="margin:0" id="b-carro">' +
     '+ Carro entrando</button></div>'
@@ -812,17 +815,19 @@ function pPatio(raiz) {
   raiz.appendChild(bloco('<div class="faixa-sec"><div class="tit"><h2>No pátio agora</h2></div></div>'));
   var l1 = document.createElement('div'); l1.className = 'lista';
   l1.innerHTML = dentro.length ? dentro.map(function (v) {
-    var d = B12.diariasDe(v), atrasado = v.saidaPrevista && v.saidaPrevista < B12.hoje();
+    var c = B12.valorPatio(v), atrasado = v.saidaPrevista && v.saidaPrevista < B12.hoje();
     return '<div class="linha toca" data-sai="' + v.id + '">' +
       '<span class="tag">' + v.placa + '</span>' +
       '<div class="d"><b>' + (v.nome || 'sem nome') +
       (atrasado ? ' <span class="pilula vencendo">passou do dia</span>' :
-       ' <span class="pilula dentro">' + d + (d>1?' diárias':' diária') + '</span>') + '</b>' +
+       ' <span class="pilula dentro">' + c.dias + (c.dias>1?' diárias':' diária') + '</span>') +
+      (c.pago ? ' <span class="pilula inv">pago na chegada</span>' : '') + '</b>' +
       '<small>' + [v.modelo, v.cor, v.vaga ? 'vaga ' + v.vaga : null].filter(Boolean).join(' · ') +
-      '<br>entrou ' + B12.dataBR(v.entrada) +
+      '<br>entrou ' + B12.dataBR(v.entrada) + (v.entradaEm ? ' às ' + B12.horaBR(v.entradaEm) : '') +
       (v.saidaPrevista ? ' · sai ' + B12.dataBR(v.saidaPrevista) : '') + '</small></div>' +
-      '<div style="text-align:right"><div class="v">' + B12.brl(d * v.diaria) + '</div>' +
-      '<small style="font-size:10px;color:var(--gelo-3)">toque para dar saída</small></div></div>';
+      '<div style="text-align:right"><div class="v">' + B12.brl(c.resta) + '</div>' +
+      '<small style="font-size:10px;color:var(--gelo-3)">' + (c.resta ? 'a cobrar · ' : 'quitado · ') +
+      'toque para dar saída</small></div></div>';
   }).join('') : '<div class="vazio"><b>Pátio vazio</b>' +
     '<p>Quando um carro entrar, registre a placa aqui e o app cobra sozinho na saída.</p></div>';
   raiz.appendChild(l1);

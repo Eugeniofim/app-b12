@@ -32,6 +32,16 @@ B12.diaMais = function (iso, n) {
   var p = iso.split('-').map(Number), d = new Date(p[0], p[1]-1, p[2]+n);
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 };
+B12.horaBR = function (iso) {
+  if (!iso) return '';
+  var d = new Date(iso); if (isNaN(d)) return '';
+  return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+};
+/* junta a data (AAAA-MM-DD) e a hora (HH:MM) do formulário num instante */
+B12.instante = function (data, hora) {
+  var p = (data || B12.hoje()).split('-').map(Number), h = (hora || '00:00').split(':').map(Number);
+  return new Date(p[0], p[1]-1, p[2], h[0] || 0, h[1] || 0).toISOString();
+};
 B12.dataBR = function (iso) { if(!iso) return ''; var p=iso.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; };
 B12.MESNOME = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
 B12.mesBR = function (ym) { var p=ym.split('-'); return B12.MESNOME[+p[1]-1]+'/'+p[0].slice(2); };
@@ -60,7 +70,12 @@ function vazio() {
       diaria: B12.DIARIA,
       tabela: B12.TABELA,
       pins: null,                 /* null = usa o PIN padrão de demonstração */
-      grade: null                 /* null = usa B12.GRADE_PADRAO */
+      grade: null,                /* null = usa B12.GRADE_PADRAO */
+      patio: { regra: 'dia', tolerancia: 60, cobranca: 'saida' }
+      /* regra: 'dia' = cada dia de calendário conta uma diária
+                '24h' = uma diária a cada 24 horas desde a hora de entrada
+         tolerancia: minutos de folga antes de contar a diária seguinte (só na regra 24h)
+         cobranca: 'saida' = paga quando pega o carro · 'chegada' = paga ao deixar, pelo previsto */
     },
     semeado: false
   };
@@ -73,6 +88,7 @@ B12.carregar = function () {
   ['clientes','patio','manutencoes','lancamentos','contas','saidas','reservas'].forEach(function (k) {
     if (!Array.isArray(B12.DB[k])) B12.DB[k] = [];
   });
+  if (!B12.DB.ajustes.patio) B12.DB.ajustes.patio = { regra: 'dia', tolerancia: 60, cobranca: 'saida' };
   if (!B12.DB.semeado) { B12.semear(); }
   return B12.DB;
 };
@@ -831,6 +847,8 @@ B12.entradaPatio = function (v) {
   if (placa.length < 6) return { erro: 'Placa incompleta.' };
   if (B12.DB.patio.some(function (x) { return x.placa === placa && !x.saidaReal; }))
     return { erro: 'Esse carro já está no pátio.' };
+  var entrada = v.entrada || B12.hoje();
+  var hora = v.hora || B12.horaBR(new Date().toISOString());
   var reg = {
     id: novoId('pt'), placa: placa,
     modelo: String(v.modelo || '').trim(),
@@ -838,37 +856,66 @@ B12.entradaPatio = function (v) {
     clienteId: v.clienteId || null,
     nome: String(v.nome || '').trim(),
     whats: String(v.whats || '').replace(/\D/g, ''),
-    entrada: v.entrada || B12.hoje(),
+    entrada: entrada,                              /* a data */
+    entradaEm: B12.instante(entrada, hora),        /* o instante, para a regra de 24h */
     saidaPrevista: v.saidaPrevista || '',
     vaga: String(v.vaga || '').trim(),
     diaria: Number(v.diaria) || B12.DB.ajustes.diaria,
-    saidaReal: null, pago: false, valorPago: 0,
+    saidaReal: null, saidaEm: null, pago: false, valorPago: 0,
+    pagoNaEntrada: 0, pgEntrada: null,
     criadoEm: new Date().toISOString()
   };
+  /* cobrar na chegada: paga o previsto agora; na saída acerta a diferença, se houver */
+  var cobrarAgora = v.cobrarAgora != null ? !!v.cobrarAgora : (B12.DB.ajustes.patio.cobranca === 'chegada');
+  if (cobrarAgora) {
+    var prev = reg.saidaPrevista ? B12.diariasDe(reg, B12.instante(reg.saidaPrevista, hora)) : 1;
+    reg.pagoNaEntrada = prev * reg.diaria; reg.pgEntrada = v.pg || 'pix'; reg.diariasPrevistas = prev;
+    B12.salvarLancamento({ data: entrada, tipo: 'entrada', cat: 'Estacionamento', centro: 'Estacionamento',
+      desc: 'Placa ' + placa + ' · ' + prev + (prev > 1 ? ' diárias' : ' diária') + ' pagas na chegada',
+      valor: reg.pagoNaEntrada, pg: reg.pgEntrada, clienteId: reg.clienteId });
+  }
   B12.DB.patio.unshift(reg);
   B12.salvar();
   return { ok: true, veiculo: reg };
 };
 B12.diariasDe = function (reg, ate) {
-  var fim = ate || reg.saidaReal || B12.hoje();
-  var d = (new Date(fim + 'T12:00') - new Date(reg.entrada + 'T12:00')) / 86400000;
+  var cfg = B12.DB.ajustes.patio || { regra: 'dia', tolerancia: 60 };
+  /* `ate` pode ser uma data (AAAA-MM-DD) ou um instante ISO; sem ele, é agora ou a saída registrada */
+  var fimIso = ate ? (ate.length === 10 ? B12.instante(ate, B12.horaBR(reg.entradaEm) || '12:00') : ate)
+                   : (reg.saidaEm || (reg.saidaReal ? B12.instante(reg.saidaReal, '12:00') : new Date().toISOString()));
+  if (cfg.regra === '24h' && reg.entradaEm) {
+    var ms = new Date(fimIso) - new Date(reg.entradaEm) - (cfg.tolerancia || 0) * 60000;
+    return Math.max(1, Math.ceil(ms / 86400000));
+  }
+  var fimData = fimIso.slice(0, 10) === fimIso ? fimIso : (function () { var d = new Date(fimIso);
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); })();
+  var d = (new Date(fimData + 'T12:00') - new Date(reg.entrada + 'T12:00')) / 86400000;
   return Math.max(1, Math.round(d) || 1);
 };
-B12.saidaPatio = function (id, pg) {
+/* a conta de um carro: diárias até agora (ou até a saída), o que já foi pago e o que resta */
+B12.valorPatio = function (reg, ate) {
+  var dias = B12.diariasDe(reg, ate), total = dias * reg.diaria;
+  var pago = reg.pagoNaEntrada || 0;
+  return { dias: dias, total: total, pago: pago, resta: Math.max(0, total - pago),
+           credito: Math.max(0, pago - total) };
+};
+B12.saidaPatio = function (id, pg, hora) {
   var reg = B12.DB.patio.filter(function (x) { return x.id === id; })[0];
   if (!reg) return { erro: 'Veículo não encontrado.' };
   if (reg.saidaReal) return { erro: 'Esse carro já saiu.' };
   reg.saidaReal = B12.hoje();
-  var dias = B12.diariasDe(reg);
-  reg.valorPago = dias * reg.diaria;
-  reg.pago = true;
-  B12.salvarLancamento({
+  reg.saidaEm = B12.instante(reg.saidaReal, hora || B12.horaBR(new Date().toISOString()));
+  var c = B12.valorPatio(reg);
+  reg.valorPago = c.pago + c.resta;
+  reg.pago = true; reg.diariasCobradas = c.dias;
+  if (c.resta > 0) B12.salvarLancamento({
     data: reg.saidaReal, tipo: 'entrada', cat: 'Estacionamento', centro: 'Estacionamento',
-    desc: 'Placa ' + reg.placa + ' · ' + dias + (dias > 1 ? ' diárias' : ' diária'),
-    valor: reg.valorPago, pg: pg || 'pix', clienteId: reg.clienteId
+    desc: 'Placa ' + reg.placa + ' · ' + c.dias + (c.dias > 1 ? ' diárias' : ' diária') +
+          (c.pago ? ' · acerto na saída' : ''),
+    valor: c.resta, pg: pg || 'pix', clienteId: reg.clienteId
   });
   B12.salvar();
-  return { ok: true, veiculo: reg, dias: dias, valor: reg.valorPago };
+  return { ok: true, veiculo: reg, dias: c.dias, valor: c.resta, total: reg.valorPago, credito: c.credito };
 };
 B12.patioHoje = function () {
   return B12.DB.patio.filter(function (v) { return !v.saidaReal; })
@@ -876,7 +923,7 @@ B12.patioHoje = function () {
 };
 B12.patioResumo = function () {
   var dentro = B12.patioHoje();
-  var aReceber = dentro.reduce(function (s, v) { return s + B12.diariasDe(v) * v.diaria; }, 0);
+  var aReceber = dentro.reduce(function (s, v) { return s + B12.valorPatio(v).resta; }, 0);
   var vencendo = dentro.filter(function (v) {
     return v.saidaPrevista && v.saidaPrevista <= B12.hoje(); });
   return { dentro: dentro.length, aReceber: Math.round(aReceber), vencendo: vencendo };

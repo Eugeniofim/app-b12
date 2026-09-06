@@ -141,8 +141,15 @@ B12.formAjustes = function (depois) {
       B12.f_campo('Retornos da Ilha', 'gradeVolta', { valor: g.volta.join(', '),
         ajuda:'É esta lista que o turista vê no dia da volta.' }) +
       B12.f_campo('Lugares por saída', 'vagas', { tipo:'number', modo:'numeric', valor: g.vagas || 12 }) +
-      '<div class="grupo">Caixa</div>' +
+      '<div class="grupo">Estacionamento</div>' +
       B12.f_campo('Diária do estacionamento', 'diaria', { tipo:'number', modo:'numeric', valor: a.diaria }) +
+      B12.f_lista('Como contar as diárias', 'patioRegra', [['dia','Por dia de calendário (entrou dia 5, saiu dia 7 = 2 diárias)'],
+        ['24h','A cada 24 horas desde a hora de entrada']], (a.patio || {}).regra || 'dia') +
+      B12.f_campo('Tolerância (minutos)', 'patioTol', { tipo:'number', modo:'numeric', valor: (a.patio || {}).tolerancia || 60,
+        ajuda:'Só na regra de 24 horas: folga antes de contar a diária seguinte.' }) +
+      B12.f_lista('Quando cobrar, por padrão', 'patioCobranca', [['saida','Na saída, pelo tempo real'],
+        ['chegada','Na chegada, pelo tempo previsto (acerta a diferença na saída)']], (a.patio || {}).cobranca || 'saida') +
+      '<div class="grupo">Caixa</div>' +
       B12.f_campo('Travessia regular, por pessoa', 'regular', { tipo:'number', modo:'numeric', valor: a.regular,
         ajuda:'A confirmar com a B12. É o número em laranja na tela de reserva.' }) +
       B12.f_campo('Meta do mês', 'metaMensal', { tipo:'number', modo:'numeric', valor: a.metaMensal }) +
@@ -161,6 +168,9 @@ B12.formAjustes = function (depois) {
       a.pins = { dono: novoDono, equipe: novaEquipe };
       a.grade = { ida: ida, volta: volta, vagas: Number(d.vagas) || 12 };
       a.diaria = Number(d.diaria) || a.diaria;
+      a.patio = { regra: d.patioRegra === '24h' ? '24h' : 'dia',
+                  tolerancia: Math.max(0, Number(d.patioTol) || 0),
+                  cobranca: d.patioCobranca === 'chegada' ? 'chegada' : 'saida' };
       a.regular = Number(d.regular) || a.regular;
       a.metaMensal = Number(d.metaMensal) || a.metaMensal;
       a.reservaMinima = Number(d.reservaMinima) || a.reservaMinima;
