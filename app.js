@@ -17,6 +17,12 @@ B12.ir = function (nome) {
   if (nome === 'mais') return abrirMais();
   if (TELAS.indexOf(nome) < 0) nome = 'inicio';
 
+  /* o portão: dono entra no painel; dono e equipe entram na operação */
+  if (nome === 'adm' && !B12.pode('dono'))
+    return B12.portao('dono', function () { B12.ir('adm'); });
+  if (nome === 'equipe' && !B12.pode('equipe'))
+    return B12.portao('equipe', function (papel) { B12.ir(papel === 'dono' ? 'equipe' : 'equipe'); });
+
   /* peça 9: destino igual ao atual redesenha na mão, senão nada acontece */
   if (nome === atual) { pintar(nome); return; }
   atual = nome;
@@ -42,7 +48,11 @@ function pintar(nome) {
   if (nome === 'reservas') B12.pintarReservas();
   if (nome === 'previsao') B12.telaPrevisao();
   if (nome === 'equipe')   B12.pintarEquipe();
-  if (nome === 'adm')      B12.admDesenhar();
+  if (nome === 'adm')      { B12.admDesenhar(); quemEntrou(); }
+}
+function quemEntrou() {
+  var q = document.getElementById('adm-papel');
+  if (q) q.textContent = B12.papel() === 'dono' ? 'Proprietário' : 'Equipe';
 }
 
 /* menu "Mais" — leva às duas outras caras do app */
@@ -55,16 +65,23 @@ function abrirMais() {
     'border-radius:20px 20px 0 0;padding:18px 16px calc(22px + env(safe-area-inset-bottom));' +
     'animation:sobe .3s cubic-bezier(.22,.61,.36,1) both">' +
     '<div style="width:38px;height:4px;border-radius:99px;background:var(--risco);margin:0 auto 16px"></div>' +
-    '<h3 style="font-size:17px;margin-bottom:3px">As outras caras do app</h3>' +
-    '<p style="font-size:13px;color:var(--tinta-2);margin-bottom:14px">No app entregue, cada ' +
-    'uma pede login. Aqui estão abertas para você ver.</p>' +
-    item('adm','Painel do proprietário','Financeiro, caixa, relatórios e inteligência') +
-    item('equipe','Operação da equipe','O dia de hoje, sem nenhum número de dinheiro') +
+    '<h3 style="font-size:17px;margin-bottom:3px">Mais</h3>' +
+    '<p style="font-size:13px;color:var(--tinta-2);margin-bottom:14px">Estação B12 · Pontal do Paraná</p>' +
+    item('recuperar','Já tenho um código','Mostrar uma reserva feita em outro aparelho') +
     item('previsao','Previsão da Ilha','Os próximos sete dias, ao vivo') +
+    item('ilha','Ilha do Mel','Praias, parceiros e como chegar') +
+    '<div style="height:1px;background:var(--risco);margin:6px 0 12px"></div>' +
+    item('b12','Área da B12','Equipe e proprietário · acesso com PIN') +
     '<button class="btn sec" id="b-fechar-mais">Fechar</button></div>';
   document.body.appendChild(q);
   q.querySelectorAll('[data-mais]').forEach(function (b) {
-    b.onclick = function () { q.remove(); B12.ir(b.dataset.mais); };
+    b.onclick = function () {
+      q.remove();
+      var d = b.dataset.mais;
+      if (d === 'recuperar') return B12.formRecuperar(function () { B12.ir('reservas'); });
+      if (d === 'b12') return B12.portao('equipe', function (papel) { B12.ir(papel === 'dono' ? 'adm' : 'equipe'); });
+      B12.ir(d);
+    };
   });
   q.querySelector('#b-fechar-mais').onclick = function () { q.remove(); };
   q.onclick = function (e) { if (e.target === q) q.remove(); };
@@ -215,6 +232,9 @@ function comecar() {
   document.getElementById('b-perfil').onclick   = function () { B12.ir('reservas'); };
   document.getElementById('b-atualizar').onclick = aplicarNova;
   document.getElementById('b-mais-acoes').onclick = function () { B12.menuMais(); };
+  document.getElementById('b-sair').onclick = B12.sair;
+  document.getElementById('b-ajustes').onclick = function () { B12.formAjustes(function () { B12.admDesenhar(); }); };
+  document.getElementById('b-sair-equipe').onclick = B12.sair;
 
   B12.buscarClima();
   ligarAtualizacao();

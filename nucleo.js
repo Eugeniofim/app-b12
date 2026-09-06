@@ -58,7 +58,9 @@ function vazio() {
       taxas: B12.TAXAS,
       regular: B12.REGULAR,
       diaria: B12.DIARIA,
-      tabela: B12.TABELA
+      tabela: B12.TABELA,
+      pins: null,                 /* null = usa o PIN padrão de demonstração */
+      grade: null                 /* null = usa B12.GRADE_PADRAO */
     },
     semeado: false
   };
@@ -519,7 +521,7 @@ B12.novaReserva = function (r) {
 
 /* ---- o caminho entre o cliente e a B12 ---- */
 B12.minhasReservas = function () {
-  return B12.DB.reservas.filter(function (r) { return r.origem === 'app'; });
+  return B12.DB.reservas.filter(function (r) { return r.origem === 'app' || r.recuperada; });
 };
 B12.reservaPorId = function (id) {
   return B12.DB.reservas.filter(function (r) { return r.id === id || r.cod === id; })[0] || null;
@@ -600,10 +602,38 @@ B12.situacaoTxt = function (r) {
 };
 
 /* ------------------------------------------------------------------- saídas */
+/* A grade padrão: o que a lancha faz todo dia quando ninguém mudou nada.
+   Um dia sem escala própria ganha a grade na hora em que alguém olha para ele. */
+B12.GRADE_PADRAO = { ida: ['08:30','10:00','11:30','13:00','15:00','17:00'],
+                     volta: ['09:30','12:00','16:00','18:00'], vagas: 12 };
+B12.materializarDia = function (iso) {
+  if (iso < B12.hoje()) return false;                       /* passado não ganha grade */
+  if (B12.DB.saidas.some(function (s) { return s.data === iso; })) return false;
+  var g = B12.DB.ajustes.grade || B12.GRADE_PADRAO;
+  g.ida.forEach(function (h) { B12.DB.saidas.push({ id: novoId('sd'), data: iso, hora: h, sentido: 'ida',
+    destino: 'Brasília', embarcacao: 'l01', marinheiro: '', vagas: g.vagas || 12, ocupadas: 0, grade: true }); });
+  g.volta.forEach(function (h) { B12.DB.saidas.push({ id: novoId('sd'), data: iso, hora: h, sentido: 'volta',
+    destino: 'Pontal do Sul', embarcacao: 'l01', marinheiro: '', vagas: g.vagas || 12, ocupadas: 0, grade: true }); });
+  B12.salvar();
+  return true;
+};
 B12.saidasDoDia = function (iso, sentido) {
+  B12.materializarDia(iso);
   return B12.DB.saidas.filter(function (s) {
     return s.data === iso && (!sentido || s.sentido === sentido);
   }).sort(function(a,b){ return a.hora < b.hora ? -1 : 1; });
+};
+
+/* achar uma reserva pelo código + 4 últimos números do WhatsApp */
+B12.acharReserva = function (cod, zap4) {
+  var c = String(cod || '').toUpperCase().replace(/\s/g, '');
+  if (/^\d{4}$/.test(c)) c = 'B12-' + c;
+  var z = String(zap4 || '').replace(/\D/g, '').slice(-4);
+  var r = B12.DB.reservas.filter(function (x) {
+    return x.cod === c && String(x.zap || '').replace(/\D/g, '').slice(-4) === z;
+  })[0];
+  if (r) { r.recuperada = true; B12.salvar(); }
+  return r || null;
 };
 
 

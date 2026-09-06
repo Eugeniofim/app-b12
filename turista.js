@@ -257,8 +257,11 @@ B12.pintarReservas = function () {
       '<b>Nenhuma reserva ainda</b>' +
       '<p>Quando você pedir uma travessia, ela aparece aqui com o código para mostrar na chegada.</p>' +
       '<div style="padding:0 22px"><button class="btn pri" id="b-ir-reservar">' +
-      'Reservar travessia</button></div></div>';
+      'Reservar travessia</button>' +
+      '<button class="btn sec" id="b-recuperar">Já tenho um código</button></div></div>';
     alvo.querySelector('#b-ir-reservar').onclick = function () { B12.ir('travessias'); };
+    alvo.querySelector('#b-recuperar').onclick = function () {
+      B12.formRecuperar(function () { B12.pintarReservas(); }); };
     return;
   }
   var hoje = B12.hoje();
@@ -278,8 +281,8 @@ B12.pintarReservas = function () {
       '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" ' +
       'stroke-linecap="round" style="opacity:.4;flex:none"><path d="M9 6l6 6-6 6"/></svg></button>' +
       (r.situacao === 'pedida' ?
-        '<div class="ticket-nota">A B12 confirma pelo WhatsApp e coloca você numa saída. ' +
-        'A vaga só é garantida depois disso.</div>' : '') +
+        '<div class="ticket-nota">Seu pedido foi enviado pelo WhatsApp. <b>A confirmação chega por lá.</b> ' +
+        'A vaga só é garantida depois que a B12 confirmar.</div>' : '') +
       (r.volta === hoje || (r.situacao === 'confirmada' && !r.saidaVoltaId && r.volta) ?
         horariosVolta(r) : '') +
       '</div>';

@@ -271,16 +271,20 @@ o histórico do ADM sai da planilha do cliente · <b>fotos do mockup, a substitu
 <section class="tela" id="t-equipe">
   <div class="topo-tela"><button class="volta" data-ir="inicio" aria-label="Voltar">
       <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
-    <div><h2>Operação · equipe</h2><p>O dia de hoje, sem nenhum número de dinheiro</p></div></div>
+    <div style="flex:1"><h2>Operação · equipe</h2><p>O dia de hoje, sem nenhum número de dinheiro</p></div>
+    <button class="sair-peq" id="b-sair-equipe">Sair</button></div>
   <div id="area-equipe"></div>
 </section>
 
 <!-- ==================== ADM ==================== -->
 <section class="tela" id="t-adm">
   <div class="adm-topo" id="adm-topo">
+    <div class="adm-quem"><span id="adm-papel">Proprietário</span>
+      <button id="b-ajustes" aria-label="Ajustes"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+      <button id="b-sair">Sair</button></div>
     <div class="rot">Estação B12</div>
     <h2>Painel do proprietário</h2>
-    <p>Acesso exclusivo do Dhalsin · a equipe não enxerga esta área</p>
+    <p>Só o Dhalsin entra aqui · a equipe não enxerga esta área</p>
   </div>
   <div class="abas" id="adm-abas"></div>
   <div id="adm-corpo"></div>
@@ -315,6 +319,7 @@ o histórico do ADM sai da planilha do cliente · <b>fotos do mockup, a substitu
 <script src="nucleo.js"></script>
 <script src="oceano.js"></script>
 <script src="formularios.js"></script>
+<script src="acesso.js"></script>
 <script src="mensagens.js"></script>
 <script src="turista.js"></script>
 <script src="adm.js"></script>

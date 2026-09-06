@@ -57,9 +57,7 @@ B12.apagarSaida = function (id) {
 B12.escalaDoDia = function (iso) {
   iso = iso || B12.hoje();
   function monta(sentido) {
-    return B12.DB.saidas
-      .filter(function (s) { return s.data === iso && s.sentido === sentido; })
-      .sort(function (a, b) { return a.hora < b.hora ? -1 : 1; })
+    return B12.saidasDoDia(iso, sentido)
       .map(function (s) {
         var p = B12.passageirosDe(s.id);
         return { saida: s, passageiros: p,
