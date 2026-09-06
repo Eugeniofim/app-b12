@@ -505,9 +505,21 @@ B12.contasVencidas = function () {
 };
 
 /* ------------------------------------------------------------------ reservas */
+/* O código da reserva identifica a VIAGEM. Nunca se repete dentro deste banco:
+   sorteia 4 dígitos e confere contra todas as reservas já existentes. Se um dia
+   os 9.000 códigos acabarem, passa a 5 dígitos. Na nuvem, quem gera é o servidor. */
+B12.gerarCodigo = function () {
+  var usados = {};
+  B12.DB.reservas.forEach(function (x) { usados[x.cod] = 1; });
+  var c, tentativas = 0;
+  do { c = 'B12-' + Math.floor(1000 + Math.random() * 9000); }
+  while (usados[c] && ++tentativas < 200);
+  if (usados[c]) { do { c = 'B12-' + Math.floor(10000 + Math.random() * 90000); } while (usados[c]); }
+  return c;
+};
 B12.novaReserva = function (r) {
   r.id = novoId('rs');
-  r.cod = 'B12-' + Math.floor(1000 + Math.random()*9000);
+  r.cod = B12.gerarCodigo();
   r.criada = new Date().toISOString();
   r.situacao = 'pedida';        /* pedida -> confirmada -> concluída (ou cancelada) */
   r.origem = 'app';             /* feita pelo turista neste aparelho */
