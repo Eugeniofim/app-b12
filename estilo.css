@@ -731,3 +731,15 @@ body:not(.adm) .semninguem{border-color:var(--risco);color:var(--tinta-3)}
   body.adm .mais-btn{right:calc(50% - 680px + 18px)}
   body.adm #adm-corpo{column-count:3}
 }
+
+/* ============================================================================
+   DEDO, DE NOVO E POR ÚLTIMO
+   Os botões pequenos (mini-btn, zapzinho, Sair, Ajustes) definem a própria
+   altura mais abaixo no arquivo e ganhavam da regra de dedo do começo. Esta
+   repetição fica no fim de propósito: a última regra de mesma força vence.
+   ========================================================================== */
+@media (pointer:coarse){
+  .mini-btn,.adm-quem button,.sair-peq,.instalar-btn,.instalar-x,.folha-x,.hora-volta,.pass button{min-height:44px}
+  .zapzinho{width:44px;height:44px;min-height:44px}
+  .instalar-x{width:34px;height:34px;min-height:34px}
+}
