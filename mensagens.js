@@ -291,7 +291,7 @@ B12.folhaMensagem = function (modeloId, dados) {
   f.className = 'folha';
   f.innerHTML = '<div class="folha-fundo"></div><div class="folha-cx">' +
     '<div class="folha-alca"></div>' +
-    '<div class="folha-topo"><div><h3>' + m.icone + ' ' + m.nome + '</h3>' +
+    '<div class="folha-topo"><div><h3>' + m.nome + '</h3>' +
     '<p>' + (dados && dados.nome ? 'para ' + dados.nome : m.quando) + '</p></div>' +
     '<button type="button" class="folha-x" aria-label="Fechar">' +
     '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" ' +
@@ -330,7 +330,7 @@ B12.escolherMensagem = function (dados) {
     '<div class="folha-corpo acoes">' + B12.MODELOS.map(function (m) {
       return '<button type="button" class="acao" data-msg="' + m.id + '">' +
         '<span class="bolinha" style="background:' + m.cor + '"></span>' +
-        '<span class="txt"><b>' + m.icone + ' ' + m.nome + '</b><small>' + m.quando + '</small></span>' +
+        '<span class="txt"><b>' + m.nome + '</b><small>' + m.quando + '</small></span>' +
         '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" ' +
         'stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></button>';
     }).join('') + '</div></div>';

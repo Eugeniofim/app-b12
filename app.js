@@ -41,8 +41,35 @@ B12.ir = function (nome) {
 
   pintar(nome);
   window.scrollTo({ top: 0, behavior: 'instant' });
-  if (location.hash !== '#/' + nome) history.replaceState(null, '', '#/' + nome);
+  /* cada tela entra no histórico: o Voltar do navegador volta uma tela, não sai do app */
+  if (location.hash !== '#/' + nome) location.hash = '/' + nome;
 };
+
+/* ---- folhas e portão entram no histórico: o Voltar fecha a folha, não troca de tela ---- */
+var fechandoPeloHistorico = false;
+function folhaAberta() { return document.querySelector('.folha, .portao'); }
+new MutationObserver(function (muts) {
+  muts.forEach(function (m) {
+    Array.prototype.forEach.call(m.addedNodes, function (n) {
+      if (n.nodeType === 1 && (n.classList.contains('folha') || n.classList.contains('portao')) &&
+          !(history.state && history.state.folha))
+        history.pushState({ folha: 1 }, '', location.href);
+    });
+    Array.prototype.forEach.call(m.removedNodes, function (n) {
+      if (n.nodeType === 1 && (n.classList.contains('folha') || n.classList.contains('portao')) &&
+          !fechandoPeloHistorico && !folhaAberta() && history.state && history.state.folha)
+        history.back();
+    });
+  });
+}).observe(document.body, { childList: true });
+window.addEventListener('popstate', function () {
+  var f = folhaAberta();
+  if (!f) return;
+  fechandoPeloHistorico = true;
+  document.querySelectorAll('.folha, .portao').forEach(function (x) { x.remove(); });
+  document.body.style.overflow = '';
+  setTimeout(function () { fechandoPeloHistorico = false; }, 0);
+});
 
 function pintar(nome) {
   if (nome === 'reservas') B12.pintarReservas();
@@ -241,8 +268,8 @@ function comecar() {
   convite();
 
   window.addEventListener('hashchange', function () {
-    var h = (location.hash || '').replace('#/', '');
-    if (h && h !== atual) B12.ir(h);
+    var h = (location.hash || '').replace('#/', '') || 'inicio';   /* voltar até o começo = início */
+    if (h !== atual) B12.ir(h);
   });
   var h = (location.hash || '').replace('#/', '');
   if (h && TELAS.indexOf(h) >= 0) B12.ir(h);

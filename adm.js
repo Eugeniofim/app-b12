@@ -12,6 +12,27 @@ var NS = 'http://www.w3.org/2000/svg';
 function el(t, a) { var e = document.createElementNS(NS, t);
   for (var k in a) e.setAttribute(k, a[k]); return e; }
 function txt(e, s) { e.textContent = s; return e; }
+/* dica ao passar o mouse e ao tocar: o valor nunca depende só da cor ou da altura */
+function dica(el, texto) {
+  var t = document.createElementNS(NS, 'title'); t.textContent = texto; el.appendChild(t);
+  el.style.cursor = 'pointer';
+  el.addEventListener('click', function (ev) {
+    var svg = el.ownerSVGElement; if (!svg) return;
+    var ant = svg.querySelector('.dica-toque'); if (ant) ant.remove();
+    var b = el.getBBox(), g = document.createElementNS(NS, 'g'); g.setAttribute('class', 'dica-toque');
+    var x = b.x + b.width / 2, y = Math.max(12, b.y - 8);
+    var r = document.createElementNS(NS, 'rect'), l = document.createElementNS(NS, 'text');
+    l.setAttribute('x', x); l.setAttribute('y', y); l.setAttribute('text-anchor', 'middle');
+    l.setAttribute('fill', '#E6F0F5'); l.setAttribute('font-size', '11'); l.setAttribute('font-weight', '700');
+    l.textContent = texto; g.appendChild(r); g.appendChild(l); svg.appendChild(g);
+    var lb = l.getBBox(); r.setAttribute('x', lb.x - 6); r.setAttribute('y', lb.y - 3);
+    r.setAttribute('width', lb.width + 12); r.setAttribute('height', lb.height + 6);
+    r.setAttribute('rx', 5); r.setAttribute('fill', '#071A28'); r.setAttribute('stroke', '#57D8C8'); r.setAttribute('stroke-width', '1');
+    setTimeout(function () { if (g.parentNode) g.remove(); }, 2600);
+    ev.stopPropagation();
+  });
+  return el;
+}
 function cor(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
 var C = { turq:'#14A99A', turq3:'#57D8C8', azul:'#3C86B8', gelo3:'#6C8FA3',
           risco:'#1B4157', bom:'#2FA76A', ruim:'#D2564A', aten:'#D9932B' };
@@ -63,13 +84,16 @@ function grafBarras(alvo, dados, opc) {
     var x = L + i*bw + bw*0.18, w = bw*0.64;
     function y(v){ return T + ph - (v/max)*ph; }
     if (d.vazio) {
-      s.appendChild(el('rect', { x:x, y:T, width:w, height:ph, fill:C.aten, opacity:.14, rx:2 }));
+      s.appendChild(dica(el('rect', { x:x, y:T, width:w, height:ph, fill:C.aten, opacity:.14, rx:2 }),
+        (d.rot ? d.rot + ': ' : '') + 'sem registro'));
     } else {
       var ra = el('rect', { x:x, y:y(d.a), width:w, height:Math.max(ph-(y(d.a)-T),1),
         fill:d.cor || C.turq, rx:2 });
+      dica(ra, (d.rot ? d.rot + ': ' : '') + B12.brl(d.a) + (d.b ? ' + ' + B12.brl(d.b) : ''));
       s.appendChild(ra);
-      if (d.b) s.appendChild(el('rect', { x:x, y:y(d.a+d.b), width:w,
-        height:Math.max(y(d.a)-y(d.a+d.b),0), fill:C.azul, rx:2 }));
+      if (d.b) s.appendChild(dica(el('rect', { x:x, y:y(d.a+d.b), width:w,
+        height:Math.max(y(d.a)-y(d.a+d.b),0), fill:C.azul, rx:2 }),
+        (d.rot ? d.rot + ': ' : '') + B12.brl(d.b) + ' (total ' + B12.brl(d.a+d.b) + ')'));
       if (d.destaque) s.appendChild(txt(el('text', { x:x+w/2, y:y(d.a+(d.b||0))-5,
         'text-anchor':'middle', fill:C.turq3, 'font-size':10, 'font-weight':'700' }),
         B12.brl(d.a+(d.b||0))));
@@ -115,6 +139,8 @@ function grafLinha(alvo, pontos, opc) {
     'stroke-linejoin':'round', 'stroke-linecap':'round' });
   s.appendChild(lin);
   pontos.forEach(function (p, i) {
+    s.appendChild(dica(el('circle',{ cx:x(i), cy:y(p.v), r:9, fill:'transparent' }),
+      (p.rot || ('ponto ' + (i+1))) + ': ' + B12.brl(p.v)));
     if (!p.marca) return;
     s.appendChild(el('circle',{ cx:x(i), cy:y(p.v), r:4, fill:C.turq3, stroke:'#071A28','stroke-width':2 }));
     s.appendChild(txt(el('text',{ x:x(i), y:y(p.v)-10,'text-anchor': i>pontos.length-3?'end':'middle',
@@ -147,6 +173,7 @@ function grafRosca(alvo, fatias) {
     var arco = el('path',{ d:'M '+cx+' '+cy+' L '+x1.toFixed(2)+' '+y1.toFixed(2)+
       ' A '+r+' '+r+' 0 '+(a>Math.PI?1:0)+' 1 '+x2.toFixed(2)+' '+y2.toFixed(2)+' Z',
       fill:f.cor, opacity:0 });
+    dica(arco, (f.nome || '') + ': ' + B12.brl(f.v) + ' (' + Math.round(f.v/total*100) + '%)');
     s.appendChild(arco);
     setTimeout(function(){ arco.style.transition='opacity .4s'; arco.setAttribute('opacity',1); }, 60+i*80);
     ang = fim;
@@ -1240,8 +1267,9 @@ function pMsgs(raiz) {
   var l = document.createElement('div'); l.className = 'lista';
   l.innerHTML = B12.MODELOS.map(function (m) {
     return '<div class="linha toca" data-modelo="' + m.id + '">' +
-      '<span class="tag" style="background:' + m.cor + '22;color:' + m.cor + ';font-size:15px">' +
-      m.icone + '</span><div class="d"><b>' + m.nome + '</b><small>' + m.quando + '</small></div>' +
+      '<span class="tag" style="background:' + m.cor + '22;color:' + m.cor + '" aria-hidden="true">' +
+      '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>' +
+      '</span><div class="d"><b>' + m.nome + '</b><small>' + m.quando + '</small></div>' +
       '<svg class="seta" viewBox="0 0 24 24" width="17" height="17" fill="none" ' +
       'stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></div>';
   }).join('');

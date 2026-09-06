@@ -324,7 +324,7 @@ function horariosVolta(r) {
     '<b style="font-size:13px">' + (r.saidaVoltaId ? 'Sua volta está marcada. Quer trocar?' :
       (dia === B12.hoje() ? 'Hoje é seu dia de volta. ' : 'Volta em ' + B12.dataBR(dia) + '. ') +
       'Escolha o horário:') + '</b>' +
-    '<div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:9px">' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:9px">' +
     v.map(function (s) {
       var ocup = B12.DB.reservas.filter(function (x) { return x.saidaVoltaId === s.id && x.id !== r.id; })
         .reduce(function (t, x) { return t + (x.pax || 1); }, 0);
