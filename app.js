@@ -9,13 +9,15 @@ var B12 = window.B12 || {};
 (function () {
 
 /* ------------------------------------------------------------------ rotas */
-var TELAS = ['inicio','travessias','passeios','ilha','previsao','promocoes',
+var TELAS = ['inicio','travessias','passeios','passeio','ilha','previsao','promocoes',
              'reservas','equipe','adm'];
 var atual = 'inicio';
 
 B12.ir = function (nome) {
   if (nome === 'mais') return abrirMais();
   if (TELAS.indexOf(nome) < 0) nome = 'inicio';
+  if (nome === 'passeio' && !B12.passeioAtual) nome = 'passeios';
+  var hashAlvo = nome === 'passeio' ? '/passeio/' + B12.passeioAtual : '/' + nome;
 
   /* o portão: dono entra no painel; dono e equipe entram na operação */
   if (nome === 'adm' && !B12.pode('dono'))
@@ -24,7 +26,11 @@ B12.ir = function (nome) {
     return B12.portao('equipe', function (papel) { B12.ir(papel === 'dono' ? 'equipe' : 'equipe'); });
 
   /* peça 9: destino igual ao atual redesenha na mão, senão nada acontece */
-  if (nome === atual) { pintar(nome); return; }
+  if (nome === atual) {
+    pintar(nome);
+    if (location.hash !== '#' + hashAlvo) location.hash = hashAlvo;   /* outro passeio na mesma tela */
+    return;
+  }
   atual = nome;
 
   document.querySelectorAll('.tela.on').forEach(function (t) { t.classList.remove('on'); });
@@ -42,7 +48,7 @@ B12.ir = function (nome) {
   pintar(nome);
   window.scrollTo({ top: 0, behavior: 'instant' });
   /* cada tela entra no histórico: o Voltar do navegador volta uma tela, não sai do app */
-  if (location.hash !== '#/' + nome) location.hash = '/' + nome;
+  if (location.hash !== '#' + hashAlvo) location.hash = hashAlvo;
 };
 
 /* ---- folhas e portão entram no histórico: o Voltar fecha a folha, não troca de tela ---- */
@@ -72,6 +78,8 @@ window.addEventListener('popstate', function () {
 });
 
 function pintar(nome) {
+  if (nome === 'passeio')  B12.pintarPasseio(B12.passeioAtual);
+  if (nome === 'ilha')     B12.pintarIlha();
   if (nome === 'reservas') B12.pintarReservas();
   if (nome === 'previsao') B12.telaPrevisao();
   if (nome === 'equipe')   B12.pintarEquipe();
@@ -236,23 +244,16 @@ function comecar() {
   B12.pintarPasseios();
   B12.montarFormulario();
 
-  document.getElementById('cx-atracoes').innerHTML =
-    '<table class="tabela">' + B12.ATRACOES.map(function (a) {
-      return '<tr><td><b>' + a[0] + '</b><div style="font-size:11.5px;color:var(--tinta-3);' +
-        'margin-top:2px">' + a[2] + '</div></td><td class="n" style="color:var(--tinta-3);' +
-        'font-weight:600">' + a[1] + '</td></tr>'; }).join('') + '</table>';
-
-  document.getElementById('grade-parceiros').innerHTML =
-    B12.PARCEIROS.slice(0, 8).map(function (p) {
-      return '<div>' + p.nome + '<small>' + p.tipo + '</small></div>'; }).join('');
+  B12.pintarIlha();
 
   /* o oceano em WebGL, no herói e atrás do topo do ADM */
   B12.oceano(document.getElementById('agua-heroi'), { escuro: false });
   B12.oceano(document.getElementById('adm-topo'),   { escuro: true });
 
   /* cliques declarados no HTML */
-  document.querySelectorAll('[data-ir]').forEach(function (b) {
-    b.onclick = function () { B12.ir(b.dataset.ir); };
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-ir]');
+    if (b) B12.ir(b.dataset.ir);
   });
   document.getElementById('b-previsao').onclick = function () { B12.ir('previsao'); };
   document.getElementById('b-avisos').onclick   = function () { B12.ir('promocoes'); };
@@ -267,12 +268,18 @@ function comecar() {
   ligarAtualizacao();
   convite();
 
+  function lerHash() {
+    var partes = (location.hash || '').replace('#/', '').split('/');
+    var nome = partes[0] || 'inicio';                               /* voltar até o começo = início */
+    if (nome === 'passeio') B12.passeioAtual = partes[1] || '';
+    return nome;
+  }
   window.addEventListener('hashchange', function () {
-    var h = (location.hash || '').replace('#/', '') || 'inicio';   /* voltar até o começo = início */
-    if (h !== atual) B12.ir(h);
+    var h = lerHash();
+    if (h !== atual || h === 'passeio') B12.ir(h);
   });
-  var h = (location.hash || '').replace('#/', '');
-  if (h && TELAS.indexOf(h) >= 0) B12.ir(h);
+  var h = lerHash();
+  if (h && TELAS.indexOf(h) >= 0 && h !== 'inicio') B12.ir(h);
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', comecar);
