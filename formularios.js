@@ -184,6 +184,8 @@ B12.formCliente = function (cliente, depois) {
         dica:'para a confirmação' }) +
       campo('Instagram', 'instagram', { valor: c.instagram || '', dica:'sem o @',
         ajuda:'Opcional. Só serve para divulgação, então só faz sentido com o aceite abaixo.' }) +
+      campo('CPF', 'cpf', { modo:'numeric', max:14, valor: c.cpf ? B12.cpfBonito(c.cpf) : '',
+        dica:'só se pedir nota', ajuda:'Não é obrigatório para viajar. Guarde só se a pessoa pedir nota fiscal: pela lei, cada dado a mais é responsabilidade a mais.' }) +
       lista('Ficou em qual pousada', 'pousada',
         ['', 'Direto (sem pousada)'].concat(B12.PARCEIROS.map(function (p) { return p.nome; }))
           .concat(['Outra']), c.pousada || '') +
@@ -270,6 +272,7 @@ B12.formBalcao = function (depois) {
       campo('WhatsApp', 'whats', { tipo:'tel', modo:'tel', dica:'(41) 90000-0000' }) +
       campo('E-mail', 'email', { tipo:'email', modo:'email', dica:'opcional' }) +
       campo('Instagram', 'instagram', { dica:'opcional, sem o @' }) +
+      campo('CPF', 'cpf', { modo:'numeric', max:14, dica:'só se pedir nota fiscal' }) +
       lista('Pousada', 'pousada', ['', 'Direto (sem pousada)']
         .concat(B12.PARCEIROS.map(function (p) { return p.nome; })).concat(['Outra']), '') +
       grupo('A travessia') +

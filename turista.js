@@ -202,21 +202,35 @@ function escolha(id, titulo, sub, valor) {
     '<span class="vv">' + valor + '</span></button>';
 }
 
+function erroReserva(msg) {
+  var e = document.getElementById('f-erro');
+  if (!msg) { e.hidden = true; return; }
+  e.textContent = msg; e.hidden = false; e.scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
 B12.reservar = function () {
   var nome = document.getElementById('f-nome').value.trim();
   var zap  = document.getElementById('f-zap').value.trim();
   var ida  = document.getElementById('f-ida').value;
   var volta = document.getElementById('f-volta').value;
-  if (!nome || !zap) { alert('Precisamos do seu nome e do WhatsApp para confirmar a reserva.'); return; }
-  if (!ida) { alert('Escolha a data de chegada.'); return; }
+  var termos = document.getElementById('f-termos').checked;
+  erroReserva('');
+  if (!nome || !zap) return erroReserva('Precisamos do seu nome e do WhatsApp para confirmar a reserva.');
+  if (zap.replace(/\D/g, '').length < 10) return erroReserva('O WhatsApp parece incompleto. Use o DDD junto.');
+  if (!ida) return erroReserva('Escolha a data de chegada.');
+  if (!termos) return erroReserva('Para reservar, marque que leu e aceita os termos de uso.');
   var faixa = document.getElementById('f-hora').value;
   var dd = B12.diarias(ida, volta);
   var p = B12.preco({ produto:F.produto, pax:F.pax, criancas:F.cri, faixa:faixa,
     diarias: F.estac ? dd : 0, pg: document.getElementById('f-pag').value });
   var t = faixa === 'fora' ? null : B12.DB.ajustes.tabela[faixa];
 
+  var agora = new Date().toISOString();
   var r = B12.novaReserva({
     nome:nome, zap:zap, pax:F.pax, criancas:F.cri, ida:ida, volta:volta,
+    email: document.getElementById('f-email').value.trim(),
+    instagram: document.getElementById('f-insta').value.trim(),
+    aceitaOfertas: document.getElementById('f-ofertas').checked,
+    aceites: { termos: agora, ofertas: document.getElementById('f-ofertas').checked ? agora : null, versao: 'termos-v1' },
     destino: document.getElementById('f-destino').value,
     pousada: document.getElementById('f-pousada').value,
     produto: F.produto === 'nautico' ? 'Serviço Náutico Premium' : 'Travessia regular',

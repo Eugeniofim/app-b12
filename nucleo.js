@@ -526,6 +526,13 @@ B12.novaReserva = function (r) {
   r.saidaId = null;             /* a B12 coloca numa saída de ida ao confirmar */
   r.saidaVoltaId = null;        /* o turista escolhe no dia da volta */
   r.placa = String(r.placa || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  /* toda reserva vira (ou atualiza) uma ficha de cliente no painel */
+  if (!r.clienteId) {
+    var fc = B12.salvarCliente({ nome: r.nome, whats: r.zap, email: r.email, instagram: r.instagram,
+      pousada: (r.pousada && r.pousada !== 'Ainda não escolhi') ? r.pousada : '',
+      aceitaOfertas: !!r.aceitaOfertas, origem: 'app' });
+    if (fc.ok) r.clienteId = fc.cliente.id;
+  }
   B12.DB.reservas.unshift(r);
   B12.salvar();
   return r;
@@ -559,8 +566,10 @@ B12.confirmarReserva = function (reservaId, saidaId) {
       desc: (r.pax || 1) + ' travessias · ' + (r.pax || 1) + ' passageiros · ' + r.nome,
       valor: r.total, pg: String(r.pg || 'pix').toLowerCase().indexOf('cart') >= 0 ? 'credito'
         : String(r.pg || 'pix').toLowerCase().indexOf('dinheiro') >= 0 ? 'dinheiro' : 'pix',
-      embarcacao: s.embarcacao });
+      embarcacao: s.embarcacao, clienteId: r.clienteId || null });
     if (l.ok) r.lancamentoId = l.lancamento.id;
+    var cli = r.clienteId && B12.DB.clientes.filter(function (x) { return x.id === r.clienteId; })[0];
+    if (cli) { cli.viagens = (cli.viagens || 0) + 1; cli.gasto = (cli.gasto || 0) + r.total; }
   }
   B12.salvar();
   return { ok: true, reserva: r, saida: s };
@@ -659,25 +668,51 @@ function novoId(pref) { return pref + Date.now().toString(36) + Math.random().to
 B12.novoId = novoId;
 
 /* --------------------------------------------------------------- clientes */
+B12.cpfValido = function (v) {
+  var d = String(v || '').replace(/\D/g, '');
+  if (d.length !== 11 || /^(\d)\1{10}$/.test(d)) return false;
+  function dv(n) { var t = 0; for (var i = 0; i < n; i++) t += +d[i] * (n + 1 - i);
+    var r = (t * 10) % 11; return r === 10 ? 0 : r; }
+  return dv(9) === +d[9] && dv(10) === +d[10];
+};
+B12.cpfBonito = function (v) {
+  var d = String(v || '').replace(/\D/g, '');
+  return d.length === 11 ? d.slice(0,3) + '.' + d.slice(3,6) + '.' + d.slice(6,9) + '-' + d.slice(9) : '';
+};
+
+/* Uma pessoa, uma ficha. A chave é o WhatsApp: se já existe ficha com o mesmo
+   número, atualiza ela em vez de criar outra. Campo vazio nunca apaga o que já
+   estava preenchido (a reserva pelo app não traz Instagram, e não deve sumir). */
+B12.acharClientePorWhats = function (whats) {
+  var z = String(whats || '').replace(/\D/g, ''); if (!z) return null;
+  return B12.DB.clientes.filter(function (x) { return x.whats === z; })[0] || null;
+};
 B12.salvarCliente = function (c) {
   if (!c.nome || !String(c.nome).trim()) return { erro: 'O nome é obrigatório.' };
   var zap = String(c.whats || '').replace(/\D/g, '');
   if (zap && zap.length < 10) return { erro: 'O WhatsApp parece incompleto.' };
-  var ja = c.id && B12.DB.clientes.filter(function (x) { return x.id === c.id; })[0];
+  var cpf = String(c.cpf || '').replace(/\D/g, '');
+  if (cpf && !B12.cpfValido(cpf)) return { erro: 'Esse CPF não confere. Confira os números.' };
+
+  var ja = (c.id && B12.DB.clientes.filter(function (x) { return x.id === c.id; })[0]) ||
+           (!c.id && B12.acharClientePorWhats(zap));
   var reg = ja || { id: novoId('cl'), criadoEm: new Date().toISOString(), gasto: 0, viagens: 0 };
-  reg.nome = String(c.nome).trim();
-  reg.whats = zap;
-  reg.email = String(c.email || '').trim().toLowerCase();
-  reg.instagram = String(c.instagram || '').trim().replace(/^@/, '');
-  reg.pousada = c.pousada || '';
-  reg.cidade = String(c.cidade || '').trim();
-  reg.obs = String(c.obs || '').trim();
-  reg.aceitaOfertas = !!c.aceitaOfertas;   /* separado do aceite de uso, por lei */
-  reg.consentidoEm = c.aceitaOfertas ? new Date().toISOString() : (reg.consentidoEm || null);
+  function fica(novo, velho) { var v = String(novo == null ? '' : novo).trim(); return v || velho || ''; }
+  reg.nome = fica(c.nome, reg.nome);
+  reg.whats = zap || reg.whats || '';
+  reg.email = fica(c.email, reg.email).toLowerCase();
+  reg.instagram = fica(c.instagram, reg.instagram).replace(/^@/, '');
+  reg.cpf = cpf || reg.cpf || '';
+  reg.pousada = fica(c.pousada, reg.pousada);
+  reg.cidade = fica(c.cidade, reg.cidade);
+  reg.obs = c.obs != null ? String(c.obs).trim() : (reg.obs || '');
+  if (c.aceitaOfertas) { reg.aceitaOfertas = true; reg.consentidoEm = reg.consentidoEm || new Date().toISOString(); }
+  else if (c.aceitaOfertas === false && c.id) { reg.aceitaOfertas = false; reg.consentidoEm = null; }
+  reg.origem = reg.origem || c.origem || 'balcao';
   reg.atualizadoEm = new Date().toISOString();
   if (!ja) B12.DB.clientes.unshift(reg);
   B12.salvar();
-  return { ok: true, cliente: reg };
+  return { ok: true, cliente: reg, jaExistia: !!ja };
 };
 B12.buscarClientes = function (termo) {
   var t = String(termo || '').trim().toLowerCase();
@@ -696,8 +731,12 @@ B12.apagarCliente = function (id) {
   B12.salvar();
 };
 B12.histCliente = function (id) {
-  var L = B12.DB.lancamentos.filter(function (l) { return l.clienteId === id; });
-  return { viagens: L.length, gasto: L.reduce(function (s, l) { return s + l.valor; }, 0), lista: L };
+  var L = B12.DB.lancamentos.filter(function (l) { return l.clienteId === id && l.tipo === 'entrada'; });
+  var R = B12.DB.reservas.filter(function (r) { return r.clienteId === id; });
+  var c = B12.DB.clientes.filter(function (x) { return x.id === id; })[0] || {};
+  return { viagens: Math.max(L.length, c.viagens || 0), reservas: R.length,
+           gasto: Math.max(L.reduce(function (s, l) { return s + l.valor; }, 0), c.gasto || 0),
+           lista: L, ultimaReserva: R[0] || null };
 };
 
 /* ------------------------------------------------------------ lançamentos */
@@ -868,8 +907,8 @@ B12.proximaSaida = function (iso, faixa, pax) {
    se deixar carro, abre o pátio. É a tela mais usada da operação. */
 B12.atenderBalcao = function (a) {
   var res = B12.salvarCliente({
-    nome: a.nome, whats: a.whats, email: a.email, instagram: a.instagram,
-    pousada: a.pousada, cidade: a.cidade, aceitaOfertas: a.aceitaOfertas
+    nome: a.nome, whats: a.whats, email: a.email, instagram: a.instagram, cpf: a.cpf,
+    pousada: a.pousada, cidade: a.cidade, aceitaOfertas: a.aceitaOfertas, origem: 'balcao'
   });
   if (res.erro) return res;
   var cli = res.cliente;
@@ -907,7 +946,7 @@ B12.atenderBalcao = function (a) {
     pousada: a.pousada || '', produto: a.produto === 'nautico' ? 'Serviço Náutico Premium' : 'Travessia regular',
     faixa: t ? t.de + ' às ' + t.ate : 'sob consulta',
     estacionamento: a.placa && (a.volta || a.saidaPrevista) ? B12.diarias(dia, a.volta || a.saidaPrevista) : 0,
-    placa: a.placa || '', pg: a.pg || 'pix', total: valor, clienteId: cli.id
+    placa: a.placa || '', pg: a.pg || 'pix', total: valor, clienteId: cli.id, instagram: a.instagram
   });
   r.origem = 'balcao';                         /* feita pela B12, não pelo celular do turista */
   r.lancamentoId = lan.ok ? lan.lancamento.id : null;

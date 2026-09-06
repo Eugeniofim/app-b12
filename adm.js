@@ -728,8 +728,9 @@ function pClientes(raiz) {
       '<div class="d"><b>' + c.nome + (c.aceitaOfertas ?
         ' <span class="pilula dentro">ofertas ok</span>' : '') + '</b>' +
       '<small>' + [c.whats ? fmtZap(c.whats) : null, c.email || null,
-        c.instagram ? '@' + c.instagram : null].filter(Boolean).join(' · ') +
-      (c.pousada ? '<br>' + c.pousada : '') + '</small></div>' +
+        c.instagram ? '@' + c.instagram : null, c.cpf ? 'CPF ok' : null].filter(Boolean).join(' · ') +
+      (c.pousada ? '<br>' + c.pousada : '') +
+      (c.origem === 'app' ? ' <span class="pilula dentro">pelo app</span>' : '') + '</small></div>' +
       '<div style="text-align:right"><div class="v">' + B12.brl(h.gasto) + '</div>' +
       '<small style="font-size:10.5px;color:var(--gelo-3)">' + h.viagens +
       (h.viagens === 1 ? ' viagem' : ' viagens') + '</small></div></div>';
