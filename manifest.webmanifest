@@ -1,0 +1,16 @@
+{
+  "name": "Estação B12 — Ilha do Mel",
+  "short_name": "Estação B12",
+  "description": "Travessias e passeios para a Ilha do Mel, saindo de Pontal do Paraná.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0B2A4A",
+  "theme_color": "#0B2A4A",
+  "lang": "pt-BR",
+  "icons": [
+    {"src":"icon-192.png","sizes":"192x192","type":"image/png"},
+    {"src":"icon-512.png","sizes":"512x512","type":"image/png"},
+    {"src":"icon-maskable.png","sizes":"512x512","type":"image/png","purpose":"maskable"}
+  ]
+}
