@@ -220,7 +220,7 @@ function semearOperacao(D, hoje) {
       if (s.ocupadas + pax > s.vagas) break;
       s.ocupadas += pax;
       D.reservas.push({
-        id: 'rs-demo-' + i + '-' + k, cod: 'B12-' + (2000 + i * 40 + k * 7),
+        id: 'rs-demo-' + i + '-' + k, cod: 'B12-' + (2000 + i * 40 + k * 7), origem: 'demo',
         nome: c.nome, zap: c.whats, email: c.email, pax: pax, criancas: 0,
         ida: hoje, volta: k % 2 ? B12.diaMais(hoje, 2) : hoje,
         destino: s.destino, pousada: c.pousada,
@@ -504,12 +504,99 @@ B12.contasVencidas = function () {
 
 /* ------------------------------------------------------------------ reservas */
 B12.novaReserva = function (r) {
+  r.id = novoId('rs');
   r.cod = 'B12-' + Math.floor(1000 + Math.random()*9000);
   r.criada = new Date().toISOString();
-  r.situacao = 'pedida';
+  r.situacao = 'pedida';        /* pedida -> confirmada -> concluída (ou cancelada) */
+  r.origem = 'app';             /* feita pelo turista neste aparelho */
+  r.saidaId = null;             /* a B12 coloca numa saída de ida ao confirmar */
+  r.saidaVoltaId = null;        /* o turista escolhe no dia da volta */
+  r.placa = String(r.placa || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   B12.DB.reservas.unshift(r);
   B12.salvar();
   return r;
+};
+
+/* ---- o caminho entre o cliente e a B12 ---- */
+B12.minhasReservas = function () {
+  return B12.DB.reservas.filter(function (r) { return r.origem === 'app'; });
+};
+B12.reservaPorId = function (id) {
+  return B12.DB.reservas.filter(function (r) { return r.id === id || r.cod === id; })[0] || null;
+};
+/* pedidos que chegaram e a B12 ainda não colocou em nenhuma saída */
+B12.pedidosNovos = function () {
+  return B12.DB.reservas.filter(function (r) {
+    return !r.saidaId && r.situacao === 'pedida';
+  }).sort(function (a, b) { return a.ida < b.ida ? -1 : 1; });
+};
+B12.confirmarReserva = function (reservaId, saidaId) {
+  var r = B12.reservaPorId(reservaId);
+  var s = B12.DB.saidas.filter(function (x) { return x.id === saidaId; })[0];
+  if (!r || !s) return { erro: 'Reserva ou saída não encontrada.' };
+  var ocup = B12.DB.reservas.filter(function (x) { return x.saidaId === saidaId; })
+    .reduce(function (t, x) { return t + (x.pax || 1); }, 0);
+  if (ocup + (r.pax || 1) > s.vagas) return { erro: 'A saída das ' + s.hora + ' está lotada.' };
+  r.saidaId = saidaId; r.situacao = 'confirmada'; r.confirmadaEm = new Date().toISOString();
+  s.ocupadas = ocup + (r.pax || 1);
+  /* a venda entra no financeiro sozinha, sem digitar de novo */
+  if (r.total && !r.lancamentoId) {
+    var l = B12.salvarLancamento({ data: r.ida, tipo: 'entrada', cat: 'Travessias', centro: 'Lancha',
+      desc: (r.pax || 1) + ' travessias · ' + (r.pax || 1) + ' passageiros · ' + r.nome,
+      valor: r.total, pg: String(r.pg || 'pix').toLowerCase().indexOf('cart') >= 0 ? 'credito'
+        : String(r.pg || 'pix').toLowerCase().indexOf('dinheiro') >= 0 ? 'dinheiro' : 'pix',
+      embarcacao: s.embarcacao });
+    if (l.ok) r.lancamentoId = l.lancamento.id;
+  }
+  B12.salvar();
+  return { ok: true, reserva: r, saida: s };
+};
+B12.marcarVolta = function (reservaId, saidaVoltaId) {
+  var r = B12.reservaPorId(reservaId);
+  var s = B12.DB.saidas.filter(function (x) { return x.id === saidaVoltaId; })[0];
+  if (!r || !s) return { erro: 'Horário não encontrado.' };
+  var ocup = B12.DB.reservas.filter(function (x) { return x.saidaVoltaId === saidaVoltaId && x.id !== r.id; })
+    .reduce(function (t, x) { return t + (x.pax || 1); }, 0);
+  if (ocup + (r.pax || 1) > s.vagas) return { erro: 'O retorno das ' + s.hora + ' já está lotado.' };
+  if (r.saidaVoltaId) {                       /* trocou de horário: libera o anterior */
+    var ant = B12.DB.saidas.filter(function (x) { return x.id === r.saidaVoltaId; })[0];
+    if (ant) ant.ocupadas = Math.max(0, ant.ocupadas - (r.pax || 1));
+  }
+  r.saidaVoltaId = saidaVoltaId; r.voltaMarcadaEm = new Date().toISOString();
+  s.ocupadas = ocup + (r.pax || 1);
+  B12.salvar();
+  return { ok: true, reserva: r, saida: s };
+};
+/* carros que devem chegar: reservas com placa, chegando hoje ou antes, ainda fora do pátio */
+B12.carrosPrevistos = function (iso) {
+  iso = iso || B12.hoje();
+  var noPatio = {};
+  B12.DB.patio.forEach(function (v) { if (!v.saidaReal) noPatio[v.placa] = 1; });
+  return B12.DB.reservas.filter(function (r) {
+    return r.placa && r.ida <= iso && r.situacao !== 'cancelada' && !noPatio[r.placa] && !r.patioId;
+  });
+};
+B12.darEntradaDaReserva = function (reservaId) {
+  var r = B12.reservaPorId(reservaId);
+  if (!r || !r.placa) return { erro: 'Essa reserva não tem placa.' };
+  var e = B12.entradaPatio({ placa: r.placa, nome: r.nome, whats: r.zap,
+    entrada: B12.hoje(), saidaPrevista: r.volta || '', diaria: B12.DB.ajustes.diaria });
+  if (e.erro) return e;
+  r.patioId = e.veiculo.id;
+  B12.salvar();
+  return e;
+};
+B12.situacaoTxt = function (r) {
+  if (r.situacao === 'cancelada') return 'cancelada';
+  if (r.saidaVoltaId) {
+    var s = B12.DB.saidas.filter(function (x) { return x.id === r.saidaVoltaId; })[0];
+    return 'volta marcada' + (s ? ' às ' + s.hora : '');
+  }
+  if (r.situacao === 'confirmada') {
+    var i = B12.DB.saidas.filter(function (x) { return x.id === r.saidaId; })[0];
+    return 'confirmada' + (i ? ' · saída ' + i.hora : '');
+  }
+  return 'aguardando a B12';
 };
 
 /* ------------------------------------------------------------------- saídas */

@@ -235,6 +235,18 @@ B12.MODELOS = [
       'Assim que cair, sua vaga fica garantida. Qualquer dúvida é só chamar.'
     ].filter(Boolean).join('\n'); } },
 
+  { id:'voltaEscolhida', nome:'Avisar a B12 do horário de volta', quando:'quando o turista escolhe',
+    cor:'#0E8C80', icone:'🕐',
+    texto: function (d) { return [
+      '🕐 *Volta marcada — ' + (d.cod || 'B12-0000') + '*',
+      '',
+      'Oi! Aqui é ' + (d.nome || 'um passageiro') + '. Escolhi voltar da Ilha ' +
+        (d.hora ? 'no retorno das *' + d.hora + '*' : 'hoje') + '.',
+      '👥 Somos ' + (d.pax || 1) + (d.pax > 1 ? ' pessoas' : ' pessoa') + '.',
+      '',
+      'Pode confirmar meu lugar? Obrigado! ⛵'
+    ].join('\n'); } },
+
   { id:'grupo', nome:'Aviso ao marinheiro', quando:'passar a escala para a equipe',
     cor:'#4E7E96', icone:'🧭',
     texto: function (d) { return [

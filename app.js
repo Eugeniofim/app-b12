@@ -76,6 +76,47 @@ function item(id, titulo, sub) {
     'stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></button>';
 }
 
+/* ------------------------------------------------------- instalar o app */
+/* Android e computador entregam um pedido de instalação que a gente guarda e
+   dispara no botão. O iPhone não entrega nada: lá a gente ensina o caminho. */
+var pedidoInstalar = null;
+function ehIphone() { return /iPhone|iPad|iPod/.test(navigator.userAgent) && !window.MSStream; }
+function jaInstalado() {
+  return matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+}
+function convite() {
+  var cx = document.getElementById('instalar'); if (!cx) return;
+  if (jaInstalado()) { cx.hidden = true; return; }
+  var quando = 0; try { quando = +localStorage.getItem('b12_instalar_depois') || 0; } catch (e) {}
+  if (quando && Date.now() < quando) { cx.hidden = true; return; }
+  var btn = document.getElementById('instalar-btn'), como = document.getElementById('instalar-como');
+  if (pedidoInstalar) {
+    cx.hidden = false; btn.textContent = 'Instalar';
+    btn.onclick = function () {
+      pedidoInstalar.prompt();
+      pedidoInstalar.userChoice.then(function () { pedidoInstalar = null; cx.hidden = true; });
+    };
+  } else if (ehIphone()) {
+    cx.hidden = false; btn.textContent = 'Como';
+    como.textContent = 'No Safari, toque em Compartilhar e depois em “Adicionar à Tela de Início”.';
+    btn.onclick = function () {
+      como.innerHTML = '1. Toque no ícone <b>Compartilhar</b> (o quadrado com a seta para cima).<br>' +
+        '2. Role e toque em <b>Adicionar à Tela de Início</b>.<br>3. Toque em <b>Adicionar</b>.';
+      btn.hidden = true;
+    };
+  } else { cx.hidden = true; }
+  document.getElementById('instalar-x').onclick = function () {
+    cx.hidden = true;
+    try { localStorage.setItem('b12_instalar_depois', String(Date.now() + 7*86400000)); } catch (e) {}
+  };
+}
+window.addEventListener('beforeinstallprompt', function (e) {
+  e.preventDefault(); pedidoInstalar = e; convite();
+});
+window.addEventListener('appinstalled', function () {
+  pedidoInstalar = null; var cx = document.getElementById('instalar'); if (cx) cx.hidden = true;
+});
+
 /* --------------------------------------------------- atualização do código */
 var NOVA = null, recarregando = false;
 var jaTinhaControlador = ('serviceWorker' in navigator) && !!navigator.serviceWorker.controller;
@@ -177,6 +218,7 @@ function comecar() {
 
   B12.buscarClima();
   ligarAtualizacao();
+  convite();
 
   window.addEventListener('hashchange', function () {
     var h = (location.hash || '').replace('#/', '');

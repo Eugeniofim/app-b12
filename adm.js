@@ -780,6 +780,28 @@ function pPatio(raiz) {
   raiz.querySelector('#b-carro').onclick = function () {
     B12.formEntradaPatio(function () { B12.admDesenhar('patio'); }); };
 
+  /* ---- carros que a reserva já anunciou e ainda não entraram ---- */
+  var prev = B12.carrosPrevistos();
+  if (prev.length) {
+    var cxP = bloco('<div class="cx nota"><h3>' + prev.length + ' carro' + (prev.length > 1 ? 's' : '') +
+      ' anunciado' + (prev.length > 1 ? 's' : '') + ' na reserva</h3>' +
+      '<p>O passageiro informou a placa ao reservar. Quando ele chegar, é um toque.</p>' +
+      '<div class="lista" style="margin:12px 0 0">' + prev.map(function (r) {
+        return '<div class="linha"><span class="tag">' + r.placa + '</span><div class="d"><b>' + r.nome +
+          '</b><small>chega ' + B12.dataBR(r.ida) + (r.volta ? ' · sai ' + B12.dataBR(r.volta) : '') +
+          ' · ' + r.estacionamento + ' diária(s) previstas</small></div>' +
+          '<button class="mini-btn" data-entra="' + r.id + '">Deu entrada</button></div>';
+      }).join('') + '</div></div>');
+    raiz.appendChild(cxP);
+    cxP.querySelectorAll('[data-entra]').forEach(function (b) {
+      b.onclick = function () {
+        var e = B12.darEntradaDaReserva(b.dataset.entra);
+        if (e.erro) { b.textContent = e.erro; return; }
+        B12.admDesenhar('patio');
+      };
+    });
+  }
+
   if (r.vencendo.length) raiz.appendChild(bloco(
     '<div class="cx aviso"><h3>' + r.vencendo.length + ' carro' +
     (r.vencendo.length>1?'s passaram':' passou') + ' da saída prevista</h3><p>' +
@@ -1038,6 +1060,58 @@ function pEscala(raiz) {
     diaEscala = B12.diaMais(dia, 1); B12.admDesenhar('escala'); };
   raiz.querySelector('#b-nova-ida').onclick = function () { formSaida('ida', dia); };
   raiz.querySelector('#b-nova-volta').onclick = function () { formSaida('volta', dia); };
+
+  /* ---- pedidos que chegaram pelo app e ainda não têm saída ---- */
+  var novos = B12.pedidosNovos();
+  if (novos.length) {
+    var cxN = bloco('<div class="cx nota"><h3>' + novos.length + ' pedido' + (novos.length > 1 ? 's' : '') +
+      ' de reserva esperando você</h3><p>Chegaram pelo app. Escolha a saída e confirme: o passageiro ' +
+      'entra na escala e a venda entra no caixa.</p>' +
+      '<div class="lista" style="margin:12px 0 0">' + novos.map(function (r) {
+        var idasDoDia = B12.saidasDoDia(r.ida, 'ida');
+        return '<div class="cx" style="margin:0 0 9px;padding:12px;background:var(--noite-3)">' +
+          '<div style="display:flex;gap:10px;align-items:flex-start">' +
+          '<span class="tag">' + r.cod + '</span><div style="flex:1;min-width:0">' +
+          '<b>' + r.nome + '</b><div style="font-size:11.5px;color:var(--gelo-3);margin-top:2px">' +
+          r.pax + (r.pax > 1 ? ' pessoas' : ' pessoa') + ' · ' + r.destino + ' · ' + B12.dataBR(r.ida) +
+          (r.volta ? ' a ' + B12.dataBR(r.volta) : '') + ' · ' + r.faixa +
+          (r.placa ? ' · 🚗 ' + r.placa : '') + (r.total != null ? ' · ' + B12.brl(r.total) : '') +
+          '</div></div></div>' +
+          (idasDoDia.length ?
+            '<div style="display:flex;gap:8px;margin-top:10px;align-items:center">' +
+            '<select data-sel="' + r.id + '" style="flex:1;padding:10px 12px">' +
+            idasDoDia.map(function (sd) {
+              var oc = B12.DB.reservas.filter(function (x) { return x.saidaId === sd.id; })
+                .reduce(function (t, x) { return t + (x.pax || 1); }, 0);
+              return '<option value="' + sd.id + '">' + sd.hora + ' · ' + sd.destino + ' · ' +
+                (sd.vagas - oc) + ' lugares</option>'; }).join('') + '</select>' +
+            '<button class="mini-btn" data-conf="' + r.id + '">Confirmar</button></div>'
+            : '<div style="font-size:12px;color:var(--atencao);margin-top:9px">Não há saída de ida em ' +
+              B12.dataBR(r.ida) + '. Crie uma acima e volte aqui.</div>') +
+          '<div style="display:flex;gap:8px;margin-top:8px">' +
+          '<button class="mini-btn" style="background:#25D366;color:#04240F" data-zapnovo="' + r.id + '">WhatsApp</button>' +
+          '</div></div>';
+      }).join('') + '</div></div>');
+    raiz.appendChild(cxN);
+    cxN.querySelectorAll('[data-conf]').forEach(function (b) {
+      b.onclick = function () {
+        var sel = cxN.querySelector('[data-sel="' + b.dataset.conf + '"]');
+        var res = B12.confirmarReserva(b.dataset.conf, sel.value);
+        if (res.erro) { b.textContent = res.erro; return; }
+        B12.admDesenhar('escala');
+        B12.folhaMensagem('confirmacao', { nome: res.reserva.nome, whats: res.reserva.zap,
+          cod: res.reserva.cod, ida: res.reserva.ida, volta: res.reserva.volta,
+          hora: res.saida.hora, pax: res.reserva.pax, total: res.reserva.total });
+      };
+    });
+    cxN.querySelectorAll('[data-zapnovo]').forEach(function (b) {
+      b.onclick = function () {
+        var r = B12.reservaPorId(b.dataset.zapnovo);
+        B12.escolherMensagem({ nome: r.nome, whats: r.zap, cod: r.cod, ida: r.ida, volta: r.volta,
+          pax: r.pax, total: r.total });
+      };
+    });
+  }
 
   if (pendentes.length) {
     var av = bloco('<div class="cx aviso"><h3>' + pendentes.length + ' pessoa' +

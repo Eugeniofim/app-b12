@@ -176,6 +176,7 @@ B12.calcular = function () {
   document.getElementById('est-val').textContent = B12.brl(B12.DB.ajustes.diaria * dd);
   document.getElementById('est-sim').classList.toggle('on', !!F.estac);
   document.getElementById('est-nao').classList.toggle('on', !F.estac);
+  var bp = document.getElementById('bloco-placa'); if (bp) bp.hidden = !F.estac;
 
   var nome = F.produto === 'nautico' ? 'Serviço náutico' : 'Travessia';
   document.getElementById('c-desc').textContent = nome + ' · ' + F.pax +
@@ -221,6 +222,7 @@ B12.reservar = function () {
     produto: F.produto === 'nautico' ? 'Serviço Náutico Premium' : 'Travessia regular',
     faixa: t ? t.de + ' às ' + t.ate : 'sob consulta',
     estacionamento: F.estac ? dd : 0,
+    placa: F.estac ? document.getElementById('f-placa').value : '',
     pg: document.getElementById('f-pag').selectedOptions[0].textContent,
     total: p ? p.total : null
   });
@@ -232,7 +234,8 @@ B12.reservar = function () {
   if (r.volta) linhas.push('Retorno: ' + B12.dataBR(r.volta));
   linhas.push('Horário: ' + r.faixa, 'Destino: ' + r.destino, 'Pousada: ' + r.pousada,
     'Serviço: ' + r.produto);
-  if (r.estacionamento) linhas.push('Estacionamento: sim, ' + r.estacionamento + ' diária(s)');
+  if (r.estacionamento) linhas.push('Estacionamento: sim, ' + r.estacionamento + ' diária(s)' +
+    (r.placa ? ' · placa ' + r.placa : ''));
   linhas.push('Pagamento: ' + r.pg,
     'Total estimado: ' + (r.total != null ? B12.brl(r.total) : 'sob consulta'));
 
@@ -242,53 +245,113 @@ B12.reservar = function () {
 };
 
 /* --------------------------------------------------------------- reservas */
+/* Só o que ESTA pessoa pediu neste aparelho. As reservas dos outros passageiros
+   ficam no painel da B12, nunca aqui. */
 B12.pintarReservas = function () {
   var alvo = document.getElementById('area-reservas');
-  var R = B12.DB.reservas;
+  var R = B12.minhasReservas();
   if (!R.length) {
     alvo.innerHTML = '<div class="vazio">' +
       '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="18" rx="2"/>' +
       '<path d="M8 2v4M16 2v4M8 12h8M8 17h5" stroke-linecap="round"/></svg>' +
       '<b>Nenhuma reserva ainda</b>' +
       '<p>Quando você pedir uma travessia, ela aparece aqui com o código para mostrar na chegada.</p>' +
-      '<div style="padding:0 22px"><button class="btn pri" onclick="B12.ir(\'travessias\')">' +
+      '<div style="padding:0 22px"><button class="btn pri" id="b-ir-reservar">' +
       'Reservar travessia</button></div></div>';
+    alvo.querySelector('#b-ir-reservar').onclick = function () { B12.ir('travessias'); };
     return;
   }
   var hoje = B12.hoje();
   alvo.innerHTML = '<div class="lista">' + R.map(function (r, i) {
+    var sit = B12.situacaoTxt(r);
+    var cor = r.saidaVoltaId ? 'dentro' : r.situacao === 'confirmada' ? 'dentro' : 'inv';
     return '<div class="cx entra entra-' + Math.min(i+1,6) + '" style="margin:0 0 10px">' +
-      '<div style="display:flex;align-items:center;gap:12px">' +
-      '<div style="background:linear-gradient(150deg,var(--turq-500),var(--turq-700));color:#fff;' +
-      'border-radius:12px;padding:11px 12px;text-align:center;flex:none">' +
-      '<div style="font-size:8.5px;letter-spacing:.12em;opacity:.85;font-weight:700">CÓDIGO</div>' +
-      '<div style="font-size:15px;font-weight:800;letter-spacing:.02em">' + r.cod.replace('B12-','') +
-      '</div></div><div style="flex:1;min-width:0"><b style="font-size:14.5px">' + r.produto +
-      '</b><div style="font-size:12px;color:var(--tinta-3);margin-top:3px">' + r.destino + ' · ' +
+      '<button class="ticket-abre" data-ticket="' + r.id + '">' +
+      '<div class="ticket-cod"><span>CÓDIGO</span><b>' + r.cod.replace('B12-','') + '</b></div>' +
+      '<div style="flex:1;min-width:0;text-align:left"><b style="font-size:14.5px">' + r.produto + '</b>' +
+      '<div style="font-size:12px;color:var(--tinta-3);margin-top:3px">' + r.destino + ' · ' +
       B12.dataBR(r.ida) + (r.volta ? ' a ' + B12.dataBR(r.volta) : '') + '</div>' +
-      '<div style="font-size:12px;color:var(--tinta-3)">' + r.pax +
-      (r.pax > 1 ? ' pessoas' : ' pessoa') + ' · ' +
-      (r.total != null ? B12.brl(r.total) : 'sob consulta') + '</div></div></div>' +
-      '<div style="margin-top:11px;padding-top:11px;border-top:1px solid var(--risco);' +
-      'font-size:12px;color:var(--tinta-2)">Aguardando a B12 confirmar pelo WhatsApp. ' +
-      'A vaga só é garantida depois da confirmação.</div>' +
-      (r.volta === hoje ? horariosVolta() : '') + '</div>';
+      '<div style="font-size:12px;color:var(--tinta-3)">' + r.pax + (r.pax > 1 ? ' pessoas' : ' pessoa') +
+      ' · ' + (r.total != null ? B12.brl(r.total) : 'sob consulta') +
+      (r.placa ? ' · carro ' + r.placa : '') + '</div>' +
+      '<span class="pilula ' + cor + '" style="margin-top:7px;display:inline-block">' + sit + '</span></div>' +
+      '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" ' +
+      'stroke-linecap="round" style="opacity:.4;flex:none"><path d="M9 6l6 6-6 6"/></svg></button>' +
+      (r.situacao === 'pedida' ?
+        '<div class="ticket-nota">A B12 confirma pelo WhatsApp e coloca você numa saída. ' +
+        'A vaga só é garantida depois disso.</div>' : '') +
+      (r.volta === hoje || (r.situacao === 'confirmada' && !r.saidaVoltaId && r.volta) ?
+        horariosVolta(r) : '') +
+      '</div>';
   }).join('') + '</div>';
+  alvo.querySelectorAll('[data-ticket]').forEach(function (b) {
+    b.onclick = function () { B12.abrirTicket(b.dataset.ticket); };
+  });
+  alvo.querySelectorAll('[data-volta]').forEach(function (b) {
+    b.onclick = function () {
+      var res = B12.marcarVolta(b.dataset.res, b.dataset.volta);
+      if (res.erro) { b.textContent = res.erro; b.disabled = true; return; }
+      B12.pintarReservas();
+      /* avisa a B12 do horário escolhido, com o texto pronto */
+      B12.folhaMensagem('voltaEscolhida', { nome: res.reserva.nome, whats: B12.EMPRESA.whats,
+        cod: res.reserva.cod, hora: res.saida.hora, pax: res.reserva.pax });
+    };
+  });
 };
-function horariosVolta() {
-  var v = B12.saidasDoDia(B12.hoje(), 'volta');
-  if (!v.length) return '';
+function horariosVolta(r) {
+  var dia = r.volta || B12.hoje();
+  var v = B12.saidasDoDia(dia, 'volta');
+  if (!v.length) return '<div class="ticket-nota">A B12 ainda não abriu os horários de volta de ' +
+    B12.dataBR(dia) + '. Assim que abrir, eles aparecem aqui.</div>';
   return '<div style="margin-top:11px;padding-top:11px;border-top:1px solid var(--risco)">' +
-    '<b style="font-size:13px">Hoje é seu dia de volta. Escolha o horário:</b>' +
+    '<b style="font-size:13px">' + (r.saidaVoltaId ? 'Sua volta está marcada. Quer trocar?' :
+      (dia === B12.hoje() ? 'Hoje é seu dia de volta. ' : 'Volta em ' + B12.dataBR(dia) + '. ') +
+      'Escolha o horário:') + '</b>' +
     '<div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:9px">' +
     v.map(function (s) {
-      var cheio = s.ocupadas >= s.vagas;
-      return '<button class="aba' + (cheio ? '' : '') + '" style="background:' +
-        (cheio ? 'var(--carta-2);color:var(--tinta-3)' : 'var(--turq-600);color:#fff') +
-        ';border:0;border-radius:9px;padding:9px 13px;font-size:13px;font-weight:700"' +
-        (cheio ? ' disabled' : '') + '>' + s.hora + (cheio ? ' · lotado' : '') + '</button>';
+      var ocup = B12.DB.reservas.filter(function (x) { return x.saidaVoltaId === s.id && x.id !== r.id; })
+        .reduce(function (t, x) { return t + (x.pax || 1); }, 0);
+      var cheio = ocup + (r.pax || 1) > s.vagas, minha = r.saidaVoltaId === s.id;
+      return '<button class="hora-volta' + (minha ? ' on' : '') + '" data-res="' + r.id +
+        '" data-volta="' + s.id + '"' + (cheio && !minha ? ' disabled' : '') + '>' + s.hora +
+        (minha ? ' ✓' : cheio ? ' · lotado' : '') + '</button>';
     }).join('') + '</div></div>';
 }
+
+/* o ticket: o que a pessoa mostra na chegada */
+B12.abrirTicket = function (id) {
+  var r = B12.reservaPorId(id); if (!r) return;
+  var f = document.createElement('div'); f.className = 'folha';
+  f.innerHTML = '<div class="folha-fundo"></div><div class="folha-cx">' +
+    '<div class="folha-alca"></div>' +
+    '<div class="folha-topo"><div><h3>Seu ticket</h3><p>Mostre este código na chegada</p></div>' +
+    '<button type="button" class="folha-x" aria-label="Fechar">' +
+    '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" ' +
+    'stroke-width="2.2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>' +
+    '<div class="folha-corpo">' +
+    '<div class="ticket-grande"><span>ESTAÇÃO B12 · TRAVESSIA</span><b>' + r.cod + '</b>' +
+    '<i>' + B12.situacaoTxt(r) + '</i></div>' +
+    '<table class="tabela" style="margin-top:14px">' +
+    '<tr><td>Nome</td><td class="n">' + r.nome + '</td></tr>' +
+    '<tr><td>Serviço</td><td class="n">' + r.produto + '</td></tr>' +
+    '<tr><td>Destino</td><td class="n">' + r.destino + '</td></tr>' +
+    '<tr><td>Ida</td><td class="n">' + B12.dataBR(r.ida) + ' · ' + r.faixa + '</td></tr>' +
+    (r.volta ? '<tr><td>Volta</td><td class="n">' + B12.dataBR(r.volta) + '</td></tr>' : '') +
+    '<tr><td>Pessoas</td><td class="n">' + r.pax + (r.criancas ? ' (' + r.criancas + ' até 5 anos)' : '') + '</td></tr>' +
+    (r.pousada && r.pousada !== 'Ainda não escolhi' ? '<tr><td>Pousada</td><td class="n">' + r.pousada + '</td></tr>' : '') +
+    (r.placa ? '<tr><td>Carro</td><td class="n">' + r.placa + ' · ' + r.estacionamento + ' diária(s)</td></tr>' : '') +
+    '<tr><td>Pagamento</td><td class="n">' + r.pg + '</td></tr>' +
+    '<tr><td style="font-weight:750">Total</td><td class="n" style="font-size:16px">' +
+    (r.total != null ? B12.brl(r.total) : 'sob consulta') + '</td></tr></table>' +
+    '<p class="ajuda" style="margin-top:12px">Chegue 20 minutos antes. Av. Beira-Mar, 3433, Pontal do Paraná.</p>' +
+    '</div><div class="folha-pe">' +
+    '<a class="btn zap" style="margin:0" href="https://wa.me/' + B12.EMPRESA.whats + '?text=' +
+    encodeURIComponent('Olá! Sobre a minha reserva ' + r.cod + ' (' + r.nome + ').') +
+    '" target="_blank" rel="noopener">Falar com a B12 sobre esta reserva</a></div></div>';
+  document.body.appendChild(f); document.body.style.overflow = 'hidden';
+  function fechar() { f.remove(); document.body.style.overflow = ''; }
+  f.querySelector('.folha-x').onclick = fechar; f.querySelector('.folha-fundo').onclick = fechar;
+};
 
 /* ------------------------------------------------------------------ equipe */
 B12.pintarEquipe = function () {

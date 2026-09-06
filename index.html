@@ -84,6 +84,13 @@ o histórico do ADM sai da planilha do cliente · <b>fotos do mockup, a substitu
       <div><b>ILHA DO MEL</b><span>Praias e atrações</span></div></button>
   </div>
 
+  <div class="instalar" id="instalar" hidden>
+    <div class="instalar-ico"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke-linecap="round"/></svg></div>
+    <div class="instalar-txt"><b>Instale o app da B12</b><small id="instalar-como">Fica na sua tela de início, abre sem navegador e funciona sem internet.</small></div>
+    <button class="instalar-btn" id="instalar-btn">Instalar</button>
+    <button class="instalar-x" id="instalar-x" aria-label="Agora não">×</button>
+  </div>
+
   <div class="faixa-sec">
     <div class="banner entra entra-2">
       <div class="f"></div>
@@ -152,6 +159,11 @@ o histórico do ADM sai da planilha do cliente · <b>fotos do mockup, a substitu
         <small>vou de carona, de ônibus ou já tenho onde deixar</small></div></button>
       <button class="escolha" id="est-sim"><div><b>Sim, quero estacionamento</b>
         <small id="est-txt">—</small></div><span class="vv" id="est-val">—</span></button>
+    </div>
+    <div id="bloco-placa" hidden>
+      <label>Placa do carro</label>
+      <input id="f-placa" placeholder="ABC1D23" maxlength="8" autocapitalize="characters">
+      <div class="ajuda">Opcional. Com a placa, a B12 já deixa sua vaga separada e dá entrada em um toque quando você chegar.</div>
     </div></div>
 
   <div class="conta">
