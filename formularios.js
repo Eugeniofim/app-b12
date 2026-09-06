@@ -93,7 +93,7 @@ function lista(rot, nome, itens, sel) {
     }).join('') + '</select>';
 }
 function marca(rot, nome, ligado, ajuda) {
-  return '<label class="marca"><input type="checkbox" name="' + nome + '"' +
+  return '<label class="aceite"><input type="checkbox" name="' + nome + '"' +
     (ligado ? ' checked' : '') + '><span><b>' + rot + '</b>' +
     (ajuda ? '<small>' + ajuda + '</small>' : '') + '</span></label>';
 }

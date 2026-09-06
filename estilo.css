@@ -23,7 +23,7 @@
   --bom:#2FA76A; --atencao:#D9932B; --ruim:#D2564A;
 
   --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
-  --script:'Snell Roundhand','Brush Script MT','Segoe Script','Bradley Hand',cursive;
+  --script:'Snell Roundhand','Savoye LET','Brush Script MT','Segoe Script','Lucida Handwriting','Bradley Hand',cursive;
   --mono:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace;
 
   --r-p:10px; --r-m:14px; --r-g:20px;
@@ -111,7 +111,8 @@ p{margin:0}
 .heroi-txt{padding:30px 16px 0;position:relative}
 .heroi-txt h1{font-size:clamp(30px,8.6vw,38px);line-height:1.04;
   text-shadow:0 2px 16px rgba(0,0,0,.36)}
-.heroi-txt h1 .script{color:var(--turq-200);font-size:1.12em;padding-right:.08em}
+.heroi-txt h1 .script{color:var(--turq-200);font-size:1.18em;padding-right:.1em;font-weight:700;
+  -webkit-text-stroke:.6px var(--turq-200);text-shadow:0 2px 14px rgba(0,0,0,.45),0 0 22px rgba(155,235,223,.35)}
 .heroi-txt p{margin-top:10px;font-size:14.5px;max-width:27ch;opacity:.94;
   text-shadow:0 1px 10px rgba(0,0,0,.42)}
 .heroi-agua{height:104px;margin-top:20px;position:relative;overflow:hidden}
@@ -164,8 +165,8 @@ body.adm .tit button{color:var(--turq-300)}
   background:var(--carta);display:grid;grid-template-columns:40% 1fr;min-height:104px}
 .banner .f{background:url('fotos/farol.jpg') center/cover no-repeat}
 .banner .t{padding:14px 14px 14px 12px;display:flex;flex-direction:column;justify-content:center}
-.banner .t h3{font-family:var(--script);font-style:italic;font-size:24px;color:var(--azul-800);
-  font-weight:500;line-height:1}
+.banner .t h3{font-family:var(--script);font-style:italic;font-size:25px;color:var(--azul-800);
+  font-weight:700;line-height:1;-webkit-text-stroke:.4px var(--azul-800)}
 .banner .t p{font-size:13px;color:var(--tinta-2);margin:5px 0 11px}
 .banner .t button{align-self:flex-start;background:var(--turq-600);color:#fff;border:0;
   border-radius:8px;padding:8px 13px;font-size:10.5px;font-weight:800;letter-spacing:.05em}
@@ -435,14 +436,14 @@ body.adm .ajuda{color:var(--gelo-3)}
   color:var(--turq-600);margin:20px 0 2px;padding-top:14px;border-top:1px solid var(--risco)}
 body.adm .grupo{color:var(--turq-300);border-color:var(--noite-risco)}
 
-.marca{display:flex;gap:11px;align-items:flex-start;margin-top:14px;cursor:pointer;
+.aceite{display:flex;gap:11px;align-items:flex-start;margin-top:14px;cursor:pointer;
   background:var(--carta-2);border:1px solid var(--risco);border-radius:12px;padding:13px;
   text-transform:none;letter-spacing:0;font-weight:400;color:inherit}
-body.adm .marca{background:var(--noite-3);border-color:var(--noite-risco)}
-.marca input{width:22px;height:22px;min-height:22px;flex:none;margin:1px 0 0;accent-color:var(--turq-600)}
-.marca b{display:block;font-size:14px;font-weight:650}
-.marca small{display:block;font-size:11.5px;color:var(--tinta-3);margin-top:3px;line-height:1.45}
-body.adm .marca small{color:var(--gelo-3)}
+body.adm .aceite{background:var(--noite-3);border-color:var(--noite-risco)}
+.aceite input{width:22px;height:22px;min-height:22px;flex:none;margin:1px 0 0;accent-color:var(--turq-600)}
+.aceite b{display:block;font-size:14px;font-weight:650}
+.aceite small{display:block;font-size:11.5px;color:var(--tinta-3);margin-top:3px;line-height:1.45}
+body.adm .aceite small{color:var(--gelo-3)}
 
 .repetir{margin-top:16px;background:var(--carta-2);border-radius:10px;padding:11px 12px;
   font-size:12.5px;color:var(--tinta-2);display:flex;align-items:center;gap:9px;flex-wrap:wrap}
@@ -531,3 +532,80 @@ body:not(.adm) .semninguem{border-color:var(--risco);color:var(--tinta-3)}
 .balao{background:#DCF8C6;color:#0B1F14;border-radius:14px 14px 14px 4px;padding:14px 15px;
   font-size:14.5px;line-height:1.5;white-space:normal;box-shadow:var(--sombra-1);margin-top:8px}
 .balao b{font-weight:700}
+
+
+/* ============================================================================
+   REAÇÕES DE MOUSE — só em aparelho com ponteiro de verdade
+   ========================================================================== */
+@media (hover:hover) and (pointer:fine){
+  .qb{transition:transform .22s var(--curva),box-shadow .22s,filter .22s}
+  .qb:hover{transform:translateY(-3px);box-shadow:0 10px 24px rgba(6,23,38,.22);filter:brightness(1.08)}
+  .qb:hover svg{animation:flutua 1.6s ease-in-out infinite}
+
+  .cartao{transition:transform .24s var(--curva),box-shadow .24s}
+  .cartao:hover{transform:translateY(-4px);box-shadow:0 14px 30px rgba(6,23,38,.18)}
+  .cartao .foto{overflow:hidden}
+  .cartao .foto::before{content:'';position:absolute;inset:0;background:inherit;background-size:cover;
+    background-position:center;transition:transform .6s var(--curva)}
+  .cartao:hover .foto::before{transform:scale(1.08)}
+  .cartao .pr b{transition:color .2s}
+  .cartao:hover .pr b{color:var(--turq-500)}
+
+  .banner{transition:transform .24s var(--curva),box-shadow .24s}
+  .banner:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(6,23,38,.16)}
+  .banner .f{transition:transform .7s var(--curva)}
+  .banner:hover .f{transform:scale(1.06)}
+  .banner .t button{transition:transform .2s,filter .2s}
+  .banner .t button:hover{transform:translateX(3px);filter:brightness(1.1)}
+
+  .btn{transition:transform .18s var(--curva),filter .18s,box-shadow .18s}
+  .btn:hover{filter:brightness(1.07);transform:translateY(-1px)}
+  .btn.pri:hover{box-shadow:0 8px 22px rgba(14,140,128,.45)}
+  .btn.zap:hover{box-shadow:0 8px 22px rgba(37,211,102,.4)}
+  .btn.sec:hover{border-color:var(--turq-500)}
+
+  .redondo:hover{background:rgba(31,182,166,.35);border-color:rgba(255,255,255,.6);transform:scale(1.06)}
+  .clima .ver:hover{background:var(--turq-600);color:#fff;border-color:var(--turq-600)}
+  .tit button:hover{text-decoration:underline;text-underline-offset:3px}
+
+  .linha.toca{transition:transform .16s,border-color .2s,box-shadow .2s,background .2s}
+  .linha.toca:hover{transform:translateX(3px);border-color:var(--turq-500);
+    box-shadow:0 6px 18px rgba(6,23,38,.14)}
+  body.adm .linha.toca:hover{background:var(--noite-3)}
+  .linha .tag{transition:background .2s,color .2s}
+  .linha.toca:hover .tag{background:var(--turq-600);color:#fff}
+
+  .aba{transition:background .18s,color .18s,border-color .18s,transform .16s}
+  .aba:hover:not(.on){border-color:var(--turq-500);color:var(--gelo);transform:translateY(-1px)}
+
+  .pl,.mini{transition:background .2s,transform .2s}
+  .pl:hover,.mini:hover{background:var(--noite-3)}
+  .pl:hover .v{color:var(--turq-300)}
+
+  .escolha{transition:border-color .18s,background .18s,transform .16s,box-shadow .2s}
+  .escolha:hover:not(.on){border-color:var(--turq-400);transform:translateY(-1px);
+    box-shadow:0 6px 16px rgba(6,23,38,.1)}
+  .acao:hover{border-color:var(--turq-400);transform:translateX(3px)}
+  .acao:hover .bolinha{transform:scale(1.4)}
+  .acao .bolinha{transition:transform .2s}
+
+  .navb{transition:color .2s,transform .2s}
+  .navb:hover{color:var(--turq-600)}
+  .navb:hover svg{transform:translateY(-3px)}
+  .navb.meio:hover .bolha{transform:scale(1.08) rotate(-6deg)}
+  .mais-btn:hover{transform:scale(1.08) rotate(90deg);box-shadow:0 10px 28px rgba(14,140,128,.6)}
+
+  .parceiros div{transition:transform .2s,box-shadow .2s,color .2s}
+  .parceiros div:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(6,23,38,.14);color:var(--turq-600)}
+  .zapzinho{transition:transform .18s}
+  .zapzinho:hover{transform:scale(1.18)}
+  .pass{transition:background .2s}
+  .pass:hover{background:var(--turq-700);color:#fff}
+  .pass:hover .ppax{color:var(--turq-200)}
+  .tabela tbody tr:hover td{background:rgba(20,169,154,.07)}
+  .horario{transition:background .2s,color .2s}
+  .cx:hover .horario{background:var(--turq-600);color:#fff}
+  .folha-x:hover{background:var(--ruim);color:#fff}
+  .mini-btn{transition:filter .18s,transform .16s}
+  .mini-btn:hover{filter:brightness(1.12);transform:translateY(-1px)}
+}

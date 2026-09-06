@@ -111,7 +111,10 @@ function ligarAtualizacao() {
   navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
     .then(function () { return navigator.serviceWorker.ready; })
     .then(function (reg) {
-      if (reg.waiting && navigator.serviceWorker.controller) mostrarNova(reg.waiting);
+      /* já tem versão nova esperando: se ninguém está digitando, troca sozinho */
+      if (reg.waiting && navigator.serviceWorker.controller) {
+        if (!ocupado()) { NOVA = reg.waiting; aplicarNova(); } else { mostrarNova(reg.waiting); }
+      }
       reg.addEventListener('updatefound', function () {
         var novo = reg.installing; if (!novo) return;
         novo.addEventListener('statechange', function () {
