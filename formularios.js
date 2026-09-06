@@ -277,6 +277,8 @@ B12.formBalcao = function (depois) {
         '<div>' + campo('Pessoas', 'pax', { tipo:'number', modo:'numeric', valor:1, passo:'1' }) + '</div>' +
         '<div>' + campo('Até 5 anos', 'criancas', { tipo:'number', modo:'numeric', valor:0, passo:'1' }) + '</div>' +
       '</div>' +
+      lista('Destino', 'destino', B12.DESTINOS, 'Brasília') +
+      campo('Data da volta', 'volta', { tipo:'date', ajuda:'Opcional. Se souber, o app já mostra os horários de volta na data certa.' }) +
       lista('Serviço', 'produto', [['regular','Travessia regular'],
         ['nautico','Serviço Náutico Premium']], 'regular') +
       lista('Faixa de horário', 'faixa', [['dia','08h30 às 18h00'],['tarde','18h00 às 20h00'],
@@ -316,6 +318,14 @@ B12.formBalcao = function (depois) {
   });
 };
 
+/* depois do balcão: entrega o código no WhatsApp da pessoa, já com o link do app */
+B12.aposBalcao = function (res) {
+  if (!res || !res.reserva) return;
+  var r = res.reserva;
+  B12.folhaMensagem('confirmacao', { nome: r.nome, whats: r.zap, cod: r.cod, ida: r.ida,
+    volta: r.volta, hora: res.saida ? res.saida.hora : '', pax: r.pax, total: r.total });
+};
+
 /* ============================================== botão flutuante de ações */
 B12.menuMais = function () {
   var f = document.createElement('div');
@@ -339,7 +349,7 @@ B12.menuMais = function () {
   f.querySelectorAll('[data-acao]').forEach(function (b) {
     b.onclick = function () {
       var a = b.dataset.acao; fechar();
-      if (a === 'balcao')  B12.formBalcao(recarrega);
+      if (a === 'balcao')  B12.formBalcao(function (res) { recarrega(); B12.aposBalcao(res); });
       if (a === 'entrada') B12.formLancamento('entrada', {}, recarrega);
       if (a === 'saida')   B12.formLancamento('saida', {}, recarrega);
       if (a === 'manut')   B12.formManutencao(recarrega);

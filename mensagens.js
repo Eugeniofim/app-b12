@@ -99,6 +99,9 @@ B12.MODELOS = [
       '📍 Estação B12 — Av. Beira-Mar, 3433, Pontal do Paraná',
       'Chegue com 20 minutos de antecedência.',
       '',
+      '📲 Para marcar sua volta pelo app: ' + B12.enderecoApp(),
+      'Toque em "Já tenho um código" e use o código acima.',
+      '',
       'Qualquer coisa, é só chamar por aqui. Boa viagem! ⛵'
     ].filter(Boolean).join('\n'); } },
 
@@ -154,6 +157,7 @@ B12.MODELOS = [
       '',
       '🎫 Seu código: *' + (d.cod || 'B12-0000') + '*',
       (d.volta ? '📅 Sua volta está prevista para ' + B12.dataBR(d.volta) : ''),
+      '📲 Marque sua volta pelo app: ' + B12.enderecoApp() + ' → "Já tenho um código"',
       '',
       'Dicas rápidas:',
       '• O Farol das Conchas fecha ao anoitecer',

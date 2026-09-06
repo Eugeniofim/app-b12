@@ -843,6 +843,26 @@ B12.patioResumo = function () {
   return { dentro: dentro.length, aReceber: Math.round(aReceber), vencendo: vencendo };
 };
 
+/* o endereço onde o app está servido agora: vai dentro da mensagem de WhatsApp */
+B12.enderecoApp = function () {
+  return location.origin + location.pathname.replace(/index\.html$/, '');
+};
+
+/* a próxima saída de ida do dia, dentro da faixa, com lugar para o grupo */
+B12.proximaSaida = function (iso, faixa, pax) {
+  if (faixa === 'fora') return null;
+  var lim = { dia: ['08:00','18:00'], tarde: ['18:00','20:00'], noite: ['20:00','23:59'] }[faixa] || ['00:00','23:59'];
+  var agora = iso === B12.hoje()
+    ? String(new Date().getHours()).padStart(2,'0') + ':' + String(new Date().getMinutes()).padStart(2,'0')
+    : '00:00';
+  var cands = B12.saidasDoDia(iso, 'ida').filter(function (sd) {
+    var ocup = B12.DB.reservas.filter(function (x) { return x.saidaId === sd.id; })
+      .reduce(function (t, x) { return t + (x.pax || 1); }, 0);
+    return sd.hora >= lim[0] && sd.hora <= lim[1] && ocup + pax <= sd.vagas;
+  });
+  return cands.filter(function (sd) { return sd.hora >= agora; })[0] || cands[cands.length - 1] || null;
+};
+
 /* --------------------------------------- atendimento de balcão (chegou agora) */
 /* A pessoa chega sem reserva. Um caminho só: cria a ficha, lança a venda e,
    se deixar carro, abre o pátio. É a tela mais usada da operação. */
@@ -860,7 +880,7 @@ B12.atenderBalcao = function (a) {
   var valor = p ? p.travessia : Number(a.valorManual) || 0;
   if (valor <= 0) return { erro: 'Horário fora da tabela: informe o valor combinado.' };
 
-  B12.salvarLancamento({
+  var lan = B12.salvarLancamento({
     data: a.data || B12.hoje(), tipo: 'entrada', cat: 'Travessias', centro: 'Lancha',
     desc: (a.pax || 1) + ' travessias · ' + (a.pax || 1) + ' passageiros · ' + cli.nome,
     valor: valor, pg: a.pg || 'pix', responsavel: a.responsavel || '',
@@ -873,11 +893,29 @@ B12.atenderBalcao = function (a) {
   if (a.placa) {
     var e = B12.entradaPatio({ placa: a.placa, modelo: a.modelo, cor: a.cor,
       clienteId: cli.id, nome: cli.nome, whats: cli.whats,
-      saidaPrevista: a.saidaPrevista, vaga: a.vaga });
+      saidaPrevista: a.saidaPrevista || a.volta, vaga: a.vaga });
     if (!e.erro) veic = e.veiculo;
   }
+
+  /* quem chega no balcão também ganha código: é ele que marca a volta depois */
+  var faixa = a.faixa || B12.faixaHora(a.hora), t = faixa === 'fora' ? null : B12.DB.ajustes.tabela[faixa];
+  var dia = a.data || B12.hoje();
+  var saida = B12.proximaSaida(dia, faixa, a.pax || 1);
+  var r = B12.novaReserva({
+    nome: cli.nome, zap: cli.whats, email: cli.email, pax: a.pax || 1, criancas: a.criancas || 0,
+    ida: dia, volta: a.volta || a.saidaPrevista || '', destino: a.destino || 'Brasília',
+    pousada: a.pousada || '', produto: a.produto === 'nautico' ? 'Serviço Náutico Premium' : 'Travessia regular',
+    faixa: t ? t.de + ' às ' + t.ate : 'sob consulta',
+    estacionamento: a.placa && (a.volta || a.saidaPrevista) ? B12.diarias(dia, a.volta || a.saidaPrevista) : 0,
+    placa: a.placa || '', pg: a.pg || 'pix', total: valor, clienteId: cli.id
+  });
+  r.origem = 'balcao';                         /* feita pela B12, não pelo celular do turista */
+  r.lancamentoId = lan.ok ? lan.lancamento.id : null;
+  r.patioId = veic ? veic.id : null;
+  if (saida) { r.saidaId = saida.id; r.situacao = 'confirmada'; r.confirmadaEm = new Date().toISOString();
+    saida.ocupadas = (saida.ocupadas || 0) + (a.pax || 1); }
   B12.salvar();
-  return { ok: true, cliente: cli, valor: valor, veiculo: veic };
+  return { ok: true, cliente: cli, valor: valor, veiculo: veic, reserva: r, saida: saida };
 };
 
 /* ------------------------------------------------ investimento x operação */

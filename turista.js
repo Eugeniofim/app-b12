@@ -393,7 +393,7 @@ B12.pintarEquipe = function () {
         '<small>' + s.ocupadas + ' de ' + s.vagas + ' lugares reservados</small></div></div>';
     }).join('') + '</div>';
   var b = document.getElementById('b-balcao');
-  if (b) b.onclick = function () { B12.formBalcao(function () { B12.pintarEquipe(); }); };
+  if (b) b.onclick = function () { B12.formBalcao(function (res) { B12.pintarEquipe(); B12.aposBalcao(res); }); };
 };
 
 })();
