@@ -48,7 +48,9 @@ function vazio() {
     lancamentos: [],     /* entradas e saídas do financeiro */
     contas: [],          /* a pagar e a receber */
     saidas: [],          /* viagens programadas (operação) */
-    turistas: [],
+    clientes: [],        /* ficha de quem viaja: contato e histórico */
+    patio: [],           /* carros no estacionamento: entrada e saída */
+    manutencoes: [],     /* o que foi feito na embarcação */
     ajustes: {
       metaMensal: 60000,
       reservaMinima: 45000,     /* PENDENTE: a regra é do cliente */
@@ -66,6 +68,9 @@ B12.carregar = function () {
   try { B12.DB = JSON.parse(localStorage.getItem(CHAVE)) || vazio(); }
   catch (e) { B12.DB = vazio(); }
   if (!B12.DB.ajustes) B12.DB.ajustes = vazio().ajustes;
+  ['clientes','patio','manutencoes','lancamentos','contas','saidas','reservas'].forEach(function (k) {
+    if (!Array.isArray(B12.DB[k])) B12.DB[k] = [];
+  });
   if (!B12.DB.semeado) { B12.semear(); }
   return B12.DB;
 };
@@ -80,7 +85,9 @@ B12.salvar = function () {
 function cofreLer(){ try{ return JSON.parse(localStorage.getItem(COFRE)) || {copias:[]}; }
                      catch(e){ return {copias:[]}; } }
 function cofrePeso(d){ return (d.reservas||[]).length + (d.lancamentos||[]).length +
-                              (d.contas||[]).length + (d.saidas||[]).length; }
+                              (d.contas||[]).length + (d.saidas||[]).length +
+                              (d.clientes||[]).length + (d.patio||[]).length +
+                              (d.manutencoes||[]).length; }
 var cofreUltimo = 0;
 B12.cofreGuardar = function (motivo) {
   var agora = Date.now();
@@ -167,9 +174,101 @@ B12.semear = function () {
       sentido:'volta', vagas:12, ocupadas: Math.max(0, 9-i*2), marinheiro:'Ismael' });
   });
 
+  semearOperacao(D, hoje);
+
   D.semeado = true;
   try { localStorage.setItem(CHAVE, JSON.stringify(D)); } catch (e) {}
 };
+
+/* ---- clientes, passageiros do dia, pátio e manutenção (demonstração) ---- */
+function semearOperacao(D, hoje) {
+  var NOMES = ['Ana Paula Ribeiro','Marcelo Tavares','Juliana Nunes','Rafael Prado',
+    'Camila Bittencourt','Eduardo Salles','Patrícia Lemos','Thiago Moreira',
+    'Fernanda Klein','Bruno Carvalho','Larissa Fontes','Gustavo Andrade',
+    'Vanessa Duarte','Rodrigo Peixoto'];
+  var POUS = B12.PARCEIROS.map(function (p) { return p.nome; });
+  var CIDADES = ['Curitiba','São Paulo','Joinville','Londrina','Ponta Grossa',
+    'Maringá','Florianópolis','Cascavel'];
+  var sem = 7;
+  function r(n) { sem = (sem * 9301 + 49297) % 233280; return Math.floor(sem / 233280 * n); }
+
+  NOMES.forEach(function (nome, i) {
+    var pn = nome.toLowerCase().split(' ')[0];
+    D.clientes.push({
+      id: 'cl-demo-' + i, nome: nome,
+      whats: '41' + (90000000 + r(9999999)),
+      email: pn + '@exemplo.com.br',
+      instagram: i % 3 === 0 ? pn + '.viagens' : '',
+      pousada: i % 4 === 0 ? '' : POUS[r(POUS.length)],
+      cidade: CIDADES[r(CIDADES.length)],
+      obs: '', aceitaOfertas: i % 3 !== 1,
+      consentidoEm: i % 3 !== 1 ? new Date().toISOString() : null,
+      criadoEm: new Date().toISOString(),
+      viagens: 1 + r(4), gasto: 180 + r(9) * 120
+    });
+  });
+
+  /* passageiros distribuídos nas saídas de hoje */
+  var idas = D.saidas.filter(function (s) { return s.data === hoje && s.sentido === 'ida'; });
+  var voltas = D.saidas.filter(function (s) { return s.data === hoje && s.sentido === 'volta'; });
+  idas.forEach(function (s, i) {
+    var quantos = 1 + r(3);
+    s.ocupadas = 0;
+    for (var k = 0; k < quantos; k++) {
+      var c = D.clientes[(i * 3 + k) % D.clientes.length];
+      var pax = 1 + r(3);
+      if (s.ocupadas + pax > s.vagas) break;
+      s.ocupadas += pax;
+      D.reservas.push({
+        id: 'rs-demo-' + i + '-' + k, cod: 'B12-' + (2000 + i * 40 + k * 7),
+        nome: c.nome, zap: c.whats, email: c.email, pax: pax, criancas: 0,
+        ida: hoje, volta: k % 2 ? B12.diaMais(hoje, 2) : hoje,
+        destino: s.destino, pousada: c.pousada,
+        produto: 'Travessia regular', faixa: '08h30 às 18h00',
+        estacionamento: 0, pg: 'Pix', total: pax * 120,
+        situacao: 'confirmada', saidaId: s.id,
+        saidaVoltaId: (k % 2 === 0 && i % 2 === 0) ? (voltas[i % voltas.length] || {}).id : null,
+        criada: new Date().toISOString()
+      });
+    }
+  });
+  voltas.forEach(function (s) {
+    s.ocupadas = D.reservas.filter(function (x) { return x.saidaVoltaId === s.id; })
+      .reduce(function (t, x) { return t + x.pax; }, 0);
+  });
+
+  /* carros no pátio */
+  [['ABC1D23','Gol','prata',3,'A02'],['QRS4E56','Onix','branco',1,'A05'],
+   ['MNO7F89','HB20','preto',5,'B01'],['XYZ2G34','Compass','cinza',2,'']]
+  .forEach(function (v, i) {
+    var c = D.clientes[i * 3];
+    D.patio.push({
+      id: 'pt-demo-' + i, placa: v[0], modelo: v[1], cor: v[2],
+      clienteId: c.id, nome: c.nome, whats: c.whats,
+      entrada: B12.diaMais(hoje, -v[3]),
+      saidaPrevista: B12.diaMais(hoje, i === 2 ? -1 : 1 + i),
+      vaga: v[4], diaria: B12.DIARIA, saidaReal: null, pago: false, valorPago: 0,
+      criadoEm: new Date().toISOString()
+    });
+  });
+
+  /* manutenções recentes */
+  [['Troca de óleo e filtros','óleo, 2 filtros','preventiva',480,-22],
+   ['Revisão da rabeta','retentores, o-rings','corretiva',1180,-9],
+   ['GPS náutico novo','GPS 7 polegadas','investimento',2560,-40]]
+  .forEach(function (m, i) {
+    D.manutencoes.push({
+      id: 'mn-demo-' + i, data: B12.diaMais(hoje, m[4]), embarcacao: 'l01',
+      tipo: m[2], descricao: m[0], pecas: m[1], fornecedor: 'Marina Michel',
+      valor: m[3], horasMotor: 1200 + i * 40, proxima: '',
+      criadoEm: new Date().toISOString()
+    });
+    D.lancamentos.push(lanc(B12.diaMais(hoje, m[4]), 'saida',
+      m[2] === 'investimento' ? 'Compras e fornecedores' : 'Manutenção', 'Lancha',
+      m[0], m[3], 'pix'));
+    if (m[2] === 'investimento') D.lancamentos[0].investimento = true;
+  });
+}
 function lanc(data,tipo,cat,centro,desc,valor,pg){
   return { id:'l'+Math.random().toString(36).slice(2,9), data:data, tipo:tipo, cat:cat,
            centro:centro, desc:desc, valor:Math.round(valor), pg:pg||'pix', origem:'demo' };
@@ -418,4 +517,360 @@ B12.saidasDoDia = function (iso, sentido) {
   return B12.DB.saidas.filter(function (s) {
     return s.data === iso && (!sentido || s.sentido === sentido);
   }).sort(function(a,b){ return a.hora < b.hora ? -1 : 1; });
+};
+
+
+/* ============================================================================
+   ENTRADA DE DADOS — tudo o que o Dhalsin e a equipe digitam
+   Cada função guarda, devolve o registro criado e reflete no financeiro quando
+   for o caso. Nenhuma tela grava direto: passa por aqui.
+   ========================================================================== */
+
+function novoId(pref) { return pref + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+B12.novoId = novoId;
+
+/* --------------------------------------------------------------- clientes */
+B12.salvarCliente = function (c) {
+  if (!c.nome || !String(c.nome).trim()) return { erro: 'O nome é obrigatório.' };
+  var zap = String(c.whats || '').replace(/\D/g, '');
+  if (zap && zap.length < 10) return { erro: 'O WhatsApp parece incompleto.' };
+  var ja = c.id && B12.DB.clientes.filter(function (x) { return x.id === c.id; })[0];
+  var reg = ja || { id: novoId('cl'), criadoEm: new Date().toISOString(), gasto: 0, viagens: 0 };
+  reg.nome = String(c.nome).trim();
+  reg.whats = zap;
+  reg.email = String(c.email || '').trim().toLowerCase();
+  reg.instagram = String(c.instagram || '').trim().replace(/^@/, '');
+  reg.pousada = c.pousada || '';
+  reg.cidade = String(c.cidade || '').trim();
+  reg.obs = String(c.obs || '').trim();
+  reg.aceitaOfertas = !!c.aceitaOfertas;   /* separado do aceite de uso, por lei */
+  reg.consentidoEm = c.aceitaOfertas ? new Date().toISOString() : (reg.consentidoEm || null);
+  reg.atualizadoEm = new Date().toISOString();
+  if (!ja) B12.DB.clientes.unshift(reg);
+  B12.salvar();
+  return { ok: true, cliente: reg };
+};
+B12.buscarClientes = function (termo) {
+  var t = String(termo || '').trim().toLowerCase();
+  if (!t) return B12.DB.clientes.slice(0, 60);
+  return B12.DB.clientes.filter(function (c) {
+    return (c.nome + ' ' + c.whats + ' ' + c.email + ' ' + c.instagram + ' ' + (c.pousada||''))
+      .toLowerCase().indexOf(t) >= 0;
+  }).slice(0, 60);
+};
+B12.apagarCliente = function (id) {
+  /* a pessoa tem direito de sumir: some o contato, o histórico fica sem nome */
+  B12.DB.clientes = B12.DB.clientes.filter(function (c) { return c.id !== id; });
+  B12.DB.lancamentos.forEach(function (l) {
+    if (l.clienteId === id) { l.clienteId = null; l.desc = l.desc + ' (cliente apagado)'; }
+  });
+  B12.salvar();
+};
+B12.histCliente = function (id) {
+  var L = B12.DB.lancamentos.filter(function (l) { return l.clienteId === id; });
+  return { viagens: L.length, gasto: L.reduce(function (s, l) { return s + l.valor; }, 0), lista: L };
+};
+
+/* ------------------------------------------------------------ lançamentos */
+/* Um só caminho para entrada e saída. `investimento` separa compra de barco
+   de custo de operar — sem isso o lucro do mês mente. */
+B12.salvarLancamento = function (l) {
+  var v = Number(String(l.valor).replace(/\./g, '').replace(',', '.')) || 0;
+  if (v <= 0) return { erro: 'Informe um valor maior que zero.' };
+  if (!l.data) return { erro: 'Informe a data.' };
+  if (!l.cat) return { erro: 'Escolha a categoria.' };
+  var ja = l.id && B12.DB.lancamentos.filter(function (x) { return x.id === l.id; })[0];
+  var reg = ja || { id: novoId('l'), criadoEm: new Date().toISOString() };
+  reg.data = l.data;
+  reg.tipo = l.tipo === 'entrada' ? 'entrada' : 'saida';
+  reg.cat = l.cat;
+  reg.centro = l.centro || 'Administrativo';
+  reg.desc = String(l.desc || l.cat).trim();
+  reg.valor = Math.round(v * 100) / 100;
+  reg.pg = l.pg || 'pix';
+  reg.responsavel = l.responsavel || '';
+  reg.embarcacao = l.embarcacao || '';
+  reg.clienteId = l.clienteId || null;
+  reg.investimento = !!l.investimento;
+  reg.obs = String(l.obs || '').trim();
+  reg.origem = ja ? reg.origem : 'mao';
+  if (!ja) B12.DB.lancamentos.unshift(reg);
+  B12.salvar();
+  return { ok: true, lancamento: reg };
+};
+B12.apagarLancamento = function (id) {
+  B12.DB.lancamentos = B12.DB.lancamentos.filter(function (l) { return l.id !== id; });
+  B12.salvar();
+};
+/* o último lançamento de uma categoria, para o botão "repetir" */
+B12.ultimoDe = function (cat) {
+  return B12.DB.lancamentos.filter(function (l) { return l.cat === cat && l.origem === 'mao'; })
+    .sort(function (a, b) { return a.data < b.data ? 1 : -1; })[0] || null;
+};
+
+/* ------------------------------------------------------------- manutenção */
+B12.salvarManutencao = function (m) {
+  var v = Number(String(m.valor).replace(/\./g, '').replace(',', '.')) || 0;
+  if (!m.descricao || !String(m.descricao).trim()) return { erro: 'Descreva o que foi feito.' };
+  if (v <= 0) return { erro: 'Informe o valor.' };
+  var reg = {
+    id: novoId('mn'), data: m.data || B12.hoje(),
+    embarcacao: m.embarcacao || 'l01',
+    tipo: m.tipo || 'corretiva',           /* preventiva · corretiva · investimento */
+    descricao: String(m.descricao).trim(),
+    pecas: String(m.pecas || '').trim(),
+    fornecedor: String(m.fornecedor || '').trim(),
+    valor: Math.round(v * 100) / 100,
+    horasMotor: Number(m.horasMotor) || null,
+    proxima: m.proxima || '',
+    criadoEm: new Date().toISOString()
+  };
+  B12.DB.manutencoes.unshift(reg);
+  /* toda manutenção vira saída no financeiro, sem digitar duas vezes */
+  B12.salvarLancamento({
+    data: reg.data, tipo: 'saida',
+    cat: reg.tipo === 'investimento' ? 'Compras e fornecedores' : 'Manutenção',
+    centro: 'Lancha',
+    desc: reg.descricao + (reg.pecas ? ' · ' + reg.pecas : ''),
+    valor: reg.valor, pg: m.pg || 'pix', embarcacao: reg.embarcacao,
+    investimento: reg.tipo === 'investimento'
+  });
+  /* se marcou a próxima revisão, já entra como conta a pagar prevista */
+  if (reg.proxima) {
+    B12.DB.contas.push({ id: novoId('c'), tipo: 'pagar',
+      desc: 'Revisão prevista · ' + reg.descricao, valor: reg.valor,
+      venc: reg.proxima, cat: 'Manutenção', centro: 'Lancha', paga: false, avisar: true });
+  }
+  B12.salvar();
+  return { ok: true, manutencao: reg };
+};
+B12.resumoManutencao = function () {
+  var M = B12.DB.manutencoes;
+  var r = { total: 0, investimento: 0, preventiva: 0, corretiva: 0, ultima: null, proxima: null };
+  M.forEach(function (m) {
+    r.total += m.valor;
+    r[m.tipo] = (r[m.tipo] || 0) + m.valor;
+    if (!r.ultima || m.data > r.ultima.data) r.ultima = m;
+    if (m.proxima && (!r.proxima || m.proxima < r.proxima)) r.proxima = m.proxima;
+  });
+  return r;
+};
+
+/* ---------------------------------------------------------- estacionamento */
+/* O pátio é operação diária: carro entra, fica N diárias, sai e paga. */
+B12.entradaPatio = function (v) {
+  var placa = String(v.placa || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (placa.length < 6) return { erro: 'Placa incompleta.' };
+  if (B12.DB.patio.some(function (x) { return x.placa === placa && !x.saidaReal; }))
+    return { erro: 'Esse carro já está no pátio.' };
+  var reg = {
+    id: novoId('pt'), placa: placa,
+    modelo: String(v.modelo || '').trim(),
+    cor: String(v.cor || '').trim(),
+    clienteId: v.clienteId || null,
+    nome: String(v.nome || '').trim(),
+    whats: String(v.whats || '').replace(/\D/g, ''),
+    entrada: v.entrada || B12.hoje(),
+    saidaPrevista: v.saidaPrevista || '',
+    vaga: String(v.vaga || '').trim(),
+    diaria: Number(v.diaria) || B12.DB.ajustes.diaria,
+    saidaReal: null, pago: false, valorPago: 0,
+    criadoEm: new Date().toISOString()
+  };
+  B12.DB.patio.unshift(reg);
+  B12.salvar();
+  return { ok: true, veiculo: reg };
+};
+B12.diariasDe = function (reg, ate) {
+  var fim = ate || reg.saidaReal || B12.hoje();
+  var d = (new Date(fim + 'T12:00') - new Date(reg.entrada + 'T12:00')) / 86400000;
+  return Math.max(1, Math.round(d) || 1);
+};
+B12.saidaPatio = function (id, pg) {
+  var reg = B12.DB.patio.filter(function (x) { return x.id === id; })[0];
+  if (!reg) return { erro: 'Veículo não encontrado.' };
+  if (reg.saidaReal) return { erro: 'Esse carro já saiu.' };
+  reg.saidaReal = B12.hoje();
+  var dias = B12.diariasDe(reg);
+  reg.valorPago = dias * reg.diaria;
+  reg.pago = true;
+  B12.salvarLancamento({
+    data: reg.saidaReal, tipo: 'entrada', cat: 'Estacionamento', centro: 'Estacionamento',
+    desc: 'Placa ' + reg.placa + ' · ' + dias + (dias > 1 ? ' diárias' : ' diária'),
+    valor: reg.valorPago, pg: pg || 'pix', clienteId: reg.clienteId
+  });
+  B12.salvar();
+  return { ok: true, veiculo: reg, dias: dias, valor: reg.valorPago };
+};
+B12.patioHoje = function () {
+  return B12.DB.patio.filter(function (v) { return !v.saidaReal; })
+    .sort(function (a, b) { return a.entrada < b.entrada ? -1 : 1; });
+};
+B12.patioResumo = function () {
+  var dentro = B12.patioHoje();
+  var aReceber = dentro.reduce(function (s, v) { return s + B12.diariasDe(v) * v.diaria; }, 0);
+  var vencendo = dentro.filter(function (v) {
+    return v.saidaPrevista && v.saidaPrevista <= B12.hoje(); });
+  return { dentro: dentro.length, aReceber: Math.round(aReceber), vencendo: vencendo };
+};
+
+/* --------------------------------------- atendimento de balcão (chegou agora) */
+/* A pessoa chega sem reserva. Um caminho só: cria a ficha, lança a venda e,
+   se deixar carro, abre o pátio. É a tela mais usada da operação. */
+B12.atenderBalcao = function (a) {
+  var res = B12.salvarCliente({
+    nome: a.nome, whats: a.whats, email: a.email, instagram: a.instagram,
+    pousada: a.pousada, cidade: a.cidade, aceitaOfertas: a.aceitaOfertas
+  });
+  if (res.erro) return res;
+  var cli = res.cliente;
+
+  var p = B12.preco({ produto: a.produto || 'regular', pax: a.pax || 1,
+    criancas: a.criancas || 0, faixa: a.faixa || B12.faixaHora(a.hora),
+    diarias: 0, pg: a.pg });
+  var valor = p ? p.travessia : Number(a.valorManual) || 0;
+  if (valor <= 0) return { erro: 'Horário fora da tabela: informe o valor combinado.' };
+
+  B12.salvarLancamento({
+    data: a.data || B12.hoje(), tipo: 'entrada', cat: 'Travessias', centro: 'Lancha',
+    desc: (a.pax || 1) + ' travessias · ' + (a.pax || 1) + ' passageiros · ' + cli.nome,
+    valor: valor, pg: a.pg || 'pix', responsavel: a.responsavel || '',
+    embarcacao: 'l01', clienteId: cli.id
+  });
+  cli.viagens = (cli.viagens || 0) + 1;
+  cli.gasto = (cli.gasto || 0) + valor;
+
+  var veic = null;
+  if (a.placa) {
+    var e = B12.entradaPatio({ placa: a.placa, modelo: a.modelo, cor: a.cor,
+      clienteId: cli.id, nome: cli.nome, whats: cli.whats,
+      saidaPrevista: a.saidaPrevista, vaga: a.vaga });
+    if (!e.erro) veic = e.veiculo;
+  }
+  B12.salvar();
+  return { ok: true, cliente: cli, valor: valor, veiculo: veic };
+};
+
+/* ------------------------------------------------ investimento x operação */
+B12.resumoInvestimento = function () {
+  var L = B12.DB.lancamentos.filter(function (l) { return l.investimento; });
+  var porAno = {};
+  L.forEach(function (l) { var a = l.data.slice(0,4); porAno[a] = (porAno[a]||0) + l.valor; });
+  return { total: L.reduce(function (s,l) { return s+l.valor; }, 0), itens: L, porAno: porAno };
+};
+/* o resumo do mês passa a excluir investimento do custo de operar */
+B12.resumoMesOperacional = function (ym) {
+  var r = B12.resumoMes(ym);
+  var inv = B12.DB.lancamentos.filter(function (l) {
+    return l.data.slice(0,7) === ym && l.investimento; })
+    .reduce(function (s, l) { return s + l.valor; }, 0);
+  r.investimento = inv;
+  r.saidasOperacao = r.saidas - inv;
+  r.lucroOperacional = r.entradas - r.saidasOperacao - r.taxa;
+  return r;
+};
+
+
+/* ============================================================================
+   GESTÃO — os números que mudam decisão
+   ========================================================================== */
+
+/* Ponto de equilíbrio: quantos passageiros por mês só para pagar o que é fixo. */
+B12.pontoEquilibrio = function () {
+  var fixos = B12.DB.contas.filter(function (c) { return c.fixa && c.tipo === 'pagar'; });
+  var vistos = {}, mensal = 0;
+  fixos.forEach(function (c) { if (vistos[c.desc]) return; vistos[c.desc] = 1; mensal += c.valor; });
+
+  var ym = B12.mesAtual(), r = B12.resumoMes(ym);
+  var pax = 0;
+  B12.DB.lancamentos.forEach(function (l) {
+    if (l.data.slice(0,7) !== ym) return;
+    var m = /· (\d+) passageiros/.exec(l.desc || ''); if (m) pax += +m[1];
+  });
+  var receitaPax = r.porCat['Travessias'] || 0;
+  var ticket = pax ? receitaPax / pax : B12.DB.ajustes.regular * 2;
+
+  /* combustível come uma fatia de cada real que entra */
+  var comb = r.porCat['Combustível'] || 0;
+  var fatiaComb = r.entradas ? comb / r.entradas : 0.155;
+  var taxaMedia = r.entradas ? r.taxa / r.entradas : 0.025;
+  var margem = 1 - fatiaComb - taxaMedia;            /* o que sobra de cada real para os fixos */
+
+  var receitaNec = margem > 0 ? mensal / margem : 0;
+  return {
+    fixosMensais: Math.round(mensal),
+    ticketMedio: Math.round(ticket),
+    fatiaCombustivel: fatiaComb,
+    taxaMedia: taxaMedia,
+    margemContribuicao: margem,
+    receitaNecessaria: Math.round(receitaNec),
+    passageirosNecessarios: ticket > 0 ? Math.ceil(receitaNec / ticket) : 0,
+    receitaAtual: r.entradas,
+    passageirosAtuais: pax,
+    coberto: r.entradas >= receitaNec
+  };
+};
+
+/* Margem por serviço: receita menos o que aquele serviço custa. */
+B12.margemPorServico = function (ym) {
+  ym = ym || B12.mesAtual();
+  var r = B12.resumoMes(ym);
+  var comb = r.porCat['Combustível'] || 0;
+  var manut = r.porCat['Manutenção'] || 0;
+  var custoBarco = comb + manut;                     /* só travessia e passeio consomem barco */
+  var trav = r.porCat['Travessias'] || 0;
+  var pass = r.porCat['Passeios'] || 0;
+  var est  = r.porCat['Estacionamento'] || 0;
+  var com  = r.porCat['Comissões de hospedagem'] || 0;
+  var base = trav + pass || 1;
+  return [
+    { nome:'Travessias',   receita:trav, custo: Math.round(custoBarco * trav/base) },
+    { nome:'Passeios',     receita:pass, custo: Math.round(custoBarco * pass/base) },
+    { nome:'Estacionamento', receita:est, custo: 0 },
+    { nome:'Comissões',    receita:com,  custo: 0 }
+  ].filter(function (x) { return x.receita > 0; })
+   .map(function (x) { x.lucro = x.receita - x.custo;
+     x.margem = x.receita ? x.lucro / x.receita : 0; return x; })
+   .sort(function (a,b) { return b.lucro - a.lucro; });
+};
+
+/* Custo de combustível por passageiro, do histórico real e do mês. */
+B12.custoPorPassageiro = function () {
+  var H = B12.HIST_RESUMO, C = B12.COMB_TOTAL;
+  var ym = B12.mesAtual(), r = B12.resumoMes(ym), pax = 0;
+  B12.DB.lancamentos.forEach(function (l) {
+    if (l.data.slice(0,7) !== ym) return;
+    var m = /· (\d+) passageiros/.exec(l.desc || ''); if (m) pax += +m[1];
+  });
+  return {
+    historico: C.litros ? C.valor / H.passageiros : 0,
+    mes: pax ? (r.porCat['Combustível'] || 0) / pax : 0,
+    paxMes: pax
+  };
+};
+
+/* Acumulado do ano contra o mesmo período do ano anterior, pelo histórico real. */
+B12.acumuladoAno = function (ano) {
+  function ate(a, mesLim) {
+    var t = 0, n = 0;
+    B12.HIST_VENDAS.forEach(function (m) {
+      if (+m[0].slice(0,4) === a && +m[0].slice(5,7) <= mesLim) { t += m[3] + m[4]; n++; }
+    });
+    return { total: t, meses: n };
+  }
+  var serie = [];
+  for (var m = 1; m <= 12; m++) serie.push({ mes: m, atual: ate(ano, m), anterior: ate(ano-1, m) });
+  return serie;
+};
+
+/* Dia da semana que mais rende, pelo movimento lançado. */
+B12.porDiaDaSemana = function () {
+  var d = [0,0,0,0,0,0,0], n = [0,0,0,0,0,0,0];
+  B12.DB.lancamentos.forEach(function (l) {
+    if (l.tipo !== 'entrada') return;
+    var dw = new Date(l.data + 'T12:00').getDay();
+    d[dw] += l.valor; n[dw]++;
+  });
+  var nomes = ['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
+  return d.map(function (v, i) { return { dia: nomes[i], total: Math.round(v), lanc: n[i] }; });
 };

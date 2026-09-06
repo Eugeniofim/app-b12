@@ -170,6 +170,7 @@ function comecar() {
   document.getElementById('b-avisos').onclick   = function () { B12.ir('promocoes'); };
   document.getElementById('b-perfil').onclick   = function () { B12.ir('reservas'); };
   document.getElementById('b-atualizar').onclick = aplicarNova;
+  document.getElementById('b-mais-acoes').onclick = function () { B12.menuMais(); };
 
   B12.buscarClima();
   ligarAtualizacao();

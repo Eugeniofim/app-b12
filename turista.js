@@ -297,6 +297,8 @@ B12.pintarEquipe = function () {
   var idas = B12.saidasDoDia(hoje, 'ida'), voltas = B12.saidasDoDia(hoje, 'volta');
   var pax = idas.reduce(function (s, x) { return s + x.ocupadas; }, 0);
   alvo.innerHTML =
+    '<div style="padding:12px 12px 0"><button class="btn pri" style="margin:0" id="b-balcao">' +
+    '+ Cliente chegou agora</button></div>' +
     '<div class="cx nota entra"><h3>Painel da equipe</h3>' +
     '<p>Quem opera vê o dia, os passageiros e o contato. <b>Não vê nada de dinheiro</b> — ' +
     'isso é trava no banco, não é só tela escondida.</p></div>' +
@@ -324,6 +326,8 @@ B12.pintarEquipe = function () {
         '<div class="d"><b>Retorno para Pontal do Sul</b>' +
         '<small>' + s.ocupadas + ' de ' + s.vagas + ' lugares reservados</small></div></div>';
     }).join('') + '</div>';
+  var b = document.getElementById('b-balcao');
+  if (b) b.onclick = function () { B12.formBalcao(function () { B12.pintarEquipe(); }); };
 };
 
 })();

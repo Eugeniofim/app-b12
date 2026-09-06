@@ -157,9 +157,11 @@ function grafRosca(alvo, fatias) {
 
 /* ============================================================== os painéis */
 var ABAS = [
-  ['hoje','Hoje'], ['painel','Painel'], ['caixa','Caixa'], ['lanc','Lançamentos'],
+  ['hoje','Hoje'], ['escala','Escala'], ['painel','Painel'], ['gestao','Gestão'],
+  ['caixa','Caixa'], ['lanc','Lançamentos'],
+  ['clientes','Clientes'], ['patio','Pátio'], ['manut','Manutenção'],
   ['contas','Contas'], ['relat','Relatórios'], ['oper','Operação'],
-  ['prosp','Prospecção'], ['intel','Inteligência']
+  ['prosp','Prospecção'], ['msgs','Mensagens'], ['intel','Inteligência']
 ];
 var abaAtual = 'hoje';
 
@@ -176,7 +178,9 @@ B12.admDesenhar = function (aba) {
   });
   raiz.innerHTML = '';
   ({ hoje:pHoje, painel:pPainel, caixa:pCaixa, lanc:pLanc, contas:pContas,
-     relat:pRelat, oper:pOper, prosp:pProsp, intel:pIntel }[abaAtual] || pHoje)(raiz);
+     relat:pRelat, oper:pOper, prosp:pProsp, intel:pIntel,
+     clientes:pClientes, patio:pPatio, manut:pManut, gestao:pGestao,
+     escala:pEscala, msgs:pMsgs }[abaAtual] || pHoje)(raiz);
   B12.animarPlacar(raiz);
   raiz.scrollIntoView({ block:'nearest' });
 };
@@ -383,14 +387,33 @@ function pLanc(raiz) {
   raiz.querySelectorAll('[data-f]').forEach(function (b) {
     b.onclick = function () { filtroLanc = b.dataset.f; B12.admDesenhar('lanc'); };
   });
+  var acoes = bloco('<div class="grade2" style="margin:12px">' +
+    '<button class="btn pri" style="margin:0" id="b-nova-entrada">+ Entrada</button>' +
+    '<button class="btn sec" style="margin:0" id="b-nova-saida">+ Saída</button></div>');
+  raiz.appendChild(acoes);
+  acoes.querySelector('#b-nova-entrada').onclick = function () {
+    B12.formLancamento('entrada', {}, function(){ B12.admDesenhar('lanc'); }); };
+  acoes.querySelector('#b-nova-saida').onclick = function () {
+    B12.formLancamento('saida', {}, function(){ B12.admDesenhar('lanc'); }); };
   var lista = document.createElement('div'); lista.className = 'lista entra entra-2';
   lista.innerHTML = L.length ? L.map(function (l) {
-    return '<div class="linha"><span class="tag">' + B12.dataBR(l.data).slice(0,5) + '</span>' +
+    return '<div class="linha toca" data-lanc="' + l.id + '">' +
+      '<span class="tag">' + B12.dataBR(l.data).slice(0,5) + '</span>' +
       '<div class="d"><b>' + l.desc + '</b><small>' + l.cat + ' · ' + l.centro + ' · ' + l.pg +
-      '</small></div><span class="v ' + (l.tipo==='entrada'?'ent':'sai') + '">' +
+      (l.investimento ? ' <span class="pilula inv">investimento</span>' : '') +
+      (l.origem === 'mao' ? '' : ' · automático') + '</small></div>' +
+      '<span class="v ' + (l.tipo==='entrada'?'ent':'sai') + '">' +
       (l.tipo==='entrada'?'+':'−') + ' ' + B12.brl(l.valor) + '</span></div>';
-  }).join('') : '<div class="vazio"><b>Nada lançado ainda</b><p>Os lançamentos do mês aparecem aqui.</p></div>';
+  }).join('') : '<div class="vazio"><b>Nada lançado ainda</b>' +
+    '<p>Toque em + Entrada ou + Saída para o primeiro lançamento do mês.</p></div>';
   raiz.appendChild(lista);
+  lista.querySelectorAll('[data-lanc]').forEach(function (li) {
+    li.onclick = function () {
+      var l = B12.DB.lancamentos.filter(function(x){ return x.id === li.dataset.lanc; })[0];
+      if (!l) return;
+      B12.formLancamento(l.tipo, l, function(){ B12.admDesenhar('lanc'); });
+    };
+  });
   raiz.appendChild(bloco(
     '<div class="cx nota"><h3>Como isso vai funcionar de verdade</h3>' +
     '<p>A reserva do turista vira entrada sozinha. Para o resto, a tela de digitação é de ' +
@@ -658,6 +681,505 @@ function pIntel(raiz) {
     '<p><b>A planilha parou em julho de 2025</b>, há mais de um ano. 2023 inteiro não existe. ' +
     'E há 902 linhas com valor e sem data, incluindo somas misturadas no meio dos lançamentos. ' +
     'Nada disso impede a importação, mas cada caso precisa de uma regra combinada antes.</p></div>'));
+}
+
+
+/* ============================================================== CLIENTES */
+var buscaCli = '';
+function pClientes(raiz) {
+  var todos = B12.DB.clientes, achados = B12.buscarClientes(buscaCli);
+  var comZap = todos.filter(function (c) { return c.whats; }).length;
+  var comOfertas = todos.filter(function (c) { return c.aceitaOfertas; }).length;
+  var comInsta = todos.filter(function (c) { return c.instagram; }).length;
+
+  raiz.appendChild(bloco(
+    '<div class="placar entra">' +
+      tile(todos.length,'Clientes','n','destaque') +
+      tile(comZap,'Com WhatsApp','n') +
+      tile(comOfertas,'Aceitam ofertas','n') +
+      tile(comInsta,'Com Instagram','n') +
+      tile(todos.reduce(function(s,c){return s+(c.viagens||0);},0),'Viagens','n') +
+      tile(todos.reduce(function(s,c){return s+(c.gasto||0);},0),'Já gastaram','brl','destaque') +
+    '</div>'
+  ));
+  var b = bloco('<div class="busca">' +
+    '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4" stroke-linecap="round"/></svg>' +
+    '<input id="q-cli" placeholder="buscar por nome, WhatsApp, e-mail ou pousada" value="' +
+    buscaCli.replace(/"/g,'&quot;') + '"></div>' +
+    '<div style="padding:0 12px"><button class="btn pri" style="margin:0" id="b-novo-cli">' +
+    '+ Cadastrar cliente</button></div>');
+  raiz.appendChild(b);
+  var campo = b.querySelector('#q-cli');
+  campo.oninput = function () {
+    buscaCli = campo.value;
+    var pos = campo.selectionStart;
+    B12.admDesenhar('clientes');
+    var novo = document.getElementById('q-cli');
+    if (novo) { novo.focus(); novo.setSelectionRange(pos, pos); }
+  };
+  b.querySelector('#b-novo-cli').onclick = function () {
+    B12.formCliente(null, function () { B12.admDesenhar('clientes'); }); };
+
+  var lista = document.createElement('div'); lista.className = 'lista';
+  lista.innerHTML = achados.length ? achados.map(function (c) {
+    var h = B12.histCliente(c.id);
+    return '<div class="linha toca" data-cli="' + c.id + '">' +
+      '<span class="tag">' + (c.nome[0] || '?').toUpperCase() + '</span>' +
+      '<div class="d"><b>' + c.nome + (c.aceitaOfertas ?
+        ' <span class="pilula dentro">ofertas ok</span>' : '') + '</b>' +
+      '<small>' + [c.whats ? fmtZap(c.whats) : null, c.email || null,
+        c.instagram ? '@' + c.instagram : null].filter(Boolean).join(' · ') +
+      (c.pousada ? '<br>' + c.pousada : '') + '</small></div>' +
+      '<div style="text-align:right"><div class="v">' + B12.brl(h.gasto) + '</div>' +
+      '<small style="font-size:10.5px;color:var(--gelo-3)">' + h.viagens +
+      (h.viagens === 1 ? ' viagem' : ' viagens') + '</small></div></div>';
+  }).join('') : '<div class="vazio">' +
+    '<svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>' +
+    '<b>' + (buscaCli ? 'Ninguém com esse nome' : 'Nenhum cliente ainda') + '</b>' +
+    '<p>' + (buscaCli ? 'Tente outra busca.' :
+      'Cada pessoa que chega vira uma ficha aqui, com contato e histórico de quanto gastou.') + '</p></div>';
+  raiz.appendChild(lista);
+  lista.querySelectorAll('[data-cli]').forEach(function (li) {
+    li.onclick = function () {
+      var c = B12.DB.clientes.filter(function(x){ return x.id === li.dataset.cli; })[0];
+      B12.formCliente(c, function () { B12.admDesenhar('clientes'); });
+    };
+  });
+  raiz.appendChild(bloco(
+    '<div class="cx nota"><h3>Por que o aceite fica separado</h3>' +
+    '<p>WhatsApp e e-mail a B12 usa para operar a viagem, e isso a lei permite sem pedir nada. ' +
+    'Mandar promoção é outra coisa: precisa do aceite, e ele fica guardado com data e hora. ' +
+    'Mil cadastros com aceite valem mais que cinco mil contatos sem, porque só com os ' +
+    'primeiros dá para disparar campanha.</p></div>'));
+}
+function fmtZap(z) {
+  var d = String(z).replace(/\D/g,'');
+  if (d.length === 11) return '(' + d.slice(0,2) + ') ' + d.slice(2,7) + '-' + d.slice(7);
+  if (d.length === 10) return '(' + d.slice(0,2) + ') ' + d.slice(2,6) + '-' + d.slice(6);
+  return z;
+}
+
+/* ================================================================= PÁTIO */
+function pPatio(raiz) {
+  var r = B12.patioResumo(), dentro = B12.patioHoje();
+  var sairam = B12.DB.patio.filter(function (v) { return v.saidaReal; }).slice(0, 12);
+  var mes = B12.resumoMes(B12.mesAtual());
+
+  raiz.appendChild(bloco(
+    '<div class="placar entra">' +
+      tile(r.dentro,'Carros no pátio','n','destaque') +
+      tile(r.aReceber,'A receber','brl') +
+      tile(r.vencendo.length,'Passaram do dia','n', r.vencendo.length ? 'alerta' : '') +
+      tile(mes.porCat['Estacionamento']||0,'Recebido no mês','brl','destaque') +
+      tile(B12.DB.ajustes.diaria,'Diária','brl') +
+      tile(B12.DB.patio.length,'Total histórico','n') +
+    '</div>' +
+    '<div style="padding:0 12px"><button class="btn pri" style="margin:0" id="b-carro">' +
+    '+ Carro entrando</button></div>'
+  ));
+  raiz.querySelector('#b-carro').onclick = function () {
+    B12.formEntradaPatio(function () { B12.admDesenhar('patio'); }); };
+
+  if (r.vencendo.length) raiz.appendChild(bloco(
+    '<div class="cx aviso"><h3>' + r.vencendo.length + ' carro' +
+    (r.vencendo.length>1?'s passaram':' passou') + ' da saída prevista</h3><p>' +
+    r.vencendo.map(function(v){ return v.placa + ' · previsto para ' + B12.dataBR(v.saidaPrevista); })
+      .join('<br>') + '</p></div>'));
+
+  raiz.appendChild(bloco('<div class="faixa-sec"><div class="tit"><h2>No pátio agora</h2></div></div>'));
+  var l1 = document.createElement('div'); l1.className = 'lista';
+  l1.innerHTML = dentro.length ? dentro.map(function (v) {
+    var d = B12.diariasDe(v), atrasado = v.saidaPrevista && v.saidaPrevista < B12.hoje();
+    return '<div class="linha toca" data-sai="' + v.id + '">' +
+      '<span class="tag">' + v.placa + '</span>' +
+      '<div class="d"><b>' + (v.nome || 'sem nome') +
+      (atrasado ? ' <span class="pilula vencendo">passou do dia</span>' :
+       ' <span class="pilula dentro">' + d + (d>1?' diárias':' diária') + '</span>') + '</b>' +
+      '<small>' + [v.modelo, v.cor, v.vaga ? 'vaga ' + v.vaga : null].filter(Boolean).join(' · ') +
+      '<br>entrou ' + B12.dataBR(v.entrada) +
+      (v.saidaPrevista ? ' · sai ' + B12.dataBR(v.saidaPrevista) : '') + '</small></div>' +
+      '<div style="text-align:right"><div class="v">' + B12.brl(d * v.diaria) + '</div>' +
+      '<small style="font-size:10px;color:var(--gelo-3)">toque para dar saída</small></div></div>';
+  }).join('') : '<div class="vazio"><b>Pátio vazio</b>' +
+    '<p>Quando um carro entrar, registre a placa aqui e o app cobra sozinho na saída.</p></div>';
+  raiz.appendChild(l1);
+  l1.querySelectorAll('[data-sai]').forEach(function (li) {
+    li.onclick = function () {
+      B12.confirmarSaidaPatio(li.dataset.sai, function () { B12.admDesenhar('patio'); }); };
+  });
+
+  if (sairam.length) {
+    raiz.appendChild(bloco('<div class="faixa-sec"><div class="tit"><h2>Saíram</h2></div></div>'));
+    var l2 = document.createElement('div'); l2.className = 'lista';
+    l2.innerHTML = sairam.map(function (v) {
+      return '<div class="linha"><span class="tag">' + v.placa + '</span>' +
+        '<div class="d"><b>' + (v.nome || 'sem nome') + '</b><small>' +
+        B12.dataBR(v.entrada) + ' a ' + B12.dataBR(v.saidaReal) + '</small></div>' +
+        '<span class="v ent">' + B12.brl(v.valorPago) + '</span></div>';
+    }).join('');
+    raiz.appendChild(l2);
+  }
+}
+
+/* ============================================================ MANUTENÇÃO */
+function pManut(raiz) {
+  var M = B12.DB.manutencoes, r = B12.resumoManutencao(), inv = B12.resumoInvestimento();
+  var comb = B12.COMB_TOTAL;
+  raiz.appendChild(bloco(
+    '<div class="placar entra">' +
+      tile(r.total,'Gasto em manutenção','brl') +
+      tile(r.investimento||0,'Investimento','brl','destaque') +
+      tile(r.corretiva||0,'Corretiva','brl') +
+      tile(r.preventiva||0,'Preventiva','brl') +
+      tile(M.length,'Registros','n') +
+      tile(inv.total,'Total investido','brl','destaque') +
+    '</div>' +
+    '<div style="padding:0 12px"><button class="btn pri" style="margin:0" id="b-manut">' +
+    '+ Registrar manutenção</button></div>'
+  ));
+  raiz.querySelector('#b-manut').onclick = function () {
+    B12.formManutencao(function () { B12.admDesenhar('manut'); }); };
+
+  if (r.proxima) raiz.appendChild(bloco(
+    '<div class="cx aviso"><h3>Próxima revisão em ' + B12.dataBR(r.proxima) + '</h3>' +
+    '<p>Já entrou nas contas a pagar. O app avisa quando estiver perto.</p></div>'));
+
+  raiz.appendChild(bloco(
+    '<div class="cx nota"><h3>Por que separar investimento de manutenção</h3>' +
+    '<p>Trocar óleo é custo de operar: sai do lucro do mês. Comprar um motor, um toldo ou um ' +
+    'GPS é investimento: fica no barco e não deveria derrubar o resultado daquele mês. ' +
+    'Nas suas despesas antigas isso está tudo junto — março de 2019 aparece com R$ 23.500, ' +
+    'quatro vezes qualquer outro mês, quase certamente por causa de uma compra grande.</p></div>'));
+
+  raiz.appendChild(bloco('<div class="faixa-sec"><div class="tit"><h2>Histórico</h2></div></div>'));
+  var l = document.createElement('div'); l.className = 'lista';
+  l.innerHTML = M.length ? M.map(function (m) {
+    return '<div class="linha"><span class="tag">' + B12.dataBR(m.data).slice(0,5) + '</span>' +
+      '<div class="d"><b>' + m.descricao +
+      (m.tipo === 'investimento' ? ' <span class="pilula inv">investimento</span>' : '') + '</b>' +
+      '<small>' + [m.pecas, m.fornecedor, m.horasMotor ? m.horasMotor + 'h de motor' : null]
+        .filter(Boolean).join(' · ') + '</small></div>' +
+      '<span class="v sai">' + B12.brl(m.valor) + '</span></div>';
+  }).join('') : '<div class="vazio"><b>Nenhuma manutenção registrada</b>' +
+    '<p>Cada conserto, revisão ou equipamento novo entra aqui e vira saída no financeiro sozinho.</p></div>';
+  raiz.appendChild(l);
+
+  raiz.appendChild(bloco(
+    '<div class="cx"><h3>Combustível no histórico <span class="selo-demo selo-real">dado real</span></h3>' +
+    '<div class="rolagem"><table class="tabela" style="margin-top:8px">' +
+    '<tr><td>Abastecimentos</td><td class="n">' + B12.n(comb.linhas) + '</td></tr>' +
+    '<tr><td>Litros</td><td class="n">' + B12.n(comb.litros) + ' L</td></tr>' +
+    '<tr><td>Total gasto</td><td class="n">' + B12.brl(comb.valor) + '</td></tr>' +
+    '<tr><td>Preço médio do litro</td><td class="n">R$ ' +
+      comb.precoLitro.toFixed(2).replace('.',',') + '</td></tr>' +
+    '</table></div></div>'));
+}
+
+
+/* ================================================================= GESTÃO */
+function pGestao(raiz) {
+  var pe = B12.pontoEquilibrio();
+  var marg = B12.margemPorServico();
+  var cpp = B12.custoPorPassageiro();
+  var ano = +B12.mesAtual().slice(0,4);
+  var sem = B12.porDiaDaSemana();
+
+  /* ---------- 1. ponto de equilíbrio: o número que mais muda decisão ---------- */
+  var falta = Math.max(0, pe.receitaNecessaria - pe.receitaAtual);
+  var paxFalta = pe.ticketMedio ? Math.ceil(falta / pe.ticketMedio) : 0;
+  raiz.appendChild(bloco(
+    '<div class="cx ' + (pe.coberto ? 'bom' : 'aviso') + ' entra">' +
+    '<h3>' + (pe.coberto
+      ? 'Este mês já pagou as contas fixas'
+      : 'Faltam ' + B12.n(paxFalta) + ' passageiros para pagar as contas do mês') + '</h3>' +
+    '<p>' + (pe.coberto
+      ? 'Tudo o que entrar de agora em diante é lucro, tirando combustível e taxa.'
+      : 'Suas contas fixas somam ' + B12.brl(pe.fixosMensais) + ' por mês. Com o ticket de ' +
+        B12.brl(pe.ticketMedio) + ' por passageiro, e descontando combustível e maquininha, ' +
+        'você precisa faturar ' + B12.brl(pe.receitaNecessaria) + ' só para empatar.') + '</p>' +
+    '<div class="medidor' + (pe.coberto ? '' : ' aviso') + '" style="margin-top:12px">' +
+    '<i style="width:' + Math.min(100, pe.receitaAtual / (pe.receitaNecessaria||1) * 100).toFixed(1) +
+    '%"></i></div>' +
+    '<div style="display:flex;justify-content:space-between;font-size:11.5px;margin-top:6px;' +
+    'color:var(--gelo-3)"><span>' + B12.brl(pe.receitaAtual) + ' faturado</span>' +
+    '<span>empata em ' + B12.brl(pe.receitaNecessaria) + '</span></div></div>' +
+    '<div class="grade2 entra entra-1">' +
+      mini('Contas fixas por mês', B12.brl(pe.fixosMensais), 'salário, aluguel, DAS, contador…') +
+      mini('Ticket por passageiro', B12.brl(pe.ticketMedio), 'média do mês') +
+      mini('Cada real que entra', (pe.margemContribuicao*100).toFixed(0) + '%',
+        'sobra depois de combustível e taxa') +
+      mini('Passageiros para empatar', B12.n(pe.passageirosNecessarios),
+        'hoje: ' + B12.n(pe.passageirosAtuais)) +
+    '</div>'
+  ));
+
+  /* ---------- 2. margem por serviço: onde está o lucro, não a receita ---------- */
+  var g = document.createElement('div'); g.className = 'cx entra entra-2';
+  g.innerHTML = '<h3>Onde está o lucro, não a receita</h3>' +
+    '<p>Receita alta com margem baixa engana. Aqui o combustível e a manutenção são ' +
+    'rateados entre travessia e passeio, que são os que consomem barco.</p>';
+  raiz.appendChild(g);
+  if (marg.length) {
+    grafBarras(g, marg.map(function (m) {
+      return { a:m.lucro, b:m.custo, rot:m.nome.slice(0,7), destaque:false };
+    }), { altura:160 });
+    g.appendChild(bloco('<div class="leg"><span><i style="background:' + C.turq +
+      '"></i>o que sobra</span><span><i style="background:' + C.azul + '"></i>o que custa</span></div>' +
+      '<div class="rolagem"><table class="tabela" style="margin-top:12px">' +
+      '<tr><th>Serviço</th><th style="text-align:right">Receita</th>' +
+      '<th style="text-align:right">Sobra</th><th style="text-align:right">Margem</th></tr>' +
+      marg.map(function (m) {
+        return '<tr><td>' + m.nome + '</td><td class="n">' + B12.brl(m.receita) + '</td>' +
+          '<td class="n" style="color:' + (m.lucro>0?C.turq3:C.ruim) + '">' + B12.brl(m.lucro) + '</td>' +
+          '<td class="n">' + (m.margem*100).toFixed(0) + '%</td></tr>'; }).join('') +
+      '</table></div>'));
+  }
+
+  /* ---------- 3. custo de combustível por passageiro ---------- */
+  raiz.appendChild(bloco(
+    '<div class="grade2 entra entra-3">' +
+      mini('Combustível por passageiro', B12.brl(Math.round(cpp.mes)), 'neste mês') +
+      mini('No histórico', B12.brl(Math.round(cpp.historico)),
+        '41.090 passageiros, 50.784 litros') +
+    '</div>' +
+    '<div class="cx entra entra-3"><h3>Por que este número importa</h3>' +
+    '<p>É o único custo que cresce a cada passageiro. Se ele subir e o preço não, a margem ' +
+    'some sem ninguém perceber. No histórico da B12 dá ' +
+    B12.brl(Math.round(cpp.historico)) + ' de combustível por pessoa transportada.</p></div>'
+  ));
+
+  /* ---------- 4. acumulado do ano contra o ano anterior ---------- */
+  var a = document.createElement('div'); a.className = 'cx entra entra-4';
+  a.innerHTML = '<h3>' + ano + ' contra ' + (ano-1) +
+    ' <span class="selo-demo selo-real">dado real</span></h3>' +
+    '<p>Acumulado mês a mês, dos dois anos, pela planilha. Onde um ano não tem registro, ' +
+    'a linha para: não inventamos zero.</p>';
+  raiz.appendChild(a);
+  var acum = B12.acumuladoAno(2025);   /* último ano com dado real na planilha */
+  var pontos = acum.filter(function (x) { return x.atual.meses || x.anterior.meses; })
+    .map(function (x) { return { v: x.atual.total, rot: B12.MESNOME[x.mes-1],
+      marca: x.mes === 7 }; });
+  if (pontos.length > 1) {
+    grafLinha(a, pontos, { altura:160 });
+    var t2025 = acum[6].atual.total, t2024 = acum[6].anterior.total;
+    a.appendChild(bloco('<div class="rolagem"><table class="tabela" style="margin-top:10px">' +
+      '<tr><td>Acumulado até julho de 2025</td><td class="n">' + B12.brl(t2025) + '</td></tr>' +
+      '<tr><td>Mesmo período de 2024</td><td class="n">' + B12.brl(t2024) + '</td></tr>' +
+      '<tr><td style="font-weight:750">Diferença</td><td class="n" style="color:' +
+      (t2025>=t2024?C.turq3:C.ruim) + '">' + (t2024 ? B12.pct((t2025-t2024)/t2024) : '—') +
+      '</td></tr></table></div>'));
+  }
+
+  /* ---------- 5. dia da semana ---------- */
+  var d = document.createElement('div'); d.className = 'cx entra entra-5';
+  d.innerHTML = '<h3>Que dia da semana rende mais</h3>' +
+    '<p>Serve para escolher quando abrir mais horário e quando mandar promoção.</p>';
+  raiz.appendChild(d);
+  var ordem = [1,2,3,4,5,6,0];   /* segunda a domingo */
+  grafBarras(d, ordem.map(function (i) {
+    var x = sem[i];
+    return { a:x.total, rot:x.dia.slice(0,3),
+      cor: (i===0||i===6||i===5) ? C.turq : '#4E7E96' };
+  }), { altura:150 });
+  d.appendChild(bloco('<div class="leg"><span><i style="background:' + C.turq +
+    '"></i>fim de semana</span><span><i style="background:#4E7E96"></i>meio de semana</span></div>'));
+
+  /* ---------- 6. investimento acumulado ---------- */
+  var inv = B12.resumoInvestimento();
+  raiz.appendChild(bloco(
+    '<div class="cx entra entra-6"><h3>Investido na embarcação</h3>' +
+    '<p>Separado do custo de operar. É o quanto já foi posto no barco em motor, equipamento ' +
+    'e melhoria — dinheiro que ficou, não que sumiu.</p>' +
+    '<div style="font-size:30px;font-weight:750;margin-top:10px;color:var(--turq-300)">' +
+    B12.brl(inv.total) + '</div>' +
+    (inv.itens.length ? '<div class="rolagem"><table class="tabela" style="margin-top:10px">' +
+      inv.itens.slice(0,8).map(function (l) {
+        return '<tr><td>' + l.desc + '</td><td class="n">' + B12.brl(l.valor) + '</td></tr>';
+      }).join('') + '</table></div>'
+      : '<p style="margin-top:8px">Nada marcado como investimento ainda. Ao lançar uma saída, ' +
+        'marque a caixinha "é investimento" quando for motor, toldo, GPS ou reforma.</p>') +
+    '</div>'
+  ));
+}
+
+
+/* ================================================================ ESCALA */
+var diaEscala = null;
+function pEscala(raiz) {
+  var dia = diaEscala || B12.hoje();
+  var e = B12.escalaDoDia(dia);
+  var totalIda = e.idas.reduce(function (t, x) { return t + x.pax; }, 0);
+  var totalVolta = e.voltas.reduce(function (t, x) { return t + x.pax; }, 0);
+  var pendentes = B12.semHorarioDeVolta(dia);
+
+  raiz.appendChild(bloco(
+    '<div style="display:flex;gap:8px;align-items:center;padding:12px" class="entra">' +
+    '<button class="btn sec" style="margin:0;width:auto;padding:11px 14px" id="b-ontem">‹</button>' +
+    '<input type="date" id="d-escala" value="' + dia + '" style="flex:1;text-align:center">' +
+    '<button class="btn sec" style="margin:0;width:auto;padding:11px 14px" id="b-amanha">›</button>' +
+    '</div>' +
+    '<div class="placar entra entra-1">' +
+      tile(e.idas.length,'Saídas de ida','n') +
+      tile(totalIda,'Passageiros indo','n','destaque') +
+      tile(e.voltas.length,'Saídas de volta','n') +
+      tile(totalVolta,'Passageiros voltando','n','destaque') +
+      tile(pendentes.length,'Sem volta marcada','n', pendentes.length ? 'alerta' : '') +
+      tile(B12.EMBARCACOES.length,'Embarcações','n') +
+    '</div>' +
+    '<div class="grade2" style="margin:12px">' +
+    '<button class="btn pri" style="margin:0" id="b-nova-ida">+ Saída de ida</button>' +
+    '<button class="btn sec" style="margin:0" id="b-nova-volta">+ Saída de volta</button></div>'
+  ));
+  var campo = raiz.querySelector('#d-escala');
+  campo.onchange = function () { diaEscala = campo.value; B12.admDesenhar('escala'); };
+  raiz.querySelector('#b-ontem').onclick = function () {
+    diaEscala = B12.diaMais(dia, -1); B12.admDesenhar('escala'); };
+  raiz.querySelector('#b-amanha').onclick = function () {
+    diaEscala = B12.diaMais(dia, 1); B12.admDesenhar('escala'); };
+  raiz.querySelector('#b-nova-ida').onclick = function () { formSaida('ida', dia); };
+  raiz.querySelector('#b-nova-volta').onclick = function () { formSaida('volta', dia); };
+
+  if (pendentes.length) {
+    var av = bloco('<div class="cx aviso"><h3>' + pendentes.length + ' pessoa' +
+      (pendentes.length>1?'s voltam':' volta') + ' hoje sem horário marcado</h3>' +
+      '<p>Mande a lista de horários para elas escolherem.</p>' +
+      '<div class="lista" style="margin:12px 0 0">' + pendentes.map(function (r) {
+        return '<div class="linha toca" data-pend="' + (r.id || r.cod) + '">' +
+          '<span class="tag">' + r.cod + '</span><div class="d"><b>' + r.nome + '</b>' +
+          '<small>' + r.pax + (r.pax>1?' pessoas':' pessoa') + '</small></div>' +
+          '<span class="pilula vencendo">avisar</span></div>'; }).join('') + '</div></div>');
+    raiz.appendChild(av);
+    av.querySelectorAll('[data-pend]').forEach(function (li) {
+      li.onclick = function () {
+        var r = pendentes.filter(function (x) { return (x.id||x.cod) === li.dataset.pend; })[0];
+        B12.folhaMensagem('volta', { nome:r.nome, whats:r.zap, cod:r.cod,
+          horarios: e.voltas.map(function (v) { return v.saida.hora +
+            (v.pax >= v.saida.vagas ? ' (lotado)' : ''); }) });
+      };
+    });
+  }
+
+  desenhaSentido(raiz, 'Indo para a Ilha', e.idas, dia, 'ida');
+  desenhaSentido(raiz, 'Voltando da Ilha', e.voltas, dia, 'volta');
+
+  var fim = bloco('<div style="padding:0 12px 12px">' +
+    '<button class="btn sec" style="margin:0" id="b-escala-zap">' +
+    'Mandar a escala para o marinheiro</button></div>');
+  raiz.appendChild(fim);
+  fim.querySelector('#b-escala-zap').onclick = function () {
+    var linhas = e.idas.concat(e.voltas).map(function (x) {
+      return x.saida.hora + ' — ' + x.saida.destino + ' — ' + x.pax +
+        (x.pax === 1 ? ' passageiro' : ' passageiros'); });
+    B12.folhaMensagem('grupo', { data: dia, linhas: linhas.length ? linhas : ['sem saídas'] });
+  };
+}
+
+function desenhaSentido(raiz, titulo, lista, dia, sentido) {
+  raiz.appendChild(bloco('<div class="faixa-sec"><div class="tit"><h2>' + titulo + '</h2>' +
+    '<span style="font-size:11.5px;color:var(--gelo-3)">' + lista.length +
+    (lista.length === 1 ? ' saída' : ' saídas') + '</span></div></div>'));
+  if (!lista.length) {
+    raiz.appendChild(bloco('<div class="vazio" style="padding:26px"><b>Nenhuma saída marcada</b>' +
+      '<p>Toque no botão acima para criar o primeiro horário do dia.</p></div>'));
+    return;
+  }
+  var cx = document.createElement('div'); cx.className = 'lista';
+  cx.innerHTML = lista.map(function (x) {
+    var s = x.saida, cheio = x.pax / s.vagas;
+    return '<div class="cx" style="margin:0 0 10px;padding:13px">' +
+      '<div style="display:flex;align-items:center;gap:12px">' +
+      '<div class="horario">' + s.hora + '</div>' +
+      '<div style="flex:1;min-width:0"><b style="font-size:14.5px">' + s.destino + '</b>' +
+      '<div style="font-size:11.5px;color:var(--gelo-3);margin-top:2px">' +
+      (s.marinheiro ? s.marinheiro + ' · ' : '') + x.pax + ' de ' + s.vagas + ' lugares</div>' +
+      '<div class="medidor" style="margin-top:7px"><i style="width:' +
+      Math.min(100, cheio*100).toFixed(0) + '%;background:' +
+      (cheio >= 1 ? C.ruim : cheio > 0.8 ? C.aten : C.turq) + '"></i></div></div>' +
+      '<button class="mini-btn" data-msgsaida="' + s.id + '">avisar</button></div>' +
+      (x.passageiros.length ? '<div class="passageiros">' + x.passageiros.map(function (p) {
+        return '<div class="pass" data-pass="' + (p.id || p.cod) + '">' +
+          '<span class="pnome">' + p.nome + '</span>' +
+          '<span class="ppax">' + p.pax + 'p</span>' +
+          (p.zap ? '<button class="zapzinho" data-zap="' + (p.id || p.cod) + '" ' +
+            'aria-label="Falar com ' + p.nome + '">' +
+            '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">' +
+            '<path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Z"/>' +
+            '</svg></button>' : '') + '</div>'; }).join('') + '</div>'
+        : '<div class="semninguem">Ninguém marcado neste horário ainda</div>') +
+      '</div>';
+  }).join('');
+  raiz.appendChild(cx);
+  cx.querySelectorAll('[data-zap]').forEach(function (b) {
+    b.onclick = function (ev) {
+      ev.stopPropagation();
+      var p = B12.DB.reservas.filter(function (r) {
+        return (r.id || r.cod) === b.dataset.zap; })[0];
+      if (p) B12.escolherMensagem({ nome:p.nome, whats:p.zap, cod:p.cod,
+        ida:p.ida, volta:p.volta, pax:p.pax, total:p.total });
+    };
+  });
+  cx.querySelectorAll('[data-msgsaida]').forEach(function (b) {
+    b.onclick = function () {
+      var x = lista.filter(function (y) { return y.saida.id === b.dataset.msgsaida; })[0];
+      if (!x) return;
+      B12.folhaMensagem('grupo', { data: dia,
+        linhas: [x.saida.hora + ' — ' + x.saida.destino + ' — ' + x.pax + ' passageiros'],
+        obs: 'Saída ' + (sentido === 'ida' ? 'para a Ilha' : 'de volta') + '.' });
+    };
+  });
+}
+
+function formSaida(sentido, dia) {
+  B12.folha({
+    titulo: sentido === 'ida' ? 'Nova saída de ida' : 'Nova saída de volta',
+    sub: sentido === 'ida' ? 'Leva os passageiros para a Ilha' : 'Traz os passageiros da Ilha',
+    corpo:
+      B12.f_campo('Horário', 'hora', { tipo:'time', valor: sentido==='ida'?'08:30':'17:00', obrig:true }) +
+      B12.f_campo('Data', 'data', { tipo:'date', valor: dia, obrig:true }) +
+      B12.f_lista('Destino', 'destino', sentido === 'ida'
+        ? B12.DESTINOS : ['Pontal do Sul'], sentido === 'ida' ? 'Brasília' : 'Pontal do Sul') +
+      B12.f_lista('Embarcação', 'embarcacao',
+        B12.EMBARCACOES.map(function (e) { return [e.id, e.nome]; }), 'l01') +
+      B12.f_campo('Marinheiro', 'marinheiro', { dica:'quem leva', max:30 }) +
+      B12.f_campo('Lugares', 'vagas', { tipo:'number', modo:'numeric', valor:12, passo:'1' }) +
+      B12.f_campo('Observação', 'obs', { dica:'opcional', max:80 }),
+    acao: 'Criar saída',
+    aoSalvar: function (d) { d.sentido = sentido; return B12.novaSaida(d); },
+    depois: function () { B12.admDesenhar('escala'); }
+  });
+}
+
+/* ============================================================== MENSAGENS */
+function pMsgs(raiz) {
+  raiz.appendChild(bloco(
+    '<div class="cx entra"><h3>Mensagens prontas</h3>' +
+    '<p>Onze modelos escritos para o WhatsApp, com o nome e os dados da pessoa já ' +
+    'preenchidos. O app monta o texto e abre a conversa. <b>Quem aperta enviar é você.</b> ' +
+    'Disparo sozinho de verdade só com a API oficial da Meta, que tem custo por conversa.</p></div>'
+  ));
+  var l = document.createElement('div'); l.className = 'lista';
+  l.innerHTML = B12.MODELOS.map(function (m) {
+    return '<div class="linha toca" data-modelo="' + m.id + '">' +
+      '<span class="tag" style="background:' + m.cor + '22;color:' + m.cor + ';font-size:15px">' +
+      m.icone + '</span><div class="d"><b>' + m.nome + '</b><small>' + m.quando + '</small></div>' +
+      '<svg class="seta" viewBox="0 0 24 24" width="17" height="17" fill="none" ' +
+      'stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></div>';
+  }).join('');
+  raiz.appendChild(l);
+  l.querySelectorAll('[data-modelo]').forEach(function (li) {
+    li.onclick = function () {
+      var cli = B12.DB.clientes[0];
+      B12.folhaMensagem(li.dataset.modelo, cli
+        ? { nome: cli.nome, whats: cli.whats, cod: 'B12-4821', ida: B12.hoje(),
+            volta: B12.diaMais(B12.hoje(), 3), pax: 2, total: 240 }
+        : { nome: 'Ana', cod: 'B12-4821', ida: B12.hoje(), pax: 2, total: 240 });
+    };
+  });
+  raiz.appendChild(bloco(
+    '<div class="cx nota"><h3>Como usar no dia a dia</h3>' +
+    '<p>Na aba <b>Escala</b>, cada passageiro tem um botão verde do WhatsApp ao lado do nome. ' +
+    'Toque nele e escolha o modelo: confirmar, lembrar da véspera, mandar os horários de volta ' +
+    'ou avisar que o mar virou. Na aba <b>Clientes</b>, o mesmo vale para quem já viajou.</p></div>'));
 }
 
 })();
