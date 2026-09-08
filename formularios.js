@@ -403,4 +403,83 @@ function acao(id, titulo, sub, cor) {
     'stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></button>';
 }
 
+
+/* ------------------------------------------------------- preços (o dono) */
+function pct(v) { return String(Math.round((v || 0) * 10000) / 100).replace('.', ','); }
+B12.formPrecosTravessia = function (depois) {
+  var A = B12.DB.ajustes, T = A.tabela;
+  function faixa(k, rot) {
+    return '<div class="grupo">' + rot + '</div><div class="par">' +
+      '<div>' + B12.f_campo('Começa', k + 'De', { valor: T[k].de, dica: '08h30', max: 5 }) + '</div>' +
+      '<div>' + B12.f_campo('Termina', k + 'Ate', { valor: T[k].ate, dica: '18h00', max: 5 }) + '</div></div>' +
+      '<div class="par">' +
+      '<div>' + B12.f_campo('Fixo até 3 pessoas', k + 'Fixo', { tipo: 'number', modo: 'decimal', valor: T[k].fixo, passo: '1' }) + '</div>' +
+      '<div>' + B12.f_campo('Por pessoa, de 4 em diante', k + 'Pessoa', { tipo: 'number', modo: 'decimal', valor: T[k].pessoa, passo: '1' }) + '</div></div>';
+  }
+  B12.folha({
+    titulo: 'Preços da travessia',
+    sub: 'Valem na hora para quem abrir o app',
+    corpo:
+      '<div class="grupo">Travessia regular (lancha compartilhada)</div>' +
+      B12.f_campo('Por pessoa, por trecho', 'regular', { tipo: 'number', modo: 'decimal', valor: A.regular, passo: '1', obrig: true,
+        ajuda: 'Ida e volta = duas vezes este valor. Crianças até a idade abaixo não pagam.' }) +
+      '<div class="par">' +
+      '<div>' + B12.f_campo('Criança não paga até', 'idadeCortesia', { tipo: 'number', modo: 'numeric', valor: A.idadeCortesia, ajuda: 'anos' }) + '</div>' +
+      '<div>' + B12.f_campo('Desconto no dinheiro', 'descDinheiro', { tipo: 'number', modo: 'decimal', valor: pct(A.descDinheiro).replace(',', '.'), passo: '0.5', ajuda: '% sobre o total' }) + '</div></div>' +
+      '<div class="ajuda" style="margin-top:14px">Serviço Náutico Premium (lancha exclusiva): até 3 pessoas paga o valor fixo; ' +
+      'de 4 em diante paga por pessoa, e o fixo funciona como mínimo.</div>' +
+      faixa('dia', 'Faixa do dia') + faixa('tarde', 'Faixa da tarde') + faixa('noite', 'Faixa da noite'),
+    acao: 'Salvar preços',
+    aoSalvar: function (d) { return B12.salvarPrecosTravessia(d); },
+    depois: depois
+  });
+};
+B12.formPasseio = function (p, depois) {
+  var novo = !p, extra = !p || p.extra;
+  B12.folha({
+    titulo: novo ? 'Novo passeio' : p.nome,
+    sub: novo ? 'Aparece na tela do cliente assim que você salvar' : (extra ? 'Passeio criado por você' : 'Preço, duração e saída deste passeio'),
+    corpo:
+      '<input type="hidden" name="id" value="' + (p ? p.id : '') + '">' +
+      B12.f_campo('Nome do passeio', 'nome', { valor: p ? p.nome : '', obrig: true, max: 60, dica: 'Pôr do sol na baía' }) +
+      '<div class="par">' +
+      '<div>' + B12.f_campo('Duração', 'dur', { valor: p ? p.dur : '', dica: '3h', max: 8 }) + '</div>' +
+      '<div>' + B12.f_campo('Preço por pessoa', 'preco', { tipo: 'number', modo: 'decimal', valor: p ? p.preco : '', passo: '1', obrig: true }) + '</div></div>' +
+      B12.f_campo('Preço de criança (opcional)', 'precoCrianca', { tipo: 'number', modo: 'decimal', passo: '1',
+        valor: p && p.precoCrianca != null ? p.precoCrianca : '', ajuda: 'Vazio = criança paga o mesmo do adulto.' }) +
+      B12.f_campo('Saída', 'saida', { valor: p ? (p.saida || '') : '', dica: 'Manhã ou tarde, do trapiche da B12', max: 80 }) +
+      (extra ? B12.f_campo('Resumo (uma linha)', 'resumo', { valor: p ? p.resumo : '', max: 90, dica: 'Duas horas de barco com o sol se pondo atrás da serra.' }) +
+        '<label for="c-texto">Descrição</label><textarea id="c-texto" name="texto" rows="4">' + (p ? (p.texto || '') : '') + '</textarea>'
+        : '<div class="ajuda">O roteiro passo a passo, as fotos e os textos deste passeio ficam com o Eugênio por enquanto. Aqui você muda o que é seu: preço, duração, saída e se ele aparece.</div>') +
+      B12.f_marca('Aparece para o cliente', 'ativo', p ? p.ativo !== false : true, 'Desligue para esconder sem apagar.'),
+    acao: novo ? 'Criar passeio' : 'Salvar',
+    aoSalvar: function (d) { return B12.salvarPasseio(d); },
+    depois: depois
+  });
+};
+B12.formTaxas = function (depois) {
+  var t = B12.DB.ajustes.taxas || {};
+  function c(k, rot) { return B12.f_campo(rot, k, { tipo: 'number', modo: 'decimal', passo: '0.01', valor: pct(t[k]).replace(',', '.'), ajuda: '%' }); }
+  B12.folha({
+    titulo: 'Taxas da maquininha',
+    sub: 'O que a operadora desconta de cada venda',
+    corpo: '<div class="ajuda">Entram no cálculo do resultado e no relatório do contador. Pix e dinheiro normalmente são zero.</div>' +
+      '<div class="par"><div>' + c('credito', 'Crédito') + '</div><div>' + c('debito', 'Débito') + '</div></div>' +
+      '<div class="par"><div>' + c('pix', 'Pix') + '</div><div>' + c('dinheiro', 'Dinheiro') + '</div></div>',
+    acao: 'Salvar taxas',
+    aoSalvar: function (d) { return B12.salvarTaxas(d); },
+    depois: depois
+  });
+};
+B12.formDiaria = function (depois) {
+  B12.folha({
+    titulo: 'Diária do estacionamento',
+    sub: 'As regras de contagem e de cobrança ficam em Ajustes',
+    corpo: B12.f_campo('Valor da diária', 'diaria', { tipo: 'number', modo: 'decimal', passo: '1', valor: B12.DB.ajustes.diaria, obrig: true }),
+    acao: 'Salvar',
+    aoSalvar: function (d) { return B12.salvarDiaria(d.diaria); },
+    depois: depois
+  });
+};
+
 })();

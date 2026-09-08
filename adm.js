@@ -184,7 +184,7 @@ function grafRosca(alvo, fatias) {
 
 /* ============================================================== os painéis */
 var ABAS = [
-  ['hoje','Hoje'], ['escala','Escala'], ['painel','Painel'], ['gestao','Gestão'],
+  ['hoje','Hoje'], ['escala','Escala'], ['painel','Painel'], ['precos','Preços'], ['gestao','Gestão'],
   ['caixa','Caixa'], ['lanc','Lançamentos'],
   ['clientes','Clientes'], ['patio','Pátio'], ['manut','Manutenção'],
   ['contas','Contas'], ['relat','Relatórios'], ['dados','Dados'], ['oper','Operação'],
@@ -207,7 +207,7 @@ B12.admDesenhar = function (aba) {
   ({ hoje:pHoje, painel:pPainel, caixa:pCaixa, lanc:pLanc, contas:pContas,
      relat:pRelat, oper:pOper, prosp:pProsp, intel:pIntel,
      clientes:pClientes, patio:pPatio, manut:pManut, gestao:pGestao,
-     escala:pEscala, msgs:pMsgs, dados:pDados }[abaAtual] || pHoje)(raiz);
+     escala:pEscala, msgs:pMsgs, dados:pDados, precos:pPrecos }[abaAtual] || pHoje)(raiz);
   B12.animarPlacar(raiz);
   raiz.scrollIntoView({ block:'nearest' });
 };
@@ -1374,6 +1374,66 @@ function pDados(raiz) {
       B12.admDesenhar('dados');
     };
   });
+}
+
+
+/* ----------------------------------------------------------------- PREÇOS
+   O dono manda nos valores. Nada de preço fixo no código. */
+function pPrecos(raiz) {
+  var A = B12.DB.ajustes, T = A.tabela, P = B12.passeios(true);
+  function re() { B12.admDesenhar('precos'); }
+  raiz.appendChild(bloco(
+    '<div class="cx entra"><h3>Você manda nos preços</h3>' +
+    '<p>Tudo o que o cliente vê de valor sai daqui. Mudou, valeu na hora para quem abrir o app.</p>' +
+    (A.precosConferidos ? '' :
+      '<div class="cx aviso" style="margin:12px 0 0"><h3>Confira uma vez</h3><p>Os valores abaixo vieram do seu documento e da ' +
+      'planilha. Abra "Editar preços da travessia", confira e salve: o aviso laranja some da tela do cliente.</p></div>') +
+    '</div>' +
+
+    '<div class="cx entra entra-1"><h3>Travessia</h3>' +
+    '<table class="tabela"><tr><td><b>Travessia regular</b><div style="font-size:11.5px;color:var(--gelo-3)">lancha compartilhada · por pessoa, por trecho</div></td>' +
+    '<td class="n">' + B12.brl(A.regular) + '</td></tr>' +
+    ['dia','tarde','noite'].map(function (k) {
+      return '<tr><td><b>Náutico Premium · ' + k + '</b><div style="font-size:11.5px;color:var(--gelo-3)">' + T[k].de + ' às ' + T[k].ate +
+        ' · até 3 pessoas fixo, depois por pessoa</div></td><td class="n">' + B12.brl(T[k].fixo) + '<div style="font-size:11.5px;color:var(--gelo-3)">' +
+        B12.brl(T[k].pessoa) + '/pessoa</div></td></tr>'; }).join('') +
+    '<tr><td>Criança não paga até</td><td class="n">' + A.idadeCortesia + ' anos</td></tr>' +
+    '<tr><td>Desconto no dinheiro</td><td class="n">' + String(Math.round((A.descDinheiro || 0) * 100)) + '%</td></tr></table>' +
+    '<button type="button" class="btn pri" id="b-precos-trav">Editar preços da travessia</button></div>' +
+
+    '<div class="cx entra entra-2"><h3>Passeios</h3>' +
+    '<table class="tabela">' + P.map(function (p) {
+      return '<tr' + (p.ativo ? '' : ' style="opacity:.55"') + '><td><b>' + p.nome + '</b>' + (p.ativo ? '' : ' <span class="selo-demo">escondido</span>') +
+        '<div style="font-size:11.5px;color:var(--gelo-3)">' + p.dur + (p.extra ? ' · criado por você' : '') +
+        (p.precoCrianca != null ? ' · criança ' + B12.brl(p.precoCrianca) : '') + '</div></td>' +
+        '<td class="n">' + B12.brl(p.preco) + '<div style="margin-top:6px;display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap">' +
+        '<button type="button" class="mini-btn" data-editar="' + p.id + '">Editar</button>' +
+        '<button type="button" class="mini-btn" data-alternar="' + p.id + '">' + (p.ativo ? 'Esconder' : 'Mostrar') + '</button>' +
+        (p.extra ? '<button type="button" class="mini-btn" data-apagar="' + p.id + '">Apagar</button>' : '') + '</div></td></tr>'; }).join('') +
+    '</table>' +
+    '<button type="button" class="btn sec" id="b-passeio-novo">Criar um passeio novo</button>' +
+    '<p style="font-size:12px;margin-top:8px">Passeio novo entra na tela do cliente com foto padrão. Mande as fotos para o Eugênio montar a página completa dele.</p></div>' +
+
+    '<div class="grade2 entra entra-3">' +
+    '<div class="cx" style="margin:0"><h3>Estacionamento</h3><p>Diária de <b>' + B12.brl(A.diaria) + '</b>. ' +
+    ((A.patio || {}).regra === '24h' ? 'Conta a cada 24 h' : 'Conta por dia de calendário') + ', cobra na ' +
+    ((A.patio || {}).cobranca === 'chegada' ? 'chegada' : 'saída') + '.</p>' +
+    '<button type="button" class="btn sec peq" id="b-diaria">Editar diária</button>' +
+    '<button type="button" class="btn sec peq" id="b-regras">Regras, em Ajustes</button></div>' +
+    '<div class="cx" style="margin:0"><h3>Maquininha</h3><p>' +
+    ['credito','debito','pix','dinheiro'].map(function (k) { return k + ' ' + String(Math.round((A.taxas[k] || 0) * 10000) / 100).replace('.', ',') + '%'; }).join(' · ') +
+    '</p><button type="button" class="btn sec peq" id="b-taxas">Editar taxas</button></div></div>'
+  ));
+  raiz.querySelector('#b-precos-trav').onclick = function () { B12.formPrecosTravessia(re); };
+  raiz.querySelector('#b-passeio-novo').onclick = function () { B12.formPasseio(null, re); };
+  raiz.querySelector('#b-diaria').onclick = function () { B12.formDiaria(re); };
+  raiz.querySelector('#b-taxas').onclick = function () { B12.formTaxas(re); };
+  raiz.querySelector('#b-regras').onclick = function () { B12.formAjustes(re); };
+  raiz.querySelectorAll('[data-editar]').forEach(function (b) { b.onclick = function () { B12.formPasseio(B12.acharPasseio(b.dataset.editar), re); }; });
+  raiz.querySelectorAll('[data-alternar]').forEach(function (b) { b.onclick = function () { B12.alternarPasseio(b.dataset.alternar); re(); }; });
+  raiz.querySelectorAll('[data-apagar]').forEach(function (b) { b.onclick = function () {
+    var p = B12.acharPasseio(b.dataset.apagar);
+    if (confirm('Apagar o passeio "' + p.nome + '"? Ele some da tela do cliente.')) { B12.apagarPasseio(p.id); re(); } }; });
 }
 
 })();

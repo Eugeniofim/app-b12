@@ -69,6 +69,11 @@ function vazio() {
       regular: B12.REGULAR,
       diaria: B12.DIARIA,
       tabela: B12.TABELA,
+      descDinheiro: B12.DESC_DINHEIRO,   /* 0.05 = 5% de desconto no dinheiro */
+      idadeCortesia: B12.IDADE_CORTESIA, /* criança até esta idade não paga */
+      passeios: {},                      /* preço/duração/ativo por passeio, por cima de B12.PASSEIOS */
+      passeiosExtras: [],                /* passeios que o dono criou no painel */
+      precosConferidos: false,           /* vira true quando o dono salva os preços uma vez */
       pins: null,                 /* null = usa o PIN padrão de demonstração */
       grade: null,                /* null = usa B12.GRADE_PADRAO */
       patio: { regra: 'dia', tolerancia: 60, cobranca: 'saida' }
@@ -89,6 +94,16 @@ B12.carregar = function () {
     if (!Array.isArray(B12.DB[k])) B12.DB[k] = [];
   });
   if (!B12.DB.ajustes.patio) B12.DB.ajustes.patio = { regra: 'dia', tolerancia: 60, cobranca: 'saida' };
+  /* preços que passaram a ser do dono: quem já tinha banco ganha os campos novos */
+  var A = B12.DB.ajustes;
+  if (A.descDinheiro == null) A.descDinheiro = B12.DESC_DINHEIRO;
+  if (A.idadeCortesia == null) A.idadeCortesia = B12.IDADE_CORTESIA;
+  if (!A.passeios) A.passeios = {};
+  if (!Array.isArray(A.passeiosExtras)) A.passeiosExtras = [];
+  if (!A.tabela) A.tabela = JSON.parse(JSON.stringify(B12.TABELA));
+  if (!A.taxas) A.taxas = JSON.parse(JSON.stringify(B12.TAXAS));
+  if (!A.regular) A.regular = B12.REGULAR;
+  if (!A.diaria) A.diaria = B12.DIARIA;
   if (!B12.DB.semeado) { B12.semear(); }
   else if (B12.DB.demoDia !== B12.hoje()) { B12.refrescarDemo(); }
   return B12.DB;
@@ -203,7 +218,7 @@ B12.semear = function () {
 
 /* ---- três reservas como se fossem deste celular, em três momentos ---- */
 function semearTurista(D, hoje) {
-  function faixaTxt(f) { var t = B12.TABELA[f]; return t.de + ' às ' + t.ate; }
+  function faixaTxt(f) { var t = B12.DB.ajustes.tabela[f]; return t.de + ' às ' + t.ate; }
   function tot(pax, cri, faixa, dd) {
     var p = B12.preco({ produto: 'regular', pax: pax, criancas: cri, faixa: faixa, diarias: dd, pg: 'pix' });
     return p ? p.total : 0;
@@ -335,7 +350,7 @@ function semearOperacao(D, hoje) {
       clienteId: c.id, nome: c.nome, whats: c.whats,
       entrada: B12.diaMais(hoje, -v[3]),
       saidaPrevista: B12.diaMais(hoje, i === 2 ? -1 : 1 + i),
-      vaga: v[4], diaria: B12.DIARIA, saidaReal: null, pago: false, valorPago: 0,
+      vaga: v[4], diaria: B12.DB.ajustes.diaria, saidaReal: null, pago: false, valorPago: 0,
       criadoEm: new Date().toISOString()
     });
   });
@@ -364,14 +379,20 @@ function lanc(data,tipo,cat,centro,desc,valor,pg){
 function pgSorteado(n){ var f=['credito','credito','debito','pix','credito','dinheiro','pix']; return f[n%7]; }
 
 /* ============================================================ motor de preço */
+function horaNum(s) { var m = String(s || '').match(/(\d{1,2})[h:](\d{2})/); return m ? +m[1] + (+m[2]) / 60 : null; }
 B12.faixaHora = function (hhmm) {
   if (!hhmm) return 'dia';
-  var h = +String(hhmm).slice(0,2);
-  if (h >= 20) return 'noite';
-  if (h >= 18) return 'tarde';
-  if (h >= 8)  return 'dia';
-  return 'fora';
+  var h = horaNum(hhmm), T = B12.DB.ajustes.tabela;
+  if (h == null) return 'dia';
+  /* as faixas vêm da tabela do dono; a última que começa antes da hora vence */
+  var f = 'fora';
+  ['dia','tarde','noite'].forEach(function (k) {
+    var de = horaNum(T[k].de), ate = horaNum(T[k].ate);
+    if (de != null && h >= de && (ate == null || h < ate || k === 'noite' && h < ate)) f = k;
+  });
+  return f;
 };
+B12.faixaTxt = function (f) { var t = B12.DB.ajustes.tabela[f]; return t ? t.de + ' às ' + t.ate : 'outro horário'; };
 /* Devolve {trecho, total, detalhe} ou null quando é sob consulta. */
 B12.preco = function (o) {
   var faixa = o.faixa || 'dia';
@@ -390,7 +411,7 @@ B12.preco = function (o) {
   var travessia = trecho * trechos;
   var estac = o.diarias ? B12.DB.ajustes.diaria * o.diarias : 0;
   var sub = travessia + estac;
-  var desc = (o.pg === 'dinheiro') ? Math.round(sub * B12.DESC_DINHEIRO) : 0;
+  var desc = (o.pg === 'dinheiro') ? Math.round(sub * (B12.DB.ajustes.descDinheiro || 0)) : 0;
   return { trecho:trecho, trechos:trechos, travessia:travessia, estacionamento:estac,
            desconto:desc, total:sub - desc, pagantes:pagantes, faixaTxt:t.de+' às '+t.ate };
 };
@@ -1235,4 +1256,114 @@ B12.cofreVoltar = function (i) {
   var c = cofreLer().copias[i];
   if (!c) return { erro: 'Essa cópia não existe mais.' };
   return B12.restaurar(c.dados);
+};
+
+
+/* ================================================= preços: o dono manda
+   Tudo que o cliente vê de valor sai daqui, nunca de número fixo no código. */
+B12.passeios = function (todos) {
+  var A = B12.DB.ajustes, sob = A.passeios || {};
+  var base = B12.PASSEIOS.map(function (p) {
+    var o = sob[p.id] || {}, c = {};
+    Object.keys(p).forEach(function (k) { c[k] = p[k]; });
+    if (o.nome) c.nome = o.nome;
+    if (o.dur) c.dur = o.dur;
+    if (o.preco) c.preco = o.preco;
+    if (o.precoCrianca != null) c.precoCrianca = o.precoCrianca;
+    if (o.saida) c.saida = o.saida;
+    c.ativo = o.ativo !== false;
+    return c;
+  });
+  var extras = (A.passeiosExtras || []).map(function (p) {
+    return { id: p.id, nome: p.nome, dur: p.dur, preco: p.preco, precoCrianca: p.precoCrianca,
+      foto: p.foto || 'fotos/travessia.jpg', cor: '#12608E', resumo: p.resumo || '', texto: p.texto || p.resumo || '',
+      saida: p.saida || 'Combinar com a B12', inclui: p.inclui || [], leve: [], roteiro: [], saber: [],
+      ativo: p.ativo !== false, extra: true };
+  });
+  var lista = base.concat(extras);
+  return todos ? lista : lista.filter(function (p) { return p.ativo; });
+};
+B12.acharPasseio = function (id) {
+  return B12.passeios(true).filter(function (p) { return p.id === id; })[0] || null;
+};
+function reais(v) { return Math.round((Number(String(v == null ? '' : v).replace(/\./g, '').replace(',', '.')) || 0) * 100) / 100; }
+function horaOk(s) { return /^\d{2}h\d{2}$/.test(String(s || '').trim()); }
+
+B12.salvarPrecosTravessia = function (d) {
+  var A = B12.DB.ajustes;
+  var regular = reais(d.regular);
+  if (regular <= 0) return { erro: 'Informe o valor da travessia regular por pessoa.' };
+  var tab = {};
+  var faltou = null;
+  ['dia','tarde','noite'].forEach(function (k) {
+    var de = String(d[k + 'De'] || '').trim(), ate = String(d[k + 'Ate'] || '').trim();
+    var fixo = reais(d[k + 'Fixo']), pessoa = reais(d[k + 'Pessoa']);
+    if (!horaOk(de) || !horaOk(ate)) faltou = faltou || 'Horário da faixa "' + k + '" no formato 08h30.';
+    if (fixo <= 0 || pessoa <= 0) faltou = faltou || 'Valor fixo e valor por pessoa da faixa "' + k + '" precisam ser maiores que zero.';
+    tab[k] = { de: de, ate: ate, fixo: fixo, pessoa: pessoa };
+  });
+  if (faltou) return { erro: faltou };
+  var desc = Number(String(d.descDinheiro || '0').replace(',', '.')) || 0;
+  if (desc < 0 || desc > 50) return { erro: 'O desconto no dinheiro vai de 0 a 50%.' };
+  var idade = Math.max(0, Math.min(17, Number(d.idadeCortesia) || 0));
+  A.regular = regular; A.tabela = tab; A.descDinheiro = Math.round(desc) / 100; A.idadeCortesia = idade;
+  A.precosConferidos = true;
+  B12.salvar();
+  return { ok: true };
+};
+B12.salvarPasseio = function (d) {
+  var A = B12.DB.ajustes;
+  var nome = String(d.nome || '').trim(), preco = reais(d.preco);
+  var pc = String(d.precoCrianca || '').trim() === '' ? null : reais(d.precoCrianca);
+  if (!nome) return { erro: 'Dê um nome ao passeio.' };
+  if (preco <= 0) return { erro: 'Informe o preço por pessoa.' };
+  var dur = String(d.dur || '').trim() || '4h';
+  var base = B12.PASSEIOS.filter(function (p) { return p.id === d.id; })[0];
+  if (base) {
+    A.passeios[d.id] = { nome: nome, dur: dur, preco: preco, precoCrianca: pc, saida: String(d.saida || '').trim(),
+                         ativo: d.ativo !== false && d.ativo !== 'false' };
+  } else {
+    var ja = A.passeiosExtras.filter(function (p) { return p.id === d.id; })[0];
+    var reg = ja || { id: 'px' + Date.now().toString(36), criadoEm: new Date().toISOString() };
+    reg.nome = nome; reg.dur = dur; reg.preco = preco; reg.precoCrianca = pc;
+    reg.resumo = String(d.resumo || '').trim(); reg.texto = String(d.texto || '').trim();
+    reg.saida = String(d.saida || '').trim(); reg.ativo = d.ativo !== false && d.ativo !== 'false';
+    if (!ja) A.passeiosExtras.push(reg);
+  }
+  B12.salvar();
+  return { ok: true };
+};
+B12.alternarPasseio = function (id) {
+  var A = B12.DB.ajustes, p = B12.acharPasseio(id);
+  if (!p) return { erro: 'Passeio não encontrado.' };
+  if (p.extra) { A.passeiosExtras.forEach(function (x) { if (x.id === id) x.ativo = !p.ativo; }); }
+  else { A.passeios[id] = A.passeios[id] || {}; A.passeios[id].ativo = !p.ativo; }
+  B12.salvar();
+  return { ok: true, ativo: !p.ativo };
+};
+B12.apagarPasseio = function (id) {
+  var A = B12.DB.ajustes;
+  A.passeiosExtras = A.passeiosExtras.filter(function (x) { return x.id !== id; });
+  B12.salvar();
+  return { ok: true };
+};
+B12.salvarTaxas = function (d) {
+  var t = {};
+  var ruim = null;
+  ['credito','debito','pix','dinheiro'].forEach(function (k) {
+    var v = Number(String(d[k] == null ? '0' : d[k]).replace(',', '.'));
+    if (isNaN(v) || v < 0 || v > 20) ruim = ruim || 'A taxa de "' + k + '" vai de 0 a 20%.';
+    t[k] = Math.round(v * 100) / 10000;
+  });
+  if (ruim) return { erro: ruim };
+  B12.DB.ajustes.taxas = t;
+  B12.salvar();
+  return { ok: true };
+};
+B12.salvarDiaria = function (v) {
+  var d = reais(v);
+  if (d <= 0) return { erro: 'Informe o valor da diária.' };
+  B12.DB.ajustes.diaria = d;
+  B12.salvar();
+  return { ok: true };
 };

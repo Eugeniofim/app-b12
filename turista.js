@@ -96,7 +96,8 @@ function creditosRodape() {
 /* o trilho da tela inicial e a lista da tela Passeios */
 B12.pintarPasseios = function () {
   var trilho = document.getElementById('trilho-passeios');
-  if (trilho) trilho.innerHTML = B12.PASSEIOS.map(function (p, i) {
+  var PS = B12.passeios();
+  if (trilho) trilho.innerHTML = PS.map(function (p, i) {
     return '<button class="cartao entra entra-' + Math.min(i+1,6) + '" data-passeio="' + p.id + '">' +
       '<div class="foto" style="background-image:url(' + p.foto + ')">' +
       '<span class="dur">' + p.dur + '</span></div>' +
@@ -105,7 +106,7 @@ B12.pintarPasseios = function () {
   }).join('');
 
   var lista = document.getElementById('lista-passeios');
-  if (lista) lista.innerHTML = B12.PASSEIOS.map(function (p, i) {
+  if (lista) lista.innerHTML = PS.map(function (p, i) {
     return '<button class="pcard entra entra-' + Math.min(i+1,6) + '" data-passeio="' + p.id + '">' +
       '<div class="pcard-foto" style="background-image:url(' + p.foto + ')">' +
       '<span class="dur">' + p.dur + '</span></div>' +
@@ -118,10 +119,9 @@ B12.pintarPasseios = function () {
 /* a parte interna: o passeio inteiro, passo a passo */
 B12.abrirPasseio = function (id) { B12.passeioAtual = id; B12.ir('passeio'); };
 B12.pintarPasseio = function (id) {
-  var p = null;
-  B12.PASSEIOS.forEach(function (x) { if (x.id === id) p = x; });
+  var p = B12.acharPasseio(id);
   var tela = document.getElementById('t-passeio');
-  if (!p) { tela.innerHTML = ''; return B12.ir('passeios'); }
+  if (!p || !p.ativo) { tela.innerHTML = ''; return B12.ir('passeios'); }
 
   var passos = p.roteiro.map(function (r, i) {
     return '<li class="passo entra entra-' + Math.min(i+2,6) + '"><div class="passo-n">' + (i+1) + '</div>' +
@@ -138,7 +138,8 @@ B12.pintarPasseio = function (id) {
     fotoTopo(p.foto, 'Passeio de barco · ' + p.dur, p.nome, p.resumo, 'passeios') +
     '<div class="chips-info entra entra-1">' +
       '<div class="chip-info"><small>Duração</small><b>' + p.dur + '</b><small class="sub">na lancha</small></div>' +
-      '<div class="chip-info"><small>A partir de</small><b>' + B12.brl(p.preco) + '</b><small class="sub">por pessoa</small></div>' +
+      '<div class="chip-info"><small>A partir de</small><b>' + B12.brl(p.preco) + '</b><small class="sub">' +
+        (p.precoCrianca != null ? 'adulto · criança ' + B12.brl(p.precoCrianca) : 'por pessoa') + '</small></div>' +
       '<div class="chip-info"><small>Saída</small><b>Pontal do Sul</b><small class="sub">trapiche da B12</small></div>' +
     '</div>' +
     '<div class="cx entra entra-2"><p class="lead">' + p.texto + '</p>' +
@@ -146,13 +147,13 @@ B12.pintarPasseio = function (id) {
       '<a class="btn zap" href="' + zapPasseio(p) + '" target="_blank" rel="noopener">' +
       '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2zm0 18a8 8 0 0 1-4.1-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8 8 0 1 1 12 20zm4.4-6c-.2-.1-1.4-.7-1.6-.8s-.4-.1-.5.1-.6.8-.8.9-.3.2-.5.1a6.6 6.6 0 0 1-3.3-2.9c-.2-.4.3-.4.7-1.3.1-.2 0-.3 0-.4l-.7-1.8c-.2-.5-.4-.4-.5-.4h-.5a1 1 0 0 0-.7.3 2.9 2.9 0 0 0-.9 2.2 5 5 0 0 0 1.1 2.7 11.5 11.5 0 0 0 4.4 3.9c1.6.7 2.3.7 3.1.6a2.6 2.6 0 0 0 1.7-1.2 2.1 2.1 0 0 0 .2-1.2c-.1-.2-.3-.2-.5-.3z"/></svg>' +
       'Reservar este passeio pelo WhatsApp</a></div>' +
-    '<div class="faixa-sec"><div class="tit"><h2>O roteiro, passo a passo</h2>' +
+    (p.roteiro.length ? '<div class="faixa-sec"><div class="tit"><h2>O roteiro, passo a passo</h2>' +
       '<span style="font-size:12px;color:var(--tinta-3)">' + p.roteiro.length + ' paradas</span></div></div>' +
-    '<ol class="roteiro">' + passos + '</ol>' +
-    '<div class="faixa-sec"><div class="tit"><h2>Bom saber</h2></div></div>' +
+    '<ol class="roteiro">' + passos + '</ol>' : '') +
+    ((p.inclui.length || p.leve.length || p.saber.length) ? '<div class="faixa-sec"><div class="tit"><h2>Bom saber</h2></div></div>' +
     '<div class="cx saber" style="margin-top:0">' +
-      lista('O que está incluído', p.inclui) + lista('O que levar', p.leve) + lista('Avisos', p.saber) +
-    '</div>' +
+      (p.inclui.length ? lista('O que está incluído', p.inclui) : '') + (p.leve.length ? lista('O que levar', p.leve) : '') +
+      (p.saber.length ? lista('Avisos', p.saber) : '') + '</div>' : '') +
     '<div class="cx" style="padding-top:12px">' +
       '<a class="btn zap" style="margin-top:0" href="' + zapPasseio(p) + '" target="_blank" rel="noopener">Reservar este passeio pelo WhatsApp</a>' +
       '<button type="button" class="btn sec" data-ir="passeios">Ver os outros passeios</button></div>' +
@@ -252,6 +253,16 @@ document.addEventListener('click', function (e) {
 /* -------------------------------------------------------------- travessia */
 var F = { pax:2, cri:0, produto:'regular', estac:0 };
 
+B12.montarFaixas = function () {
+  var sel = document.getElementById('f-hora'), T = B12.DB.ajustes.tabela, atual = sel.value;
+  sel.innerHTML = ['dia','tarde','noite'].map(function (k) {
+    return '<option value="' + k + '">Entre ' + T[k].de + ' e ' + T[k].ate + '</option>'; }).join('') +
+    '<option value="fora">Outro horário (sob consulta)</option>';
+  if (atual) sel.value = atual;
+  var vc = document.getElementById('v-cortesia');
+  if (vc) vc.textContent = B12.DB.ajustes.idadeCortesia;
+  document.querySelectorAll('.v-cortesia').forEach(function (e) { e.textContent = B12.DB.ajustes.idadeCortesia; });
+};
 B12.montarFormulario = function () {
   var sel = document.getElementById('f-pousada');
   sel.innerHTML = '<option>Ainda não escolhi</option>' +
@@ -259,6 +270,7 @@ B12.montarFormulario = function () {
     '<option>Outra</option>';
   document.getElementById('f-destino').innerHTML =
     B12.DESTINOS.map(function (d) { return '<option>' + d + '</option>'; }).join('');
+  B12.montarFaixas();
   var hoje = B12.hoje();
   var i = document.getElementById('f-ida');
   i.value = hoje; i.defaultValue = hoje; i.min = hoje;
@@ -298,7 +310,7 @@ B12.calcular = function () {
   document.getElementById('escolhas-produto').innerHTML =
     escolha('regular', 'Travessia regular',
       'lancha compartilhada' + (t ? ' · ' + t.de + ' às ' + t.ate : '') +
-      '<br><span class="pend">preço por pessoa a confirmar com a B12</span>',
+      (B12.DB.ajustes.precosConferidos ? '<br>por pessoa, ida e volta' : '<br><span class="pend">preço por pessoa a confirmar com a B12</span>'),
       reg ? B12.brl(reg.travessia) : 'consultar') +
     escolha('nautico', 'Serviço Náutico Premium',
       'lancha exclusiva' + (t ? ' · ' + t.de + ' às ' + t.ate : '') + '<br>' +
@@ -329,8 +341,8 @@ B12.calcular = function () {
   document.getElementById('c-total').textContent = p ? B12.brl(p.total) : 'sob consulta';
   document.getElementById('c-obs').innerHTML = p
     ? 'Ida e volta, por trajeto. ' + (F.cri
-        ? F.cri + (F.cri > 1 ? ' crianças' : ' criança') + ' até 5 anos sem cobrança. '
-        : 'Crianças até 5 anos não pagam. ') +
+        ? F.cri + (F.cri > 1 ? ' crianças' : ' criança') + ' até ' + B12.DB.ajustes.idadeCortesia + ' anos sem cobrança. '
+        : 'Crianças até ' + B12.DB.ajustes.idadeCortesia + ' anos não pagam. ') +
       'Valores da tabela do material da B12.'
     : 'Horário especial é sob consulta antecipada. Fale com a B12 pelo WhatsApp.';
 };
@@ -381,7 +393,7 @@ B12.reservar = function () {
 
   var linhas = ['Olá! Quero reservar uma travessia com a B12.', '',
     'Código: ' + r.cod, 'Nome: ' + r.nome,
-    'Pessoas: ' + r.pax + (r.criancas ? ' (sendo ' + r.criancas + ' até 5 anos)' : ''),
+    'Pessoas: ' + r.pax + (r.criancas ? ' (sendo ' + r.criancas + ' até ' + B12.DB.ajustes.idadeCortesia + ' anos)' : ''),
     'Chegada: ' + B12.dataBR(r.ida)];
   if (r.volta) linhas.push('Retorno: ' + B12.dataBR(r.volta));
   linhas.push('Horário: ' + r.faixa, 'Destino: ' + r.destino, 'Pousada: ' + r.pousada,
