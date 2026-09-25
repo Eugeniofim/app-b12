@@ -1332,7 +1332,12 @@ function pDados(raiz) {
     '</div>'
   ));
 
-  function avisar(t, ok) { var a = document.getElementById('exp-aviso'); a.textContent = t; a.style.color = ok ? 'var(--bom)' : 'var(--ruim)'; }
+  function avisar(t, ok) {
+    var a = document.getElementById('exp-aviso');
+    a.textContent = t; a.style.color = ok ? 'var(--bom)' : 'var(--ruim)';
+    a.setAttribute('role', ok ? 'status' : 'alert');
+    B12.aviso(t, ok ? 'bom' : 'ruim');            /* o mesmo retorno do resto do app */
+  }
   function per() { return document.getElementById('exp-periodo').value; }
   document.getElementById('b-xlsx').onclick = function () {
     var r = B12.exportarExcel(per());

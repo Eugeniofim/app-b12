@@ -352,22 +352,33 @@ function escolha(id, titulo, sub, valor) {
     '<span class="vv">' + valor + '</span></button>';
 }
 
-function erroReserva(msg) {
+function erroReserva(msg, campo) {
   var e = document.getElementById('f-erro');
   if (!msg) { e.hidden = true; return; }
-  e.textContent = msg; e.hidden = false; e.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  e.setAttribute('role', 'alert');                     /* o leitor de tela lê na hora */
+  e.textContent = msg; e.hidden = false;
+  e.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  var c = campo && document.getElementById(campo);     /* leva a pessoa ao que falta */
+  if (c) setTimeout(function () { try { c.focus({ preventScroll: true }); } catch (x) {} }, 320);
+  var b = document.getElementById('b-reservar');
+  if (b && b.dataset.ocupado) { delete b.dataset.ocupado; b.removeAttribute('aria-busy'); b.disabled = false;
+    b.innerHTML = 'Pedir minha reserva'; }
+  return { erro: msg };
 }
 B12.reservar = function () {
+  var botao = document.getElementById('b-reservar');
+  if (botao && botao.dataset.ocupado) return;              /* um toque, um pedido */
+  var soltar = B12.ocupar(botao, 'Pedindo…');
   var nome = document.getElementById('f-nome').value.trim();
   var zap  = document.getElementById('f-zap').value.trim();
   var ida  = document.getElementById('f-ida').value;
   var volta = document.getElementById('f-volta').value;
   var termos = document.getElementById('f-termos').checked;
   erroReserva('');
-  if (!nome || !zap) return erroReserva('Precisamos do seu nome e do WhatsApp para confirmar a reserva.');
-  if (zap.replace(/\D/g, '').length < 10) return erroReserva('O WhatsApp parece incompleto. Use o DDD junto.');
-  if (!ida) return erroReserva('Escolha a data de chegada.');
-  if (!termos) return erroReserva('Para reservar, marque que leu e aceita os termos de uso.');
+  if (!nome || !zap) return erroReserva('Precisamos do seu nome e do WhatsApp para confirmar a reserva.', nome ? 'f-zap' : 'f-nome');
+  if (zap.replace(/\D/g, '').length < 10) return erroReserva('O WhatsApp parece incompleto. Use o DDD junto.', 'f-zap');
+  if (!ida) return erroReserva('Escolha a data de chegada.', 'f-ida');
+  if (!termos) return erroReserva('Para reservar, marque que leu e aceita os termos de uso.', 'f-termos');
   var faixa = document.getElementById('f-hora').value;
   var dd = B12.diarias(ida, volta);
   var p = B12.preco({ produto:F.produto, pax:F.pax, criancas:F.cri, faixa:faixa,
@@ -403,9 +414,17 @@ B12.reservar = function () {
   linhas.push('Pagamento: ' + r.pg,
     'Total estimado: ' + (r.total != null ? B12.brl(r.total) : 'sob consulta'));
 
-  window.open('https://wa.me/' + B12.EMPRESA.whats + '?text=' +
-    encodeURIComponent(linhas.join('\n')), '_blank');
+  var zapUrl = 'https://wa.me/' + B12.EMPRESA.whats + '?text=' + encodeURIComponent(linhas.join('\n'));
+  var aba = window.open(zapUrl, '_blank');
   B12.ir('reservas');
+  /* o iPhone bloqueia aba nova com frequência: se bloqueou, o aviso dá o botão */
+  if (!aba || aba.closed) {
+    B12.aviso('Reserva ' + r.cod + ' criada. Falta avisar a B12.', 'bom',
+      { texto: 'Abrir WhatsApp', aoTocar: function () { location.href = zapUrl; } });
+  } else {
+    B12.aviso('Pronto! Sua reserva é a ' + r.cod + '. Guarde este código.', 'bom');
+  }
+  soltar();
 };
 
 /* --------------------------------------------------------------- reservas */
@@ -457,8 +476,9 @@ B12.pintarReservas = function () {
   alvo.querySelectorAll('[data-volta]').forEach(function (b) {
     b.onclick = function () {
       var res = B12.marcarVolta(b.dataset.res, b.dataset.volta);
-      if (res.erro) { b.textContent = res.erro; b.disabled = true; return; }
+      if (res.erro) { B12.aviso(res.erro, 'ruim'); b.disabled = true; return; }
       B12.pintarReservas();
+      B12.aviso('Volta marcada para as ' + res.saida.hora + '. Avise a B12 abaixo.', 'bom');
       /* avisa a B12 do horário escolhido, com o texto pronto */
       B12.folhaMensagem('voltaEscolhida', { nome: res.reserva.nome, whats: B12.EMPRESA.whats,
         cod: res.reserva.cod, hora: res.saida.hora, pax: res.reserva.pax });

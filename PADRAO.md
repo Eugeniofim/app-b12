@@ -79,7 +79,23 @@ Antes de criar, reaproveitar: `.cx` (caixa branca, com as variantes `.nota`, `.a
 `formularios.js`), `.tabela`, `.placar` + `tile()` no painel, `.chip-info`, `.faixa-sec`
 para título de seção, `.portao` para o PIN.
 
-## 6. Movimento
+## 6. Retorno ao toque (o que confirma que deu certo)
+
+Regra da casa: **nenhum toque importante fica sem resposta visível.** Três peças, nessa ordem:
+
+1. **`B12.ocupar(botao, 'Pedindo…')`** — trava o botão no começo de uma ação, põe a rodinha e
+   devolve uma função para soltar. Evita o pedido duplicado por duplo toque.
+2. **`B12.aviso(texto, tipo, acao)`** — a barra curta que confirma. `tipo` é `'bom'` (padrão) ou
+   `'ruim'`. `acao` é opcional (`{texto, aoTocar}`) e vira um botão dentro do aviso. Ela nasce
+   com `role="status"`, ou `role="alert"` quando é ruim, então o leitor de tela lê sozinho.
+3. **Erro de formulário** aparece perto do campo, com `role="alert"`, e **o foco vai para o
+   campo que falta**. Errar tem que ter saída, não só aviso.
+
+Casos já ligados: pedir reserva (com o código no texto), marcar horário de volta, exportar
+Excel e PDF, salvar no painel. **Quando a aba do WhatsApp é bloqueada** (comum no iPhone), o
+aviso ganha o botão "Abrir WhatsApp" em vez de falhar calado.
+
+## 7. Movimento
 
 - Entrada de conteúdo: `.entra` mais `.entra-1` a `.entra-6` para escalonar.
 - Curva única: `--curva`. Duração de 150 a 300 ms.

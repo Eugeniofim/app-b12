@@ -192,7 +192,7 @@ body.adm .tit button{color:var(--turq-300)}
   background:var(--carta);display:grid;grid-template-columns:40% 1fr;min-height:104px}
 .banner .f{background:url('fotos/farol.jpg') center/cover no-repeat}
 .banner .t{padding:14px 14px 14px 12px;display:flex;flex-direction:column;justify-content:center}
-.banner .t h3{font-family:var(--script);font-style:italic;font-size:25px;color:var(--azul-800);
+.banner .t h2{font-family:var(--script);font-style:italic;font-size:25px;color:var(--azul-800);
   font-weight:700;line-height:1;-webkit-text-stroke:.4px var(--azul-800)}
 .banner .t p{font-size:13px;color:var(--tinta-2);margin:5px 0 11px}
 .banner .t button{align-self:flex-start;background:var(--turq-600);color:#fff;border:0;
@@ -813,6 +813,35 @@ body:not(.adm) .semninguem{border-color:var(--risco);color:var(--tinta-3)}
 .foto-cx-in{padding:14px 15px 15px}
 .nota-peq{font-size:12px !important;color:var(--tinta-3) !important;margin-top:8px;padding:8px 10px;border-radius:9px;
   background:#EDFBF9;border-left:3px solid var(--turq-500)}
+
+
+/* ------------------------------------------------------------- O AVISO
+   Confirma o que acabou de acontecer. Fica acima da barra de baixo, some
+   sozinho, e some antes com um toque. Leitores de tela leem pelo role. */
+.aviso-barra{position:fixed;left:12px;right:12px;bottom:calc(84px + env(safe-area-inset-bottom));
+  z-index:120;display:flex;align-items:center;gap:10px;padding:13px 14px;border-radius:14px;
+  background:var(--azul-800);color:#fff;box-shadow:0 10px 34px rgba(6,23,38,.38);
+  font-size:13.5px;line-height:1.35;cursor:pointer;
+  opacity:0;transform:translateY(14px);transition:opacity .22s var(--curva),transform .22s var(--curva)}
+.aviso-barra.on{opacity:1;transform:none}
+.aviso-barra svg{width:19px;height:19px;flex:none;fill:none;stroke:currentColor;stroke-width:2.2}
+.aviso-barra span{flex:1;min-width:0}
+.aviso-barra.bom{background:#0E6B4F}
+.aviso-barra.ruim{background:#9A3226}
+.aviso-barra .aviso-acao{flex:none;background:rgba(255,255,255,.18);border:0;color:#fff;
+  font:700 12.5px var(--sans);padding:9px 12px;border-radius:9px;min-height:40px}
+.aviso-barra .aviso-acao:active{background:rgba(255,255,255,.3)}
+@media (min-width:900px){ .aviso-barra{left:50%;right:auto;transform:translate(-50%,14px);width:520px}
+  .aviso-barra.on{transform:translate(-50%,0)} }
+@media (pointer:coarse){ .aviso-barra .aviso-acao{min-height:44px} }
+@media (prefers-reduced-motion:reduce){ .aviso-barra{transition:opacity .15s} }
+
+/* a rodinha do botão ocupado */
+.girando{width:15px;height:15px;border-radius:50%;border:2px solid rgba(255,255,255,.35);
+  border-top-color:#fff;display:inline-block;margin-right:9px;vertical-align:-2px;
+  animation:rodar .7s linear infinite}
+@keyframes rodar{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){ .girando{animation-duration:2s} }
 
 @media (min-width: 900px){
   body:not(.adm){background:radial-gradient(120% 90% at 50% -10%,#12608E 0%,#0B2A4A 45%,#061726 100%) fixed}

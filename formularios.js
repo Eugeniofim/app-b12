@@ -482,4 +482,49 @@ B12.formDiaria = function (depois) {
   });
 };
 
+
+/* --------------------------------------------------------------- o aviso
+   Uma barra curta que confirma o que acabou de acontecer. É o retorno que
+   faltava: sem ela, a pessoa toca e não sabe se deu certo.
+   role=status faz o leitor de tela ler sozinho; 'ruim' vira role=alert. */
+var avisoAtual = null, avisoRelogio = null;
+B12.aviso = function (texto, tipo, acao) {
+  if (avisoAtual) { avisoAtual.remove(); clearTimeout(avisoRelogio); }
+  var d = document.createElement('div');
+  d.className = 'aviso-barra ' + (tipo || 'bom');
+  d.setAttribute('role', tipo === 'ruim' ? 'alert' : 'status');
+  d.setAttribute('aria-live', tipo === 'ruim' ? 'assertive' : 'polite');
+  var icone = tipo === 'ruim'
+    ? '<path d="M12 8v5M12 16.5v.5" stroke-linecap="round"/><circle cx="12" cy="12" r="9"/>'
+    : '<path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/>';
+  d.innerHTML = '<svg viewBox="0 0 24 24">' + icone + '</svg><span>' + texto + '</span>' +
+    (acao ? '<button type="button" class="aviso-acao">' + acao.texto + '</button>' : '');
+  document.body.appendChild(d);
+  requestAnimationFrame(function () { d.classList.add('on'); });
+  if (acao) d.querySelector('.aviso-acao').onclick = function () { acao.aoTocar(); fechar(); };
+  function fechar() {
+    d.classList.remove('on');
+    setTimeout(function () { d.remove(); if (avisoAtual === d) avisoAtual = null; }, 260);
+  }
+  d.onclick = function (e) { if (!e.target.closest('.aviso-acao')) fechar(); };
+  avisoAtual = d;
+  avisoRelogio = setTimeout(fechar, acao ? 9000 : (tipo === 'ruim' ? 6000 : 4200));
+  return d;
+};
+/* botão que avisa que está trabalhando, e não deixa tocar duas vezes */
+B12.ocupar = function (btn, texto) {
+  if (!btn || btn.dataset.ocupado) return function () {};
+  var antes = btn.innerHTML;
+  btn.dataset.ocupado = '1';
+  btn.setAttribute('aria-busy', 'true');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="girando"></span>' + (texto || 'Um instante…');
+  return function () {
+    delete btn.dataset.ocupado;
+    btn.removeAttribute('aria-busy');
+    btn.disabled = false;
+    btn.innerHTML = antes;
+  };
+};
+
 })();
