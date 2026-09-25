@@ -115,11 +115,11 @@ p{margin:0}
 .pino{position:absolute;top:7px;right:8px;width:8px;height:8px;border-radius:50%;
   background:#FF6B5A;border:1.5px solid #10344F}
 .heroi-txt{padding:30px 16px 0;position:relative}
-.heroi-txt h1{font-size:clamp(30px,8.6vw,38px);line-height:1.04;
+.heroi-txt h1{font-size:clamp(25px,7.1vw,33px);line-height:1.1;text-wrap:balance;
   text-shadow:0 2px 16px rgba(0,0,0,.36)}
 .heroi-txt h1 .script{color:var(--turq-200);font-size:1.18em;padding-right:.1em;font-weight:700;
   -webkit-text-stroke:.6px var(--turq-200);text-shadow:0 2px 14px rgba(0,0,0,.45),0 0 22px rgba(155,235,223,.35)}
-.heroi-txt p{margin-top:10px;font-size:14.5px;max-width:27ch;opacity:.94;
+.heroi-txt p{margin-top:9px;font-size:14px;max-width:30ch;opacity:.94;
   text-shadow:0 1px 10px rgba(0,0,0,.42)}
 .heroi-agua{height:104px;margin-top:20px;position:relative;overflow:hidden}
 /* emenda: a foto se dissolve na agua animada, sem linha dura */
