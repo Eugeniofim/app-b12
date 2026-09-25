@@ -253,6 +253,16 @@ document.addEventListener('click', function (e) {
 /* -------------------------------------------------------------- travessia */
 var F = { pax:2, cri:0, produto:'regular', estac:0 };
 
+/* Lista montada por código não tem opção marcada no HTML, e o app a lia como
+   "a pessoa mexeu aqui" — o que impede a troca de versão sozinha. Depois de
+   montar, sela-se o estado atual como o padrão. A partir daí, só conta se ela
+   mesma trocar. */
+B12.selarListas = function () {
+  document.querySelectorAll('select').forEach(function (s) {
+    Array.prototype.forEach.call(s.options, function (o) { o.defaultSelected = o.selected; });
+  });
+};
+
 B12.montarFaixas = function () {
   var sel = document.getElementById('f-hora'), T = B12.DB.ajustes.tabela, atual = sel.value;
   sel.innerHTML = ['dia','tarde','noite'].map(function (k) {
@@ -286,6 +296,7 @@ B12.montarFormulario = function () {
   document.getElementById('est-sim').onclick = function () { F.estac = 1; B12.calcular(); };
   document.getElementById('b-reservar').onclick = B12.reservar;
   B12.calcular();
+  B12.selarListas();
 };
 function mexer(campo, d) {
   if (campo === 'pax') { F.pax = Math.max(1, Math.min(30, F.pax + d)); if (F.cri > F.pax) F.cri = F.pax; }

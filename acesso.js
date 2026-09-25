@@ -155,9 +155,23 @@ B12.formAjustes = function (depois) {
       '<div class="grupo">Demonstração</div>' +
       '<div class="ajuda">Os passageiros, carros e lançamentos de exemplo se renovam sozinhos a cada dia. ' +
       'O que você registrar de verdade fica. Para recomeçar a demonstração agora:</div>' +
-      '<button type="button" class="btn sec" id="b-refrescar-demo" style="margin-top:10px">Recarregar dados de demonstração</button>',
+      '<button type="button" class="btn sec" id="b-refrescar-demo" style="margin-top:10px">Recarregar dados de demonstração</button>' +
+      '<div class="grupo">Versão</div>' +
+      '<div class="ajuda">Este aparelho está na <b>' + (B12.VERSAO || '?') + '</b>. O app confere sozinho ' +
+      'se existe versão nova toda vez que você volta para ele, quando a internet volta e a cada 10 minutos. ' +
+      'Se quiser forçar agora, toque abaixo.</div>' +
+      '<button type="button" class="btn sec" id="b-forcar-versao" style="margin-top:10px">Procurar versão nova agora</button>',
     acao: 'Salvar ajustes',
     aoAbrir: function (form) {
+      var f = form.querySelector('#b-forcar-versao');
+      if (f) f.onclick = function () {
+        f.disabled = true; f.textContent = 'Procurando…';
+        if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+          navigator.serviceWorker.getRegistrations().then(function (rs) {
+            return Promise.all(rs.map(function (r) { return r.update().catch(function () {}); }));
+          }).then(function () { setTimeout(function () { location.reload(true); }, 900); });
+        } else setTimeout(function () { location.reload(true); }, 400);
+      };
       var b = form.querySelector('#b-refrescar-demo');
       if (b) b.onclick = function () {
         B12.refrescarDemo(true); B12.fecharFolha();

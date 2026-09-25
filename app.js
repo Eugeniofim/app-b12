@@ -182,11 +182,12 @@ function ocupado() {
     if (c.type === 'checkbox' || c.type === 'radio') { if (c.checked !== c.defaultChecked) return true; }
     else if (c.value && c.value !== c.defaultValue) return true;
   }
-  /* select nao tem defaultValue: compara com a opcao marcada no HTML */
+  /* select nao tem defaultValue. As listas montadas por codigo sao seladas em
+     B12.selarListas(), entao aqui so sobra o que a pessoa trocou de verdade. */
   var sels = document.querySelectorAll('select');
   for (var j = 0; j < sels.length; j++) {
     var o = sels[j].selectedOptions[0];
-    if (o && !o.defaultSelected && sels[j].selectedIndex !== 0) return true;
+    if (o && !o.defaultSelected) return true;
   }
   return !!document.querySelector('[data-mais]');   /* folha "Mais" aberta */
 }
@@ -225,7 +226,7 @@ function ligarAtualizacao() {
       document.addEventListener('visibilitychange', function () { if (!document.hidden) checar(); });
       window.addEventListener('focus', checar);
       window.addEventListener('online', checar);
-      setInterval(checar, 30 * 60 * 1000);
+      setInterval(checar, 10 * 60 * 1000);
     })['catch'](function () {});
 
   var trocou = false;
