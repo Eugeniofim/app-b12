@@ -95,7 +95,23 @@ Casos já ligados: pedir reserva (com o código no texto), marcar horário de vo
 Excel e PDF, salvar no painel. **Quando a aba do WhatsApp é bloqueada** (comum no iPhone), o
 aviso ganha o botão "Abrir WhatsApp" em vez de falhar calado.
 
-## 7. Movimento
+## 7. O assistente
+
+Vive na aba **Assistente** do painel e em `assistente.js`. A chave da IA **nunca** fica no app:
+a pergunta vai para o cofre da Ti Artes, que guarda a chave e conta o uso.
+
+- **As ferramentas rodam neste aparelho.** A IA pede (`ver_caixa`, `ver_agenda`, `ver_clientes`…)
+  e o app responde lendo o `B12.DB`. Nenhum dado sai antes de ser pedido.
+- **Nada que mexe em dinheiro acontece sozinho.** `propor_lancamento`, `propor_preco` e
+  `propor_mensagem` devolvem um cartão; quem confirma é o dedo do dono.
+- **Regra de negócio não se pergunta à IA.** O centro de custo, por exemplo, sai da categoria
+  por uma função (`centroDe`), não do palpite do modelo.
+- **Créditos à vista**, no topo da aba: saldo, gasto, quantas perguntas e a média por pergunta.
+  O custo é calculado pelos tokens que a resposta devolve.
+- Ferramenta nova: acrescentar em `FERRAMENTAS`, escrever a leitura em `LEITURAS` e explicar
+  em uma linha. A descrição é o que o modelo lê para decidir usar.
+
+## 8. Movimento
 
 - Entrada de conteúdo: `.entra` mais `.entra-1` a `.entra-6` para escalonar.
 - Curva única: `--curva`. Duração de 150 a 300 ms.

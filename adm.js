@@ -184,7 +184,7 @@ function grafRosca(alvo, fatias) {
 
 /* ============================================================== os painéis */
 var ABAS = [
-  ['hoje','Hoje'], ['escala','Escala'], ['painel','Painel'], ['precos','Preços'], ['gestao','Gestão'],
+  ['hoje','Hoje'], ['ia','Assistente'], ['escala','Escala'], ['painel','Painel'], ['precos','Preços'], ['gestao','Gestão'],
   ['caixa','Caixa'], ['lanc','Lançamentos'],
   ['clientes','Clientes'], ['patio','Pátio'], ['manut','Manutenção'],
   ['contas','Contas'], ['relat','Relatórios'], ['dados','Dados'], ['oper','Operação'],
@@ -203,11 +203,16 @@ B12.admDesenhar = function (aba) {
     b.onclick = function () { B12.admDesenhar(b.dataset.aba);
       barra.scrollTo({ left: b.offsetLeft - 60, behavior:'smooth' }); };
   });
+  /* leva a aba escolhida para dentro da vista, e tira o esmaecido no fim da tira */
+  var ativa = barra.querySelector('.aba.on');
+  if (ativa) barra.scrollLeft = Math.max(0, ativa.offsetLeft - 60);
+  function fim() { barra.classList.toggle('fim', barra.scrollLeft + barra.clientWidth >= barra.scrollWidth - 4); }
+  barra.onscroll = fim; fim();
   raiz.innerHTML = '';
   ({ hoje:pHoje, painel:pPainel, caixa:pCaixa, lanc:pLanc, contas:pContas,
      relat:pRelat, oper:pOper, prosp:pProsp, intel:pIntel,
      clientes:pClientes, patio:pPatio, manut:pManut, gestao:pGestao,
-     escala:pEscala, msgs:pMsgs, dados:pDados, precos:pPrecos }[abaAtual] || pHoje)(raiz);
+     escala:pEscala, msgs:pMsgs, dados:pDados, precos:pPrecos, ia:pIA }[abaAtual] || pHoje)(raiz);
   B12.animarPlacar(raiz);
   raiz.scrollIntoView({ block:'nearest' });
 };
@@ -227,6 +232,13 @@ function pHoje(raiz) {
     tile(r.combustivel,'Combustível','brl') +
     tile(r.resultado,'Resultado','brl','destaque') +
     '</div>' +
+    '<button type="button" class="ia-atalho entra" data-ia-abrir>' +
+      '<div class="ia-atalho-ico"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 0 0-9 9c0 1.6.4 3.1 1.2 4.4L3 21l4.8-1.1A9 9 0 1 0 12 3z" stroke-linejoin="round"/>' +
+      '<path d="M8.5 11h.01M12 11h.01M15.5 11h.01" stroke-linecap="round" stroke-width="2.6"/></svg></div>' +
+      '<div class="ia-atalho-txt"><b>Pergunte ao assistente</b>' +
+      '<small>"Como foi o dia?" · "Quem viaja amanhã?" · "Quanto posso retirar?"</small></div>' +
+      '<svg class="ia-atalho-seta" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+    '</button>' +
     '<div class="cx entra entra-1"><h3>O mês até agora <span class="selo-demo">demonstração</span></h3>' +
     '<p>Entrou ' + B12.brl(mes.entradas) + ', saiu ' + B12.brl(mes.saidas) +
     ', e a maquininha levou ' + B12.brl(mes.taxa) + '.</p>' +
@@ -254,12 +266,14 @@ function pHoje(raiz) {
     serie.push({ a: rr.faturamento, rot: (i%3===0? d.slice(8) : ''), destaque: i===0 });
   }
   grafBarras(g, serie, { altura:150 });
+  var atalho = raiz.querySelector('[data-ia-abrir]');
+  if (atalho) atalho.onclick = function () { B12.admDesenhar('ia'); };
 }
+
 function tile(v, k, fmt, cls) {
   return '<div class="pl ' + (cls||'') + '"><div class="v num" data-sobe="' + v +
     '" data-fmt="' + fmt + '">' + (fmt==='brl'?B12.brl(0):'0') + '</div><div class="k">' + k + '</div></div>';
 }
-
 /* ----------------------------------------------------------------- PAINEL */
 function pPainel(raiz) {
   var ym = B12.mesAtual(), hoje = B12.hoje();
@@ -1439,6 +1453,171 @@ function pPrecos(raiz) {
   raiz.querySelectorAll('[data-apagar]').forEach(function (b) { b.onclick = function () {
     var p = B12.acharPasseio(b.dataset.apagar);
     if (confirm('Apagar o passeio "' + p.nome + '"? Ele some da tela do cliente.')) { B12.apagarPasseio(p.id); re(); } }; });
+}
+
+
+/* -------------------------------------------------------------- ASSISTENTE
+   O Dhalsin pergunta em português e o assistente responde lendo os dados do
+   próprio app. O que mexe em dinheiro ou preço vira um cartão para confirmar. */
+var iaSugestoes = [
+  'Como foi o dia de hoje?',
+  'Quem viaja amanhã?',
+  'Quanto posso retirar este mês?',
+  'Quais contas vencem esta semana?',
+  'Quem são meus 5 melhores clientes?',
+  'Tem carro no pátio passando da data?',
+  'Compare este mês com o ano passado',
+  'Qual a senha da equipe?',
+];
+
+function iaEscapa(s) {
+  return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+/* o texto da IA vem simples: **negrito**, quebras de linha e listas com - */
+function iaTexto(t) {
+  return iaEscapa(t)
+    .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
+    .replace(/^- (.+)$/gm, '<span class="ia-item">$1</span>')
+    .replace(/\n/g, '<br>');
+}
+
+function pIA(raiz) {
+  var d = B12.iaDados();
+  var cx = bloco(
+    '<div class="cx entra" style="padding-bottom:12px"><h3>Assistente da B12</h3>' +
+    '<p>Pergunte em português. Ele lê os dados deste app para responder: caixa, agenda, ' +
+    'clientes, pátio, contas, preços e o histórico da planilha.</p>' +
+    '<div id="ia-estado"></div>' +
+    '<div class="ia-credito">' +
+      '<div class="ia-credito-topo"><span>Créditos</span><b>' + B12.brl(d.saldo, 2) + '</b></div>' +
+      '<div class="medidor' + (d.saldo < d.posto * 0.15 ? ' aviso' : '') + '">' +
+      '<i style="width:' + (d.posto ? Math.max(0, Math.min(100, d.saldo / d.posto * 100)).toFixed(1) : 0) + '%"></i></div>' +
+      '<div class="ia-credito-pe"><span>' + d.perguntas + ' pergunta' + (d.perguntas === 1 ? '' : 's') +
+        ' · gasto ' + B12.brl(d.gasto, 2) + (d.perguntas ? ' · cerca de ' + B12.brl(d.media, 2) + ' cada' : '') + '</span>' +
+        '<button type="button" class="mini-btn" id="ia-recarregar">Pôr créditos</button></div>' +
+    '</div></div>'
+  );
+  raiz.appendChild(cx);
+
+  var conversa = bloco('<div class="ia-conversa" id="ia-conversa" aria-live="polite"></div>');
+  raiz.appendChild(conversa);
+
+  var barra = bloco(
+    '<div class="ia-sugestoes" id="ia-sugestoes">' + iaSugestoes.map(function (s) {
+      return '<button type="button" class="ia-sug" data-sug="' + iaEscapa(s) + '">' + iaEscapa(s) + '</button>'; }).join('') + '</div>' +
+    '<form class="ia-barra" id="ia-barra">' +
+      '<input id="ia-campo" placeholder="Pergunte alguma coisa…" autocomplete="off" aria-label="Sua pergunta">' +
+      '<button type="submit" class="ia-enviar" aria-label="Perguntar">' +
+      '<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>' +
+    '</form>' +
+    '<div class="ia-pe"><button type="button" class="mini-btn" id="ia-limpar">Limpar conversa</button>' +
+    '<span>As respostas são geradas por IA. Confira antes de decidir.</span></div>'
+  );
+  raiz.appendChild(barra);
+
+  /* confere com o cofre e avisa antes de ele tentar perguntar */
+  B12.iaTestar().then(function (e) {
+    var el = document.getElementById('ia-estado'); if (!el) return;
+    el.innerHTML = e.ligado ? '' :
+      '<div class="cx aviso" style="margin:12px 0 0"><h3>Assistente ainda não liberado</h3>' +
+      '<p>' + (e.motivo === 'endereço ainda não liberado no cofre'
+        ? 'Falta o Eugênio liberar este endereço no cofre. É um passo de um minuto. Enquanto isso, o resto do painel funciona normalmente.'
+        : 'Falta o Eugênio ligar a chave. O resto do painel funciona normalmente.') + '</p></div>';
+  });
+
+  var area = document.getElementById('ia-conversa');
+  if (!d.conversa) area.innerHTML = '<div class="ia-vazio"><b>Pergunte o que quiser sobre a B12</b>' +
+    '<p>Toque numa das perguntas abaixo para começar.</p></div>';
+
+  function desce() { area.scrollTop = area.scrollHeight; }
+  function bolha(m) {
+    if (m.papel === 'fim') { var p = area.querySelector('.ia-pensa'); if (p) p.remove(); return desce(); }
+    if (area.querySelector('.ia-vazio')) area.innerHTML = '';
+    var pensa = area.querySelector('.ia-pensa'); if (pensa && m.papel !== 'pensa') pensa.remove();
+    var el = document.createElement('div');
+    if (m.papel === 'pensa') { el.className = 'ia-bolha ia-pensa'; el.innerHTML = '<span></span><span></span><span></span>'; }
+    else if (m.papel === 'proposta') { el.className = 'ia-proposta'; el.innerHTML = iaCartao(m.proposta); }
+    else { el.className = 'ia-bolha ia-' + (m.papel === 'user' ? 'eu' : m.papel === 'erro' ? 'erro' : 'ele');
+           el.innerHTML = iaTexto(m.texto); }
+    area.appendChild(el); desce();
+    if (m.papel === 'proposta') iaLigarCartao(el, m.proposta);
+  }
+
+  function perguntar(t) {
+    var campo = document.getElementById('ia-campo');
+    campo.value = ''; campo.blur();
+    B12.iaPerguntar(t, bolha).then(function () { B12.admDesenhar('ia'); });
+  }
+  document.getElementById('ia-barra').onsubmit = function (e) {
+    e.preventDefault(); perguntar(document.getElementById('ia-campo').value);
+  };
+  raiz.querySelectorAll('[data-sug]').forEach(function (b) {
+    b.onclick = function () { perguntar(b.dataset.sug); };
+  });
+  document.getElementById('ia-limpar').onclick = function () {
+    B12.iaLimpar(); B12.admDesenhar('ia'); B12.aviso('Conversa apagada.', 'bom');
+  };
+  document.getElementById('ia-recarregar').onclick = function () {
+    B12.folha({ titulo: 'Pôr créditos no assistente', sub: 'Quanto você quer deixar disponível',
+      corpo: '<div class="ajuda">Cada pergunta custa cerca de R$ 0,02. Com R$ 50 dá para umas 2.500 ' +
+        'perguntas. Por enquanto o custo vai na conta do Eugênio; depois passa para a sua.</div>' +
+        B12.f_campo('Valor a acrescentar', 'valor', { tipo:'number', modo:'decimal', valor: 50, passo: '10', obrig: true }),
+      acao: 'Pôr créditos',
+      aoSalvar: function (x) { return B12.iaRecarregar(x.valor); },
+      depois: function () { B12.admDesenhar('ia'); B12.aviso('Créditos atualizados.', 'bom'); } });
+  };
+  /* redesenha a conversa guardada */
+  var h = (B12.DB.ajustes.ia || {}).historico || [];
+  h.forEach(function (m) {
+    if (m.role === 'user' && typeof m.content === 'string') bolha({ papel: 'user', texto: m.content });
+    else if (m.role === 'assistant' && Array.isArray(m.content)) {
+      var t = m.content.filter(function (b) { return b.type === 'text'; }).map(function (b) { return b.text; }).join('\n').trim();
+      if (t) bolha({ papel: 'assistant', texto: t });
+    }
+  });
+}
+
+function iaCartao(p) {
+  var d = p.dados;
+  if (p.proposta === 'lancamento') {
+    return '<h4>' + (d.tipo === 'entrada' ? 'Entrada no caixa' : 'Saída do caixa') + '</h4>' +
+      '<table class="tabela"><tr><td>Valor</td><td class="n">' + B12.brl(d.valor) + '</td></tr>' +
+      '<tr><td>Categoria</td><td class="n">' + iaEscapa(d.cat) + '</td></tr>' +
+      '<tr><td>Centro de custo</td><td class="n">' + iaEscapa(d.centro) + '</td></tr>' +
+      '<tr><td>Descrição</td><td class="n">' + iaEscapa(d.desc) + '</td></tr>' +
+      '<tr><td>Data</td><td class="n">' + B12.dataBR(d.data) + '</td></tr>' +
+      '<tr><td>Pagamento</td><td class="n">' + iaEscapa(d.pg) + '</td></tr></table>' +
+      '<div class="ia-acoes"><button type="button" class="btn pri peq" data-ok>Confirmar</button>' +
+      '<button type="button" class="btn sec peq" data-nao>Agora não</button></div>';
+  }
+  if (p.proposta === 'preco') {
+    var nome = d.o_que === 'regular' ? 'Travessia regular, por pessoa'
+      : d.o_que === 'diaria' ? 'Diária do estacionamento'
+      : 'Passeio: ' + ((B12.acharPasseio(d.passeio_id) || {}).nome || d.passeio_id);
+    return '<h4>Mudar preço</h4><table class="tabela"><tr><td>' + iaEscapa(nome) + '</td>' +
+      '<td class="n">' + B12.brl(d.valor) + '</td></tr></table>' +
+      '<div class="ia-acoes"><button type="button" class="btn pri peq" data-ok>Confirmar</button>' +
+      '<button type="button" class="btn sec peq" data-nao>Agora não</button></div>';
+  }
+  return '<h4>Mensagem pronta</h4><p class="ia-msg">' + iaEscapa(d.texto).replace(/\n/g, '<br>') + '</p>' +
+    '<div class="ia-acoes"><button type="button" class="btn zap peq" data-zap>Enviar pelo WhatsApp</button>' +
+    '<button type="button" class="btn sec peq" data-nao>Agora não</button></div>';
+}
+
+function iaLigarCartao(el, p) {
+  var ok = el.querySelector('[data-ok]'), nao = el.querySelector('[data-nao]'), zap = el.querySelector('[data-zap]');
+  function feito(txt) { el.classList.add('feito'); el.querySelector('.ia-acoes').innerHTML = '<span class="ia-feito">' + txt + '</span>'; }
+  if (ok) ok.onclick = function () {
+    var r = B12.iaConfirmar(p);
+    if (r && r.erro) return B12.aviso(r.erro, 'ruim');
+    feito('Feito.'); B12.aviso('Pronto, já está no app.', 'bom');
+  };
+  if (zap) zap.onclick = function () {
+    var n = String(p.dados.whats || B12.EMPRESA.whats).replace(/\D/g, '');
+    window.open('https://wa.me/' + n + '?text=' + encodeURIComponent(p.dados.texto), '_blank');
+    feito('Aberto no WhatsApp.');
+  };
+  if (nao) nao.onclick = function () { feito('Deixado de lado.'); };
 }
 
 })();

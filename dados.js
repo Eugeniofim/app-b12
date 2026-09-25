@@ -13,6 +13,10 @@
 var B12 = window.B12 || {};
 
 /* ---------------------------------------------------------------- identidade */
+/* o cofre: o servidor da Ti Artes que guarda a chave da IA. Vazio = assistente
+   desligado (o app continua funcionando igual, só sem o chat). */
+B12.IA = { cofre: 'https://uopfqlogjzuqpabptxkb.supabase.co/functions/v1/cofre' };
+
 B12.EMPRESA = {
   nome: 'Estação B12',
   slogan: 'Sua conexão com a Ilha do Mel',
