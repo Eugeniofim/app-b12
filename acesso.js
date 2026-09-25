@@ -75,8 +75,7 @@ B12.portao = function (papelMinimo, depois) {
   f.className = 'portao'; f.id = 'portao';
   f.innerHTML =
     '<div class="portao-cx">' +
-      '<div class="portao-selo"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/>' +
-      '<path d="M8 10V7a4 4 0 0 1 8 0v3" stroke-linecap="round"/><circle cx="12" cy="15.5" r="1.4" fill="currentColor" stroke="none"/></svg></div>' +
+      '<div class="portao-selo">' + (B12.FAROL || '') + '</div>' +
       '<h2>Área restrita</h2>' +
       '<p>' + (papelMinimo === 'dono' ? 'Só o proprietário entra aqui.' : 'Equipe e proprietário da Estação B12.') + '</p>' +
       '<form class="portao-form" novalidate>' +
