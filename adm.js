@@ -1481,6 +1481,7 @@ function iaTexto(t) {
     .replace(/\n/g, '<br>');
 }
 
+var iaCartao = B12.iaCartao, iaLigarCartao = B12.iaLigarCartao;
 function pIA(raiz) {
   var d = B12.iaDados();
   var cx = bloco(
@@ -1577,47 +1578,6 @@ function pIA(raiz) {
   });
 }
 
-function iaCartao(p) {
-  var d = p.dados;
-  if (p.proposta === 'lancamento') {
-    return '<h4>' + (d.tipo === 'entrada' ? 'Entrada no caixa' : 'Saída do caixa') + '</h4>' +
-      '<table class="tabela"><tr><td>Valor</td><td class="n">' + B12.brl(d.valor) + '</td></tr>' +
-      '<tr><td>Categoria</td><td class="n">' + iaEscapa(d.cat) + '</td></tr>' +
-      '<tr><td>Centro de custo</td><td class="n">' + iaEscapa(d.centro) + '</td></tr>' +
-      '<tr><td>Descrição</td><td class="n">' + iaEscapa(d.desc) + '</td></tr>' +
-      '<tr><td>Data</td><td class="n">' + B12.dataBR(d.data) + '</td></tr>' +
-      '<tr><td>Pagamento</td><td class="n">' + iaEscapa(d.pg) + '</td></tr></table>' +
-      '<div class="ia-acoes"><button type="button" class="btn pri peq" data-ok>Confirmar</button>' +
-      '<button type="button" class="btn sec peq" data-nao>Agora não</button></div>';
-  }
-  if (p.proposta === 'preco') {
-    var nome = d.o_que === 'regular' ? 'Travessia regular, por pessoa'
-      : d.o_que === 'diaria' ? 'Diária do estacionamento'
-      : 'Passeio: ' + ((B12.acharPasseio(d.passeio_id) || {}).nome || d.passeio_id);
-    return '<h4>Mudar preço</h4><table class="tabela"><tr><td>' + iaEscapa(nome) + '</td>' +
-      '<td class="n">' + B12.brl(d.valor) + '</td></tr></table>' +
-      '<div class="ia-acoes"><button type="button" class="btn pri peq" data-ok>Confirmar</button>' +
-      '<button type="button" class="btn sec peq" data-nao>Agora não</button></div>';
-  }
-  return '<h4>Mensagem pronta</h4><p class="ia-msg">' + iaEscapa(d.texto).replace(/\n/g, '<br>') + '</p>' +
-    '<div class="ia-acoes"><button type="button" class="btn zap peq" data-zap>Enviar pelo WhatsApp</button>' +
-    '<button type="button" class="btn sec peq" data-nao>Agora não</button></div>';
-}
 
-function iaLigarCartao(el, p) {
-  var ok = el.querySelector('[data-ok]'), nao = el.querySelector('[data-nao]'), zap = el.querySelector('[data-zap]');
-  function feito(txt) { el.classList.add('feito'); el.querySelector('.ia-acoes').innerHTML = '<span class="ia-feito">' + txt + '</span>'; }
-  if (ok) ok.onclick = function () {
-    var r = B12.iaConfirmar(p);
-    if (r && r.erro) return B12.aviso(r.erro, 'ruim');
-    feito('Feito.'); B12.aviso('Pronto, já está no app.', 'bom');
-  };
-  if (zap) zap.onclick = function () {
-    var n = String(p.dados.whats || B12.EMPRESA.whats).replace(/\D/g, '');
-    window.open('https://wa.me/' + n + '?text=' + encodeURIComponent(p.dados.texto), '_blank');
-    feito('Aberto no WhatsApp.');
-  };
-  if (nao) nao.onclick = function () { feito('Deixado de lado.'); };
-}
 
 })();

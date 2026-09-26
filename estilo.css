@@ -865,6 +865,58 @@ body:not(.adm) .semninguem{border-color:var(--risco);color:var(--tinta-3)}
 .ia-atalho-seta{width:18px;height:18px;flex:none;fill:none;stroke:var(--gelo-3);stroke-width:2.2}
 @media (pointer:coarse){ .ia-atalho{min-height:72px} }
 
+
+/* ------------------------------------------------- A BOLHA E A GAVETA DO CHAT
+   A bolha fica acima da barra de baixo, à direita. A gaveta sobe por cima do
+   app, então dá para perguntar de qualquer tela sem perder o lugar. */
+.ia-bolha-flut{position:fixed;right:12px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:95;
+  display:flex;align-items:center;gap:8px;height:52px;padding:0 15px 0 13px;border:0;border-radius:99px;
+  background:linear-gradient(145deg,var(--turq-500),var(--turq-700));color:#fff;
+  box-shadow:0 8px 26px rgba(6,23,38,.42),0 0 0 3px rgba(255,255,255,.1);
+  animation:sobe .4s var(--curva) both;transition:transform .18s var(--curva)}
+.ia-bolha-flut:active{transform:scale(.94)}
+.ia-bolha-flut svg{width:23px;height:23px;flex:none;fill:none;stroke:#fff;stroke-width:1.8}
+.ia-bolha-saldo{font-size:12.5px;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+@media (min-width:900px){ .ia-bolha-flut{right:calc(50% - 280px + 12px)} }
+@media (min-width:1100px){ body.adm .ia-bolha-flut{right:calc(50% - 590px + 12px)} }
+@media (min-width:1500px){ body.adm .ia-bolha-flut{right:calc(50% - 680px + 12px)} }
+
+.ia-gaveta{position:fixed;inset:0;z-index:110;display:flex;align-items:flex-end;justify-content:center}
+.ia-gaveta-fundo{position:absolute;inset:0;background:rgba(4,16,26,.62);backdrop-filter:blur(4px);
+  -webkit-backdrop-filter:blur(4px);opacity:0;transition:opacity .24s}
+.ia-gaveta.on .ia-gaveta-fundo{opacity:1}
+.ia-gaveta-cx{position:relative;width:100%;max-width:560px;height:min(86vh,720px);display:flex;
+  flex-direction:column;background:var(--noite);border-radius:20px 20px 0 0;overflow:hidden;
+  box-shadow:0 -10px 40px rgba(0,0,0,.45);transform:translateY(100%);transition:transform .26s var(--curva)}
+.ia-gaveta.on .ia-gaveta-cx{transform:none}
+.ia-gaveta-topo{display:flex;align-items:center;justify-content:space-between;gap:12px;flex:none;
+  padding:15px 16px 11px;background:linear-gradient(150deg,var(--noite-2),var(--noite-3))}
+.ia-gaveta-topo b{display:block;font-size:16px;color:#fff}
+.ia-gaveta-topo small{display:block;font-size:11.5px;color:var(--gelo-3);margin-top:2px;
+  font-variant-numeric:tabular-nums}
+.ia-g-x{background:var(--noite-3);border:0;border-radius:10px;width:38px;height:38px;flex:none;
+  display:grid;place-items:center;color:var(--gelo-2)}
+.ia-g-x svg{width:17px;height:17px}
+.ia-g-medidor{height:3px;background:var(--noite-3);flex:none}
+.ia-g-medidor i{display:block;height:100%;background:linear-gradient(90deg,var(--turq-500),var(--turq-300));
+  transition:width .4s var(--curva)}
+.ia-g-conversa{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 14px 4px;
+  display:flex;flex-direction:column;gap:9px;scroll-behavior:smooth}
+.ia-gaveta .ia-sugestoes{flex:none;padding:10px 14px 8px}
+.ia-gaveta .ia-barra{flex:none;margin:0 14px calc(14px + env(safe-area-inset-bottom))}
+.ia-gaveta .ia-ele{background:var(--noite-3);color:var(--gelo)}
+.ia-gaveta .ia-sug{background:var(--noite-2);border-color:var(--noite-risco);color:var(--gelo-2)}
+.ia-gaveta .ia-vazio{margin:auto 0}
+.ia-microfone{flex:none;width:48px;border:1px solid var(--noite-risco);border-radius:12px;
+  background:var(--noite-2);color:var(--gelo-2);display:grid;place-items:center;transition:background .18s}
+.ia-microfone svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.9}
+.ia-microfone.on{background:var(--ruim);border-color:var(--ruim);color:#fff;animation:pulsaMic 1.2s infinite}
+@keyframes pulsaMic{0%,100%{box-shadow:0 0 0 0 rgba(226,86,74,.5)}60%{box-shadow:0 0 0 9px rgba(226,86,74,0)}}
+@media (pointer:coarse){ .ia-bolha-flut{height:56px} .ia-g-x{width:44px;height:44px} .ia-microfone{min-height:44px} }
+@media (prefers-reduced-motion:reduce){ .ia-microfone.on{animation:none} }
+@media (prefers-reduced-motion:reduce){
+  .ia-gaveta-cx,.ia-gaveta-fundo{transition:none} .ia-bolha-flut{animation:none} }
+
 /* ------------------------------------------------------------- ASSISTENTE */
 .ia-credito{margin-top:14px;padding:12px 13px;border-radius:12px;background:var(--noite-3);
   border:1px solid var(--noite-risco)}

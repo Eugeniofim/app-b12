@@ -289,12 +289,32 @@ function endereco() {
   return c ? c.replace(/\/$/, '') + '/claude' : '';
 }
 
+/* A chave do dono, guardada SÓ neste aparelho. É o caminho de quem quer ligar
+   o assistente na hora, sem esperar o cofre. Nunca vai para o repositório. */
+var CHAVE = 'b12_chave_ia';
+B12.iaChave = function () { try { return localStorage.getItem(CHAVE) || ''; } catch (e) { return ''; } };
+B12.iaGuardarChave = function (k) {
+  k = String(k || '').trim();
+  try {
+    if (!k) { localStorage.removeItem(CHAVE); return { ok: true, apagada: true }; }
+    if (k.indexOf('sk-ant-') !== 0) return { erro: 'A chave da Anthropic começa com sk-ant-.' };
+    localStorage.setItem(CHAVE, k); return { ok: true };
+  } catch (e) { return { erro: 'Não consegui guardar a chave neste aparelho.' }; }
+};
+
 B12.iaChamar = function (mensagens) {
-  var url = endereco();
-  if (!url) return Promise.reject(new Error('O assistente ainda não foi ligado neste app.'));
+  var url = endereco(), chave = B12.iaChave();
+  if (!url && !chave) return Promise.reject(new Error('O assistente ainda não foi ligado neste app.'));
   var ctrl = new AbortController(), corta = setTimeout(function () { ctrl.abort(); }, 45000);
-  return fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, signal: ctrl.signal,
-      body: JSON.stringify({ max_tokens: 1500, system: sistema(), tools: FERRAMENTAS, messages: mensagens }) })
+  var corpo = { max_tokens: 1500, system: sistema(), tools: FERRAMENTAS, messages: mensagens };
+  var direto = !!chave;                       /* com chave própria, fala direto com a Anthropic */
+  var destino = direto ? 'https://api.anthropic.com/v1/messages' : url;
+  var cabecas = direto
+    ? { 'content-type': 'application/json', 'x-api-key': chave,
+        'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' }
+    : { 'content-type': 'application/json' };
+  if (direto) corpo.model = (B12.IA && B12.IA.modelo) || 'claude-haiku-4-5';
+  return fetch(destino, { method: 'POST', headers: cabecas, signal: ctrl.signal, body: JSON.stringify(corpo) })
     .then(function (r) {
       return r.json().then(function (j) {
         if (!r.ok) {
@@ -370,6 +390,7 @@ B12.iaRecarregar = function (valor) {
 };
 /* o cofre responde neste endereço? serve para a tela avisar antes de ele perguntar */
 B12.iaTestar = function () {
+  if (B12.iaChave()) return Promise.resolve({ ligado: true, motivo: '', modo: 'chave própria' });
   var c = (B12.IA && B12.IA.cofre) || '';
   if (!c) return Promise.resolve({ ligado: false, motivo: 'sem cofre' });
   var ctrl = new AbortController(); setTimeout(function () { ctrl.abort(); }, 8000);
@@ -383,7 +404,8 @@ B12.iaDados = function () {
   var x = ia();
   return { saldo: B12.iaSaldo(), posto: x.saldo, gasto: Math.round(x.gasto * 100) / 100,
            perguntas: x.perguntas, media: x.perguntas ? x.gasto / x.perguntas : 0,
-           ligado: !!endereco(), conversa: x.historico.length };
+           ligado: !!(endereco() || B12.iaChave()), chavePropria: !!B12.iaChave(),
+           conversa: x.historico.length };
 };
 
 /* ---- executar o que ele confirmou no cartão ---- */
@@ -408,6 +430,235 @@ B12.iaConfirmar = function (p) {
     }
   }
   return { erro: 'Não sei confirmar isso.' };
+};
+
+
+
+
+/* ------------------------------------------------------------------- voz
+   Falar é mais rápido que digitar no trapiche, com a mão molhada. Usa o que
+   o próprio navegador traz: nada de serviço de fora, nada de chave a mais.
+   Quem não tem (alguns Android antigos) simplesmente não vê o microfone. */
+var Ouvido = window.SpeechRecognition || window.webkitSpeechRecognition;
+B12.iaTemVoz = function () { return !!Ouvido; };
+B12.iaTemFala = function () { return 'speechSynthesis' in window; };
+
+var ouvindo = null;
+B12.iaOuvir = function (aoTexto, aoEstado) {
+  if (!Ouvido) return null;
+  if (ouvindo) { ouvindo.stop(); ouvindo = null; return null; }
+  var r = new Ouvido();
+  r.lang = 'pt-BR'; r.interimResults = true; r.continuous = false; r.maxAlternatives = 1;
+  var final = '';
+  r.onresult = function (e) {
+    var parcial = '';
+    for (var i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) final += e.results[i][0].transcript;
+      else parcial += e.results[i][0].transcript;
+    }
+    aoTexto(final || parcial, !!final);
+  };
+  r.onerror = function (e) {
+    ouvindo = null;
+    aoEstado('erro', e.error === 'not-allowed'
+      ? 'Preciso da permissão do microfone. Toque no cadeado do endereço e libere.'
+      : e.error === 'no-speech' ? 'Não ouvi nada. Tente de novo.' : 'O microfone falhou.');
+  };
+  r.onend = function () { ouvindo = null; aoEstado('parou'); };
+  try { r.start(); ouvindo = r; aoEstado('ouvindo'); } catch (e) { ouvindo = null; }
+  return r;
+};
+B12.iaPararDeOuvir = function () { if (ouvindo) { try { ouvindo.stop(); } catch (e) {} ouvindo = null; } };
+
+B12.iaFalar = function (texto) {
+  if (!B12.iaTemFala() || !texto) return;
+  try {
+    speechSynthesis.cancel();
+    var limpo = String(texto).replace(/\*\*/g, '').replace(/^- /gm, '').replace(/R\$\s?/g, '');
+    var f = new SpeechSynthesisUtterance(limpo.slice(0, 600));
+    f.lang = 'pt-BR'; f.rate = 1.06;
+    var vozes = speechSynthesis.getVoices().filter(function (v) { return /pt[-_]BR/i.test(v.lang); });
+    if (vozes.length) f.voice = vozes[0];
+    speechSynthesis.speak(f);
+  } catch (e) {}
+};
+B12.iaCalar = function () { try { speechSynthesis.cancel(); } catch (e) {} };
+B12.iaFalando = function () { try { return speechSynthesis.speaking; } catch (e) { return false; } };
+
+/* ======================================================= a gaveta do chat
+   A bolha fica no canto de baixo, em qualquer tela de quem entrou como dono ou
+   equipe. Um toque abre a conversa por cima do app, sem sair de onde estava. */
+function esc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function marcar(t) {
+  return esc(t).replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
+    .replace(/^- (.+)$/gm, '<span class="ia-item">$1</span>').replace(/\n/g, '<br>');
+}
+var SUGESTOES = ['Como foi o dia de hoje?', 'Quem viaja amanhã?', 'Quais contas vencem esta semana?',
+                 'Quanto posso retirar?', 'Tem carro passando da data?', 'Compare com o ano passado'];
+
+B12.iaBolhaFlutuante = function () {
+  var ja = document.getElementById('ia-bolha');
+  var pode = B12.pode && B12.pode('equipe');
+  if (!pode) { if (ja) ja.remove(); B12.iaFecharGaveta(); return; }
+  if (ja) return;
+  var b = document.createElement('button');
+  b.id = 'ia-bolha'; b.className = 'ia-bolha-flut'; b.type = 'button';
+  b.setAttribute('aria-label', 'Abrir o assistente');
+  b.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 0 0-9 9c0 1.6.4 3.1 1.2 4.4L3 21l4.8-1.1A9 9 0 1 0 12 3z" stroke-linejoin="round"/>' +
+    '<path d="M8.5 11h.01M12 11h.01M15.5 11h.01" stroke-linecap="round" stroke-width="2.6"/></svg>' +
+    '<span class="ia-bolha-saldo">' + B12.brl(B12.iaSaldo(), 2) + '</span>';
+  b.onclick = function () { B12.iaAbrirGaveta(); };
+  document.body.appendChild(b);
+};
+
+B12.iaFecharGaveta = function () {
+  var g = document.getElementById('ia-gaveta');
+  if (!g) return;
+  g.classList.remove('on');
+  setTimeout(function () { g.remove(); }, 240);
+  document.body.style.overflow = '';
+};
+
+B12.iaAbrirGaveta = function () {
+  if (document.getElementById('ia-gaveta')) return;
+  var d = B12.iaDados();
+  var g = document.createElement('div');
+  g.id = 'ia-gaveta'; g.className = 'ia-gaveta';
+  g.innerHTML =
+    '<div class="ia-gaveta-fundo"></div>' +
+    '<div class="ia-gaveta-cx" role="dialog" aria-label="Assistente da B12">' +
+      '<div class="ia-gaveta-topo">' +
+        '<div><b>Assistente</b><small id="ia-g-saldo">' + B12.brl(d.saldo, 2) + ' de crédito · ' +
+          d.perguntas + ' pergunta' + (d.perguntas === 1 ? '' : 's') + '</small></div>' +
+        '<button type="button" class="ia-g-x" aria-label="Fechar">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">' +
+        '<path d="M18 6L6 18M6 6l12 12"/></svg></button>' +
+      '</div>' +
+      '<div class="ia-g-medidor"><i style="width:' + (d.posto ? Math.max(0, Math.min(100, d.saldo/d.posto*100)).toFixed(1) : 0) + '%"></i></div>' +
+      '<div class="ia-g-conversa" id="ia-g-conversa" aria-live="polite"></div>' +
+      '<div class="ia-sugestoes" id="ia-g-sug">' + SUGESTOES.map(function (s) {
+        return '<button type="button" class="ia-sug" data-gsug="' + esc(s) + '">' + esc(s) + '</button>'; }).join('') + '</div>' +
+      '<form class="ia-barra" id="ia-g-barra">' +
+        (B12.iaTemVoz() ? '<button type="button" class="ia-microfone" id="ia-g-voz" aria-label="Falar em vez de digitar">' +
+          '<svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/>' +
+          '<path d="M5 11a7 7 0 0 0 14 0M12 18v3" stroke-linecap="round"/></svg></button>' : '') +
+        '<input id="ia-g-campo" placeholder="' + (B12.iaTemVoz() ? 'Pergunte ou toque no microfone…' : 'Pergunte alguma coisa…') + '" autocomplete="off" aria-label="Sua pergunta">' +
+        '<button type="submit" class="ia-enviar" aria-label="Perguntar">' +
+        '<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>' +
+      '</form>' +
+    '</div>';
+  document.body.appendChild(g);
+  requestAnimationFrame(function () { g.classList.add('on'); });
+  document.body.style.overflow = 'hidden';
+
+  var area = g.querySelector('#ia-g-conversa');
+  function desce() { area.scrollTop = area.scrollHeight; }
+  function bolha(m) {
+    if (m.papel === 'fim') { var p = area.querySelector('.ia-pensa'); if (p) p.remove(); atualizaSaldo(); return desce(); }
+    var v = area.querySelector('.ia-vazio'); if (v) v.remove();
+    var pensa = area.querySelector('.ia-pensa'); if (pensa && m.papel !== 'pensa') pensa.remove();
+    var el = document.createElement('div');
+    if (m.papel === 'pensa') { el.className = 'ia-bolha ia-pensa'; el.innerHTML = '<span></span><span></span><span></span>'; }
+    else if (m.papel === 'proposta') { el.className = 'ia-proposta'; el.innerHTML = B12.iaCartao(m.proposta); }
+    else { el.className = 'ia-bolha ia-' + (m.papel === 'user' ? 'eu' : m.papel === 'erro' ? 'erro' : 'ele');
+           el.innerHTML = marcar(m.texto);
+           if (m.papel === 'assistant' && porVoz) B12.iaFalar(m.texto); }
+    area.appendChild(el); desce();
+    if (m.papel === 'proposta') B12.iaLigarCartao(el, m.proposta);
+  }
+  function atualizaSaldo() {
+    var x = B12.iaDados();
+    var s = g.querySelector('#ia-g-saldo');
+    if (s) s.textContent = B12.brl(x.saldo, 2) + ' de crédito · ' + x.perguntas + ' pergunta' + (x.perguntas === 1 ? '' : 's');
+    var m = g.querySelector('.ia-g-medidor i');
+    if (m) m.style.width = (x.posto ? Math.max(0, Math.min(100, x.saldo/x.posto*100)).toFixed(1) : 0) + '%';
+    var bs = document.querySelector('#ia-bolha .ia-bolha-saldo');
+    if (bs) bs.textContent = B12.brl(x.saldo, 2);
+  }
+  var porVoz = false;
+  function perguntar(t, deVoz) {
+    porVoz = !!deVoz;
+    var c = g.querySelector('#ia-g-campo'); c.value = ''; c.blur();
+    B12.iaPerguntar(t, bolha);
+  }
+  g.querySelector('#ia-g-barra').onsubmit = function (e) { e.preventDefault(); perguntar(g.querySelector('#ia-g-campo').value); };
+  g.querySelectorAll('[data-gsug]').forEach(function (b) { b.onclick = function () { perguntar(b.dataset.gsug); }; });
+  var voz = g.querySelector('#ia-g-voz');
+  if (voz) voz.onclick = function () {
+    var campo = g.querySelector('#ia-g-campo');
+    if (voz.classList.contains('on')) { B12.iaPararDeOuvir(); return; }
+    B12.iaCalar();
+    B12.iaOuvir(function (t, pronto) {
+      campo.value = t;
+      if (pronto && t.trim()) { voz.classList.remove('on'); perguntar(t, true); }
+    }, function (estado, msg) {
+      voz.classList.toggle('on', estado === 'ouvindo');
+      if (estado === 'erro') bolha({ papel: 'erro', texto: msg });
+    });
+  };
+  g.querySelector('.ia-g-x').onclick = function () { B12.iaCalar(); B12.iaPararDeOuvir(); B12.iaFecharGaveta(); };
+  g.querySelector('.ia-gaveta-fundo').onclick = function () { B12.iaCalar(); B12.iaPararDeOuvir(); B12.iaFecharGaveta(); };
+
+  /* o que já foi conversado */
+  var h = (B12.DB.ajustes.ia || {}).historico || [];
+  h.forEach(function (m) {
+    if (m.role === 'user' && typeof m.content === 'string') bolha({ papel: 'user', texto: m.content });
+    else if (m.role === 'assistant' && Array.isArray(m.content)) {
+      var t = m.content.filter(function (b) { return b.type === 'text'; }).map(function (b) { return b.text; }).join('\n').trim();
+      if (t) bolha({ papel: 'assistant', texto: t });
+    }
+  });
+  if (!area.children.length) area.innerHTML = '<div class="ia-vazio"><b>Pergunte o que quiser</b>' +
+    '<p>Ele lê os dados deste app para responder.</p></div>';
+  desce();
+  B12.iaTestar().then(function (e) {
+    if (!e.ligado && !area.querySelector('.ia-erro')) bolha({ papel: 'erro',
+      texto: 'O assistente ainda não foi ligado. Em Ajustes, ponha a chave da Anthropic ou peça ao Eugênio para liberar o endereço no cofre.' });
+  });
+};
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape') B12.iaFecharGaveta(); });
+
+B12.iaCartao = function (p) {
+  var d = p.dados;
+  if (p.proposta === 'lancamento') {
+    return '<h4>' + (d.tipo === 'entrada' ? 'Entrada no caixa' : 'Saída do caixa') + '</h4>' +
+      '<table class="tabela"><tr><td>Valor</td><td class="n">' + B12.brl(d.valor) + '</td></tr>' +
+      '<tr><td>Categoria</td><td class="n">' + esc(d.cat) + '</td></tr>' +
+      '<tr><td>Centro de custo</td><td class="n">' + esc(d.centro) + '</td></tr>' +
+      '<tr><td>Descrição</td><td class="n">' + esc(d.desc) + '</td></tr>' +
+      '<tr><td>Data</td><td class="n">' + B12.dataBR(d.data) + '</td></tr>' +
+      '<tr><td>Pagamento</td><td class="n">' + esc(d.pg) + '</td></tr></table>' +
+      '<div class="ia-acoes"><button type="button" class="btn pri peq" data-ok>Confirmar</button>' +
+      '<button type="button" class="btn sec peq" data-nao>Agora não</button></div>';
+  }
+  if (p.proposta === 'preco') {
+    var nome = d.o_que === 'regular' ? 'Travessia regular, por pessoa'
+      : d.o_que === 'diaria' ? 'Diária do estacionamento'
+      : 'Passeio: ' + ((B12.acharPasseio(d.passeio_id) || {}).nome || d.passeio_id);
+    return '<h4>Mudar preço</h4><table class="tabela"><tr><td>' + esc(nome) + '</td>' +
+      '<td class="n">' + B12.brl(d.valor) + '</td></tr></table>' +
+      '<div class="ia-acoes"><button type="button" class="btn pri peq" data-ok>Confirmar</button>' +
+      '<button type="button" class="btn sec peq" data-nao>Agora não</button></div>';
+  }
+  return '<h4>Mensagem pronta</h4><p class="ia-msg">' + esc(d.texto).replace(/\n/g, '<br>') + '</p>' +
+    '<div class="ia-acoes"><button type="button" class="btn zap peq" data-zap>Enviar pelo WhatsApp</button>' +
+    '<button type="button" class="btn sec peq" data-nao>Agora não</button></div>';
+};
+
+B12.iaLigarCartao = function (el, p) {
+  var ok = el.querySelector('[data-ok]'), nao = el.querySelector('[data-nao]'), zap = el.querySelector('[data-zap]');
+  function feito(txt) { el.classList.add('feito'); el.querySelector('.ia-acoes').innerHTML = '<span class="ia-feito">' + txt + '</span>'; }
+  if (ok) ok.onclick = function () {
+    var r = B12.iaConfirmar(p);
+    if (r && r.erro) return B12.aviso(r.erro, 'ruim');
+    feito('Feito.'); B12.aviso('Pronto, já está no app.', 'bom');
+  };
+  if (zap) zap.onclick = function () {
+    var n = String(p.dados.whats || B12.EMPRESA.whats).replace(/\D/g, '');
+    window.open('https://wa.me/' + n + '?text=' + encodeURIComponent(p.dados.texto), '_blank');
+    feito('Aberto no WhatsApp.');
+  };
+  if (nao) nao.onclick = function () { feito('Deixado de lado.'); };
 };
 
 B12.IA_FERRAMENTAS = FERRAMENTAS;

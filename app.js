@@ -78,6 +78,7 @@ window.addEventListener('popstate', function () {
 });
 
 function pintar(nome) {
+  if (B12.iaBolhaFlutuante) B12.iaBolhaFlutuante();   /* vale para todo caminho, inclusive o atalho */
   if (nome === 'passeio')  B12.pintarPasseio(B12.passeioAtual);
   if (nome === 'ilha')     B12.pintarIlha();
   if (nome === 'reservas') B12.pintarReservas();
@@ -266,6 +267,7 @@ function comecar() {
   document.getElementById('b-sair-equipe').onclick = B12.sair;
 
   B12.buscarClima();
+  if (B12.iaBolhaFlutuante) B12.iaBolhaFlutuante();
   ligarAtualizacao();
   convite();
 

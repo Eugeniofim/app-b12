@@ -39,9 +39,12 @@ B12.papel = function () {
 B12.entrar = function (papel) {
   try { localStorage.setItem(SESSAO, JSON.stringify({ papel: papel, ate: Date.now() + DURACAO })); }
   catch (e) {}
+  if (B12.iaBolhaFlutuante) B12.iaBolhaFlutuante();
 };
 B12.sair = function () {
   try { localStorage.removeItem(SESSAO); } catch (e) {}
+  if (B12.iaFecharGaveta) B12.iaFecharGaveta();
+  if (B12.iaBolhaFlutuante) B12.iaBolhaFlutuante();
   B12.ir('inicio');
 };
 B12.pode = function (papelMinimo) {
@@ -156,6 +159,11 @@ B12.formAjustes = function (depois) {
       '<div class="ajuda">Os passageiros, carros e lançamentos de exemplo se renovam sozinhos a cada dia. ' +
       'O que você registrar de verdade fica. Para recomeçar a demonstração agora:</div>' +
       '<button type="button" class="btn sec" id="b-refrescar-demo" style="margin-top:10px">Recarregar dados de demonstração</button>' +
+      '<div class="grupo">Assistente</div>' +
+      B12.f_campo('Chave da Anthropic', 'chaveIA', { tipo:'password', valor: B12.iaChave ? B12.iaChave() : '',
+        dica:'sk-ant-…',
+        ajuda:'Liga o assistente na hora, usando a sua conta. A chave fica guardada SÓ neste aparelho, ' +
+              'nunca vai para a internet nem para o repositório. Deixe vazio para apagar.' }) +
       '<div class="grupo">Versão</div>' +
       '<div class="ajuda">Este aparelho está na <b>' + (B12.VERSAO || '?') + '</b>. O app confere sozinho ' +
       'se existe versão nova toda vez que você volta para ele, quando a internet volta e a cada 10 minutos. ' +
@@ -192,6 +200,10 @@ B12.formAjustes = function (depois) {
       a.patio = { regra: d.patioRegra === '24h' ? '24h' : 'dia',
                   tolerancia: Math.max(0, Number(d.patioTol) || 0),
                   cobranca: d.patioCobranca === 'chegada' ? 'chegada' : 'saida' };
+      if (B12.iaGuardarChave && d.chaveIA !== undefined) {
+        var ck = B12.iaGuardarChave(d.chaveIA);
+        if (ck.erro) return { erro: ck.erro };
+      }
       a.metaMensal = Number(d.metaMensal) || a.metaMensal;
       a.reservaMinima = Number(d.reservaMinima) || a.reservaMinima;
       B12.salvar();
