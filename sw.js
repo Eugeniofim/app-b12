@@ -1,5 +1,5 @@
 /* Estação B12 — service worker. SUBIR A VERSÃO A CADA PUBLICAÇÃO. */
-const CACHE = 'b12-v1.32.0';
+const CACHE = 'b12-v1.32.1';
 /* o index pede os arquivos carimbados (x.js?v=1.27.0); guardo os mesmos endereços */
 const V = CACHE.replace('b12-v', '');
 const ESSENCIAL = ['./', './index.html', './estilo.css?v=' + V, './marca.js?v=' + V, './dados.js?v=' + V, './nucleo.js?v=' + V,
