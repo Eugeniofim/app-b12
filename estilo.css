@@ -1197,3 +1197,37 @@ body.adm .ficha-conta.paga{background:#0A3B37;color:var(--turq-300)}
 
 .ficha-acoes{display:flex;gap:8px}
 .ficha-acoes .btn{margin-top:0;flex:1}
+
+/* ------------------------------------------------------------ CLUBE B12 */
+.saldo{text-align:center;padding:22px 18px 20px}
+.saldo-faixa{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.1em;
+  text-transform:uppercase;background:var(--ouro);color:#04240F;border-radius:99px;padding:5px 13px}
+.saldo-n{font-size:52px;font-weight:800;line-height:1;margin:12px 0 4px;color:var(--azul-800);
+  font-variant-numeric:tabular-nums}
+.saldo-n small{display:block;font-size:12.5px;font-weight:600;color:var(--tinta-3);
+  letter-spacing:.08em;text-transform:uppercase;margin-top:6px}
+.saldo-barra{height:8px;border-radius:99px;background:var(--risco);margin:16px 0 10px;overflow:hidden}
+.saldo-barra i{display:block;height:100%;border-radius:99px;
+  background:linear-gradient(90deg,var(--turq-600),var(--ouro));
+  transition:width .6s cubic-bezier(.22,.61,.36,1)}
+.saldo p{font-size:13px;color:var(--tinta-2)}
+.saldo-mimo{margin-top:14px;padding:11px 13px;border-radius:var(--r-m);font-size:13px;
+  font-weight:600;color:var(--turq-600);background:#EDFBF9;border:1.5px solid var(--turq-500)}
+
+.niveis{display:grid;gap:9px;margin:0 12px}
+.nivel{background:var(--carta);border:1.5px solid var(--risco);border-radius:var(--r-m);
+  padding:13px 14px;position:relative}
+.nivel.feita{border-color:var(--turq-500)}
+.nivel.on{border-color:var(--ouro);box-shadow:0 6px 18px rgba(242,185,59,.22)}
+.nivel-cab{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.nivel-cab b{font-size:15px}
+.nivel-cab span{font-size:11px;color:var(--tinta-3);white-space:nowrap}
+.nivel p{font-size:12.5px;color:var(--tinta-2);margin-top:5px}
+.nivel-tag{display:inline-block;margin-top:9px;font-size:9.5px;font-weight:800;letter-spacing:.09em;
+  text-transform:uppercase;background:var(--ouro);color:#04240F;border-radius:99px;padding:4px 10px}
+
+.ganha{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid var(--risco)}
+.ganha:last-child{border-bottom:0;padding-bottom:0}
+.ganha b{flex:none;min-width:56px;font-size:15px;font-weight:800;color:var(--turq-600)}
+.ganha span{font-size:12.5px;color:var(--tinta-2);line-height:1.45}
+.lista .v.fraco{color:var(--tinta-3);font-weight:600}

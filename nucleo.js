@@ -916,6 +916,8 @@ B12.buscarClientes = function (termo) {
 B12.fidelidade = function () {
   var f = B12.DB.ajustes.fidelidade;
   if (!f) return JSON.parse(JSON.stringify(B12.FIDELIDADE));
+  /* quem salvou as regras antes do bônus existir não perde o presente */
+  if (f.pontosInstalacao == null) f.pontosInstalacao = B12.FIDELIDADE.pontosInstalacao;
   return f;
 };
 B12.salvarFidelidade = function (v) {
@@ -933,8 +935,9 @@ B12.salvarFidelidade = function (v) {
       return { erro: 'Duas faixas começam em ' + faixas[i].de + ' pontos. Cada faixa precisa de um número.' };
     }
   }
+  var bon = Math.max(0, Math.round(Number(v.pontosInstalacao) || 0));
   B12.DB.ajustes.fidelidade = { ligada: v.ligada !== false, reaisPorPonto: rpp,
-    validadeMeses: 0, faixas: faixas };
+    pontosInstalacao: bon, validadeMeses: 0, faixas: faixas };
   B12.salvar();
   return { ok: true };
 };
@@ -957,6 +960,89 @@ B12.faixaDe = function (pontos) {
 /* ---------------------------------------------- a ficha completa do cliente
    Tudo o que o Dhalsin precisa para decidir um mimo: quanto entrou, em quê,
    desde quando, com que frequência, e o que ainda está em aberto. */
+/* --------------------------------------------------------- o clube, do lado de quem viaja
+   Esta é a conta do aparelho da pessoa: o que ela reservou por aqui e o
+   presente por ter instalado o app. O saldo que vale é o da B12 — enquanto
+   a nuvem não estiver ligada, este é o dela e não conversa com o painel. */
+function meu() {
+  if (!B12.DB.meu) B12.DB.meu = { instalouEm: null, abriuEm: null, aberturas: 0 };
+  return B12.DB.meu;
+}
+B12.meu = meu;
+B12.marcarInstalado = function () {
+  var m = meu();
+  if (m.instalouEm) return false;
+  m.instalouEm = new Date().toISOString();
+  B12.salvar();
+  return true;
+};
+B12.marcarAbertura = function () {
+  var m = meu(), hoje = B12.hoje();
+  if (m.abriuEm === hoje) return;
+  m.abriuEm = hoje; m.aberturas = (m.aberturas || 0) + 1;
+  B12.salvar();
+};
+/* o extrato de quem viaja: uma linha por coisa que deu ponto */
+B12.meusPontos = function () {
+  var f = B12.fidelidade();
+  var linhas = [], total = 0;
+
+  var m = meu();
+  if (m.instalouEm) {
+    var b = Math.max(0, Number(f.pontosInstalacao) || 0);
+    if (b) {
+      linhas.push({ quando: String(m.instalouEm).slice(0, 10),
+                    o_que: m.cadastradoEm ? 'Entrou no Clube B12' : 'Instalou o app da B12',
+                    pontos: b, tipo: 'bonus' });
+      total += b;
+    }
+  }
+  B12.minhasReservas().forEach(function (r) {
+    var v = r.pago ? (r.total || 0) : 0;      /* ponto entra quando a viagem é paga */
+    var p = Math.floor(v / f.reaisPorPonto);
+    if (p > 0) {
+      linhas.push({ quando: r.ida, o_que: 'Travessia ' + r.cod, pontos: p, tipo: 'viagem' });
+      total += p;
+    } else if (!r.pago && (r.total || r.aReceber)) {
+      linhas.push({ quando: r.ida, o_que: 'Travessia ' + r.cod, pontos: 0, tipo: 'espera',
+                    nota: 'os pontos entram quando você pagar na saída' });
+    }
+  });
+  linhas.sort(function (a, b) { return String(b.quando).localeCompare(String(a.quando)); });
+
+  var ff = B12.faixaDe(total);
+  return { ligada: f.ligada !== false, pontos: total, linhas: linhas,
+           faixa: ff.faixa, proxima: ff.proxima, faltam: ff.faltam, andado: ff.andado,
+           faixas: f.faixas, reaisPorPonto: f.reaisPorPonto,
+           bonusInstalacao: Math.max(0, Number(f.pontosInstalacao) || 0),
+           instalado: !!m.instalouEm, cadastrado: !!m.cadastradoEm,
+           /* quanto gastar para chegar na próxima faixa */
+           faltaGastar: ff.proxima ? ff.faltam * f.reaisPorPonto : 0 };
+};
+
+/* ------------------------------------------------- o cadastro de quem viaja
+   Do lado do turista há uma ficha só: a dele. Fica no mesmo lugar dos
+   clientes para que, ligada a nuvem, ela suba sem conversão nenhuma. */
+B12.meuCadastro = function () {
+  var id = meu().clienteId;
+  if (!id) return null;
+  return B12.DB.clientes.filter(function (c) { return c.id === id; })[0] || null;
+};
+B12.salvarMeuCadastro = function (d) {
+  var m = meu(), novo = !m.clienteId;
+  var r = B12.salvarCliente({ id: m.clienteId || null, nome: d.nome, whats: d.whats,
+    email: d.email, instagram: d.instagram, cidade: d.cidade,
+    aceitaOfertas: !!d.aceitaOfertas, origem: 'app' });
+  if (r.erro) return r;
+  m.clienteId = r.cliente.id;
+  if (!m.cadastradoEm) m.cadastradoEm = new Date().toISOString();
+  /* cadastrar também vale o presente: quem se cadastra no navegador não
+     perde o bônus por ainda não ter posto o ícone na tela de início */
+  if (!m.instalouEm) m.instalouEm = m.cadastradoEm;
+  B12.salvar();
+  return { ok: true, novo: novo, cliente: r.cliente };
+};
+
 B12.dadosCliente = function (id) {
   var c = B12.DB.clientes.filter(function (x) { return x.id === id; })[0];
   if (!c) return null;

@@ -343,7 +343,13 @@ var LEITURAS = {
     });
     return {
       regra: { ligada: f.ligada !== false, reais_por_ponto: f.reaisPorPonto,
+               pontos_de_boas_vindas: f.pontosInstalacao,
                faixas: f.faixas.map(function (x) { return x.nome + ' a partir de ' + x.de + ' pts: ' + (x.mimo || '—'); }) },
+      clube_do_cliente: 'O turista vê os pontos dele em Mais → Clube B12, e o cartão ' +
+        'CADASTRE-SE na entrada do app abre o cadastro rápido. Quem se cadastra ganha ' +
+        'os pontos de boas-vindas.',
+      limite_honesto: 'Enquanto a nuvem não estiver ligada, o saldo que o turista vê é o do ' +
+        'aparelho dele e não conversa com este painel. Quem confirma o saldo é a B12, no balcão.',
       onde_muda: 'Painel → Clientes → botão Regras, no cartão "Quem merece um mimo".',
       cuidado: 'Só quem marcou "aceita ofertas" pode receber disparo de promoção. Os outros, ' +
         'só assunto da viagem deles.',

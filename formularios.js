@@ -792,7 +792,8 @@ B12.fichaCliente = function (id, depois) {
       l('Cidade', esc(c.cidade)),
       l('Promoções', c.aceitaOfertas
         ? 'aceita' + (c.consentidoEm ? ' · desde ' + B12.dataBR(String(c.consentidoEm).slice(0, 10)) : '')
-        : '<span class="pend">não autorizou</span>')
+        : '<span class="pend">não autorizou</span>'),
+      l('Cadastro', c.origem === 'app' ? 'feito pelo app' : 'feito no balcão')
     ]) +
     (!d.lista.length && d.gasto > 0
       ? '<div class="ajuda" style="margin-top:12px">O detalhe por categoria e por ano aparece ' +
@@ -859,6 +860,9 @@ B12.formFidelidade = function (depois) {
         'Desligando, a ficha para de mostrar pontos e faixa. O gasto continua aparecendo.') +
       campo('Quantos reais valem 1 ponto', 'rpp', { tipo:'number', modo:'decimal', passo:'1',
         valor: f.reaisPorPonto, ajuda:'Com 10, quem gasta R$ 300 fica com 30 pontos.' }) +
+      campo('Pontos de boas-vindas', 'bonus', { tipo:'number', modo:'numeric',
+        valor: f.pontosInstalacao == null ? 20 : f.pontosInstalacao,
+        ajuda:'O presente de quem instala o app e se cadastra. Com 0, não há presente.' }) +
       linhas +
       '<div class="ajuda" style="margin-top:14px">São quatro faixas. Para usar menos, ' +
       'apague o nome da que sobrar.</div>',
@@ -867,11 +871,53 @@ B12.formFidelidade = function (depois) {
       var faixas = f.faixas.map(function (x, i) {
         return { nome: d['n' + i], de: d['p' + i], mimo: d['m' + i] };
       });
-      return B12.salvarFidelidade({ ligada: d.ligada, reaisPorPonto: d.rpp, faixas: faixas });
+      return B12.salvarFidelidade({ ligada: d.ligada, reaisPorPonto: d.rpp,
+        pontosInstalacao: d.bonus, faixas: faixas });
     },
     depois: function (r) {
       if (r && r.ok) B12.aviso('Regras salvas. As fichas já usam o novo cálculo.', 'bom');
       if (depois) depois();
+    }
+  });
+};
+
+/* ------------------------------------------------- CADASTRE-SE (o turista)
+   Curto de propósito: nome, WhatsApp e o aceite. Tudo o mais é opcional e
+   fica depois. Quem chega aqui está com o dedo no ar, não quer formulário. */
+B12.formCadastro = function (depois) {
+  var f = B12.fidelidade(), eu = B12.meuCadastro();
+  var bonus = f.ligada !== false ? (Number(f.pontosInstalacao) || 0) : 0;
+
+  B12.folha({
+    titulo: eu ? 'Seu cadastro' : 'Cadastre-se na B12',
+    sub: eu ? 'Altere o que quiser' : 'Leva quinze segundos',
+    corpo:
+      (bonus
+        ? '<div class="fid" style="margin-bottom:14px"><div class="fid-topo">' +
+          '<span class="fid-faixa">Clube B12</span><b>' + bonus + '<small> pontos</small></b></div>' +
+          '<small>De boas-vindas, por instalar o app e se cadastrar. Depois é só viajar: ' +
+          'cada ' + B12.brl(f.reaisPorPonto) + ' vale mais 1 ponto.</small></div>'
+        : '') +
+      campo('Seu nome', 'nome', { valor: (eu && eu.nome) || '', obrig:true, max:60,
+        dica:'como podemos te chamar' }) +
+      campo('WhatsApp', 'whats', { tipo:'tel', modo:'tel', valor: (eu && eu.whats) || '',
+        dica:'(41) 90000-0000', ajuda:'É por aqui que a B12 confirma sua travessia.' }) +
+      campo('E-mail', 'email', { tipo:'email', modo:'email', valor: (eu && eu.email) || '',
+        dica:'opcional' }) +
+      campo('Instagram', 'instagram', { valor: (eu && eu.instagram) || '', dica:'opcional, sem o @' }) +
+      campo('De onde você vem', 'cidade', { valor: (eu && eu.cidade) || '', dica:'opcional', max:40 }) +
+      marca('Quero receber promoções e novidades da B12', 'aceitaOfertas',
+        eu ? !!eu.aceitaOfertas : true,
+        'Você pode desmarcar quando quiser. Sem isso, a B12 só te procura sobre a sua viagem.') +
+      '<div class="ajuda" style="margin-top:12px">Seus dados ficam com a B12 e não são ' +
+      'vendidos nem repassados. Para apagar, é só pedir no WhatsApp.</div>',
+    acao: eu ? 'Salvar' : 'Criar meu cadastro',
+    aoSalvar: function (d) { return B12.salvarMeuCadastro(d); },
+    depois: function (r) {
+      if (r && r.ok) {
+        B12.aviso(r.novo ? 'Cadastro feito! Bem-vindo ao Clube B12.' : 'Cadastro atualizado.', 'bom');
+      }
+      if (depois) depois(r);
     }
   });
 };

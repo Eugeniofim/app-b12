@@ -669,4 +669,96 @@ B12.pintarEquipe = function () {
   });
 };
 
+
+/* ================================================================= CLUBE B12
+   A tela de pontos de quem viaja. Mostra o saldo, a faixa, o que cada faixa dá
+   e o extrato. O presente de boas-vindas entra por instalar o app.
+   Enquanto a nuvem não está ligada, este saldo é o deste aparelho — a tela diz
+   isso em português, sem enrolar. */
+B12.pintarPontos = function () {
+  var tela = document.getElementById('t-pontos');
+  if (!tela) return;
+  var d = B12.meusPontos(), E = B12.EMPRESA;
+
+  if (!d.ligada) {
+    tela.innerHTML = fotoTopo('fotos/ilha-heroi.jpg', 'Clube B12', 'Clube B12',
+      'Em breve', 'inicio') +
+      '<div class="cx"><h3>O clube está em preparação</h3>' +
+      '<p>Fale com a B12 no WhatsApp para saber quando começa.</p></div>';
+    return;
+  }
+
+  function faixaCard(f, i) {
+    var atual = f.nome === d.faixa.nome;
+    var alcancada = d.pontos >= f.de;
+    return '<div class="nivel' + (atual ? ' on' : '') + (alcancada ? ' feita' : '') + '">' +
+      '<div class="nivel-cab"><b>' + f.nome + '</b>' +
+        '<span>' + (f.de === 0 ? 'de cara' : 'a partir de ' + f.de + ' pts') + '</span></div>' +
+      (f.mimo ? '<p>' + f.mimo + '</p>' : '') +
+      (atual ? '<span class="nivel-tag">você está aqui</span>' : '') + '</div>';
+  }
+
+  tela.innerHTML =
+    fotoTopo('fotos/ilha-heroi.jpg', 'Clube B12', 'Seus pontos',
+      'Quanto mais você navega com a gente, mais volta para você', 'inicio') +
+
+    '<div class="cx saldo entra">' +
+      '<span class="saldo-faixa">' + d.faixa.nome + '</span>' +
+      '<div class="saldo-n">' + d.pontos + '<small>' + (d.pontos === 1 ? 'ponto' : 'pontos') + '</small></div>' +
+      (d.proxima
+        ? '<div class="saldo-barra"><i style="width:' + Math.round(d.andado * 100) + '%"></i></div>' +
+          '<p>Faltam <b>' + d.faltam + '</b> ponto' + (d.faltam === 1 ? '' : 's') +
+          ' para <b>' + d.proxima.nome + '</b>.</p>'
+        : '<p>Você está na faixa mais alta do clube. Obrigado por navegar com a gente.</p>') +
+      (d.faixa.mimo ? '<div class="saldo-mimo">' + d.faixa.mimo + '</div>' : '') +
+    '</div>' +
+
+    (!d.instalado
+      ? '<div class="cx aviso entra entra-1"><h3>Ganhe ' + d.bonusInstalacao +
+        ' pontos agora</h3><p>Instale o app da B12 na tela de início do seu celular e os pontos ' +
+        'entram na hora. Depois é só viajar: cada ' + B12.brl(d.reaisPorPonto) +
+        ' que você gasta com a gente vale 1 ponto.</p>' +
+        '<button class="btn pri" id="b-pontos-instalar">Como instalar</button></div>'
+      : '') +
+
+    '<div class="faixa-sec"><div class="tit"><h2>As faixas do clube</h2></div></div>' +
+    '<div class="niveis">' + d.faixas.map(faixaCard).join('') + '</div>' +
+
+    '<div class="faixa-sec"><div class="tit"><h2>Como você ganha</h2></div></div>' +
+    '<div class="cx" style="margin-top:0">' +
+      '<div class="ganha"><b>' + d.bonusInstalacao + ' pts</b>' +
+        '<span>instalando o app da B12 no celular</span></div>' +
+      '<div class="ganha"><b>1 pt</b>' +
+        '<span>a cada ' + B12.brl(d.reaisPorPonto) + ' gastos em travessia, passeio ou estacionamento</span></div>' +
+      '<div class="ganha"><b>+</b>' +
+        '<span>os pontos entram quando você paga, na saída</span></div>' +
+    '</div>' +
+
+    '<div class="faixa-sec"><div class="tit"><h2>Seu extrato</h2></div></div>' +
+    (d.linhas.length
+      ? '<div class="lista">' + d.linhas.map(function (l) {
+          return '<div class="linha"><div class="d"><b>' + l.o_que + '</b>' +
+            '<small>' + (l.quando ? B12.dataBR(l.quando) : '') +
+            (l.nota ? ' · ' + l.nota : '') + '</small></div>' +
+            '<div class="v' + (l.pontos ? '' : ' fraco') + '">' +
+            (l.pontos ? '+' + l.pontos : '—') + '</div></div>';
+        }).join('') + '</div>'
+      : '<div class="cx" style="margin-top:0"><p>Ainda não há lançamentos. ' +
+        'Sua primeira travessia já começa a contar.</p></div>') +
+
+    '<div class="cx nota"><h3>Como o saldo é confirmado</h3>' +
+    '<p>Este é o saldo deste aparelho. Quem confirma o número final é a B12, no balcão, ' +
+    'com o seu nome e o código da sua reserva. Na dúvida, chame a gente no WhatsApp ' +
+    'que conferimos junto.</p>' +
+    '<a class="btn sec" style="margin-top:12px" target="_blank" rel="noopener" href="https://wa.me/' +
+    E.whats + '?text=' + encodeURIComponent('Olá! Quero conferir meus pontos no Clube B12.') +
+    '">Conferir com a B12</a></div>' +
+
+    '<p class="rodape">Os pontos não têm valor em dinheiro e não são trocados por troco. ' +
+    'As faixas e os benefícios podem mudar; a B12 avisa pelo app.</p>';
+
+  var bi = tela.querySelector('#b-pontos-instalar');
+  if (bi) bi.onclick = function () { B12.ensinarInstalar(); };
+};
+
 })();

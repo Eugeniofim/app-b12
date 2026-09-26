@@ -10,7 +10,7 @@ var B12 = window.B12 || {};
 
 /* ------------------------------------------------------------------ rotas */
 var TELAS = ['inicio','travessias','passeios','passeio','ilha','previsao','promocoes',
-             'reservas','equipe','adm'];
+             'pontos','reservas','equipe','adm'];
 var atual = 'inicio';
 
 B12.ir = function (nome) {
@@ -82,6 +82,7 @@ function pintar(nome) {
   if (nome === 'passeio')  B12.pintarPasseio(B12.passeioAtual);
   if (nome === 'ilha')     B12.pintarIlha();
   if (nome === 'reservas') B12.pintarReservas();
+  if (nome === 'pontos')   B12.pintarPontos();
   if (nome === 'previsao') B12.telaPrevisao();
   if (nome === 'equipe')   B12.pintarEquipe();
   if (nome === 'adm')      { B12.admDesenhar(); quemEntrou(); }
@@ -103,6 +104,7 @@ function abrirMais() {
     '<div style="width:38px;height:4px;border-radius:99px;background:var(--risco);margin:0 auto 16px"></div>' +
     '<h3 style="font-size:17px;margin-bottom:3px">Mais</h3>' +
     '<p style="font-size:13px;color:var(--tinta-2);margin-bottom:14px">Estação B12 · Pontal do Paraná</p>' +
+    item('pontos','Clube B12','Seus pontos, faixa e benefícios') +
     item('previsao','Previsão da Ilha','Os próximos sete dias, ao vivo') +
     item('ilha','Ilha do Mel','Praias, parceiros e como chegar') +
     '<div style="height:1px;background:var(--risco);margin:6px 0 12px"></div>' +
@@ -167,7 +169,29 @@ window.addEventListener('beforeinstallprompt', function (e) {
 });
 window.addEventListener('appinstalled', function () {
   pedidoInstalar = null; var cx = document.getElementById('instalar'); if (cx) cx.hidden = true;
+  if (B12.marcarInstalado && B12.marcarInstalado() && B12.aviso) {
+    var f = B12.fidelidade ? B12.fidelidade() : null;
+    var b = f && f.ligada !== false ? (Number(f.pontosInstalacao) || 0) : 0;
+    if (b) B12.aviso('App instalado. Você ganhou ' + b + ' pontos no Clube B12.', 'bom',
+      { texto: 'Ver', aoTocar: function () { B12.ir('pontos'); } });
+  }
 });
+
+/* o mesmo convite, chamado de dentro da tela do clube */
+B12.ensinarInstalar = function () {
+  var cx = document.getElementById('instalar');
+  if (jaInstalado()) { if (B12.marcarInstalado) B12.marcarInstalado();
+    return B12.aviso('O app já está instalado neste aparelho.', 'bom'); }
+  if (pedidoInstalar) {
+    pedidoInstalar.prompt();
+    pedidoInstalar.userChoice.then(function () { pedidoInstalar = null; if (cx) cx.hidden = true; });
+    return;
+  }
+  if (ehIphone()) {
+    return B12.aviso('No Safari: toque em Compartilhar e depois em "Adicionar à Tela de Início".', 'bom');
+  }
+  B12.aviso('Use o menu do navegador e escolha "Instalar aplicativo".', 'bom');
+};
 
 /* --------------------------------------------------- atualização do código */
 var NOVA = null, recarregando = false;
@@ -264,6 +288,13 @@ function comecar() {
   document.getElementById('b-sair').onclick = B12.sair;
   document.getElementById('b-ajustes').onclick = function () { B12.formAjustes(function () { B12.admDesenhar(); }); };
   document.getElementById('b-sair-equipe').onclick = B12.sair;
+
+  var qc = document.getElementById('qb-cadastro');
+  if (qc) qc.onclick = function () { B12.formCadastro(function () { B12.ir('pontos'); }); };
+
+  /* quem já está com o app na tela de início entra no clube sem pedir nada */
+  if (jaInstalado() && B12.marcarInstalado) B12.marcarInstalado();
+  if (B12.marcarAbertura) B12.marcarAbertura();
 
   var zi = document.getElementById('zap-inicio');
   if (zi) zi.href = 'https://wa.me/' + B12.EMPRESA.whats + '?text=' + encodeURIComponent(
