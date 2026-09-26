@@ -184,7 +184,7 @@ function grafRosca(alvo, fatias) {
 
 /* ============================================================== os painéis */
 var ABAS = [
-  ['hoje','Hoje'], ['ia','Assistente'], ['ilha','Na Ilha'], ['escala','Escala'], ['painel','Painel'], ['precos','Preços'], ['gestao','Gestão'],
+  ['hoje','Hoje'], ['ia','Assistente'], ['balcao','Balcão'], ['ilha','Na Ilha'], ['escala','Escala'], ['painel','Painel'], ['precos','Preços'], ['gestao','Gestão'],
   ['caixa','Caixa'], ['lanc','Lançamentos'],
   ['clientes','Clientes'], ['patio','Pátio'], ['manut','Manutenção'],
   ['contas','Contas'], ['relat','Relatórios'], ['dados','Dados'], ['oper','Operação'],
@@ -212,7 +212,7 @@ B12.admDesenhar = function (aba) {
   ({ hoje:pHoje, painel:pPainel, caixa:pCaixa, lanc:pLanc, contas:pContas,
      relat:pRelat, oper:pOper, prosp:pProsp, intel:pIntel,
      clientes:pClientes, patio:pPatio, manut:pManut, gestao:pGestao,
-     escala:pEscala, msgs:pMsgs, dados:pDados, precos:pPrecos, ia:pIA, ilha:pNaIlha }[abaAtual] || pHoje)(raiz);
+     escala:pEscala, msgs:pMsgs, dados:pDados, precos:pPrecos, ia:pIA, ilha:pNaIlha, balcao:pBalcao }[abaAtual] || pHoje)(raiz);
   B12.animarPlacar(raiz);
   raiz.scrollIntoView({ block:'nearest' });
 };
@@ -1663,6 +1663,64 @@ function pNaIlha(raiz) {
       var txt = 'Olá, ' + b.dataset.nome.split(' ')[0] + '! Aqui é a Estação B12. ' +
         'Sobre a sua reserva ' + b.dataset.cod + ': qual horário você pretende voltar da Ilha hoje?';
       window.open('https://wa.me/' + b.dataset.zap + '?text=' + encodeURIComponent(txt), '_blank');
+    };
+  });
+}
+
+
+/* -------------------------------------------------------------- BALCÃO
+   Quem chega sem reserva. Dois caminhos: atender agora (nasce ficha, viagem
+   e código, e vai para a próxima saída) ou só guardar a ficha da pessoa. */
+function pBalcao(raiz) {
+  var hoje = B12.hoje();
+  var deHoje = B12.DB.reservas.filter(function (r) {
+    return r.origem === 'balcao' && (r.criada || '').slice(0, 10) === hoje; });
+  var novos = B12.DB.clientes.filter(function (c) { return (c.criadoEm || '').slice(0, 10) === hoje; });
+
+  raiz.appendChild(bloco(
+    '<div class="cx entra"><h3>Chegou alguém sem reserva?</h3>' +
+    '<p>Cadastre aqui. A ficha do cliente nasce, a viagem ganha código e a pessoa entra na ' +
+    'próxima saída com lugar. A mensagem de confirmação sai pronta, com o link do app.</p>' +
+    '<button type="button" class="btn pri" id="b-atender">Atender agora · cliente chegou</button>' +
+    '<button type="button" class="btn sec" id="b-so-ficha">Só guardar a ficha da pessoa</button>' +
+    '<div class="ajuda" style="margin-top:10px">A ficha já é o suficiente para ele voltar depois: ' +
+    'na próxima viagem, o WhatsApp encontra a pessoa e o histórico continua.</div></div>' +
+
+    '<div class="placar entra entra-1">' +
+      tile(deHoje.length, 'Atendidos hoje', 'n', 'destaque') +
+      tile(deHoje.reduce(function (s, r) { return s + (r.pax || 1); }, 0), 'Passageiros', 'n') +
+      tile(novos.length, 'Fichas novas', 'n') +
+    '</div>' +
+
+    '<div class="faixa-sec"><div class="tit"><h2>Atendidos hoje no balcão</h2></div></div>' +
+    (deHoje.length
+      ? '<div class="pessoas">' + deHoje.map(function (r) {
+          var zap = (r.zap || '').replace(/\D/g, '');
+          return '<div class="pes"><div class="pes-cima"><div><b>' + esc(r.nome) + '</b>' +
+            '<span class="pes-cod">' + r.cod + '</span></div>' +
+            (zap ? '<div class="cons"><button type="button" class="con zap" data-bzap="' + zap +
+              '" data-nome="' + esc(r.nome) + '" data-cod="' + r.cod + '" aria-label="WhatsApp">' +
+              '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2zm0 18a8 8 0 0 1-4.1-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8 8 0 1 1 12 20zm4.4-6c-.2-.1-1.4-.7-1.6-.8s-.4-.1-.5.1-.6.8-.8.9-.3.2-.5.1a6.6 6.6 0 0 1-3.3-2.9c-.2-.4.3-.4.7-1.3.1-.2 0-.3 0-.4l-.7-1.8c-.2-.5-.4-.4-.5-.4h-.5a1 1 0 0 0-.7.3 2.9 2.9 0 0 0-.9 2.2 5 5 0 0 0 1.1 2.7 11.5 11.5 0 0 0 4.4 3.9c1.6.7 2.3.7 3.1.6a2.6 2.6 0 0 0 1.7-1.2 2.1 2.1 0 0 0 .2-1.2c-.1-.2-.3-.2-.5-.3z"/></svg></button></div>' : '') +
+            '</div><div class="pes-baixo">' +
+            '<span>' + (r.pax || 1) + (r.pax > 1 ? ' pessoas' : ' pessoa') + '</span>' +
+            '<span>' + esc(r.destino || '') + '</span>' +
+            (r.placa ? '<span>' + r.placa + '</span>' : '') +
+            '<span>' + esc(r.situacao) + '</span></div></div>'; }).join('') + '</div>'
+      : '<div class="cx" style="margin-top:0"><p>Ninguém atendido no balcão hoje.</p></div>')
+  ));
+
+  function re() { B12.admDesenhar('balcao'); }
+  raiz.querySelector('#b-atender').onclick = function () {
+    B12.formBalcao(function (res) { re(); B12.aposBalcao(res); });
+  };
+  raiz.querySelector('#b-so-ficha').onclick = function () {
+    B12.formCliente(null, function () { re(); B12.aviso('Ficha guardada.', 'bom'); });
+  };
+  raiz.querySelectorAll('[data-bzap]').forEach(function (b) {
+    b.onclick = function () {
+      var txt = 'Olá, ' + b.dataset.nome.split(' ')[0] + '! Aqui é a Estação B12. ' +
+        'Sua reserva é a ' + b.dataset.cod + '. Guarde este código.';
+      window.open('https://wa.me/' + b.dataset.bzap + '?text=' + encodeURIComponent(txt), '_blank');
     };
   });
 }

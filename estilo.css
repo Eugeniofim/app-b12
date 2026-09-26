@@ -273,7 +273,7 @@ body.adm .escolha .vv{color:var(--turq-300)}
 .btn.zap{background:#25D366;color:#04240F}
 .btn.sec{background:var(--carta);border:1.5px solid var(--risco);font-weight:650;color:var(--azul-700)}
 body.adm .btn.sec{background:var(--noite-3);border-color:var(--noite-risco);color:var(--gelo)}
-.btn.peq{padding:10px;font-size:14px;margin-top:10px}
+.btn.peq{padding:10px;font-size:14px;margin-top:10px;min-height:44px}
 .btn svg{width:19px;height:19px}
 .btn:disabled{opacity:.4}
 
