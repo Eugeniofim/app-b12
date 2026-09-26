@@ -69,6 +69,8 @@ function vazio() {
       regular: B12.REGULAR,
       diaria: B12.DIARIA,
       tabela: B12.TABELA,
+      diariaEspecial: B12.DIARIA_ESPECIAL,  /* a tarifa combinada: o cliente NUNCA vê */
+      antecedenciaHoras: 24,                /* a política da casa: reserva com 24 h de antecedência */
       descDinheiro: B12.DESC_DINHEIRO,   /* 0.05 = 5% de desconto no dinheiro */
       idadeCortesia: B12.IDADE_CORTESIA, /* criança até esta idade não paga */
       passeios: {},                      /* preço/duração/ativo por passeio, por cima de B12.PASSEIOS */
@@ -97,6 +99,12 @@ B12.carregar = function () {
   /* preços que passaram a ser do dono: quem já tinha banco ganha os campos novos */
   var A = B12.DB.ajustes;
   if (A.descDinheiro == null) A.descDinheiro = B12.DESC_DINHEIRO;
+  if (A.diariaEspecial == null) A.diariaEspecial = B12.DIARIA_ESPECIAL;
+  /* 26/09/2026: o Dhalsin confirmou R$ 50 de balcão. Quem ainda está no meu
+     palpite antigo (40, tirado da planilha) sobe para o oficial; quem já tinha
+     escolhido um valor seu fica como está. */
+  if (A.diaria === 40 && !A.precosConferidos) A.diaria = B12.DIARIA;
+  if (A.antecedenciaHoras == null) A.antecedenciaHoras = 24;
   if (A.idadeCortesia == null) A.idadeCortesia = B12.IDADE_CORTESIA;
   if (!A.passeios) A.passeios = {};
   if (!Array.isArray(A.passeiosExtras)) A.passeiosExtras = [];
@@ -1360,10 +1368,17 @@ B12.salvarTaxas = function (d) {
   B12.salvar();
   return { ok: true };
 };
-B12.salvarDiaria = function (v) {
-  var d = reais(v);
+B12.salvarDiaria = function (v, especial) {
+  var d = reais(v), e = reais(especial);
   if (d <= 0) return { erro: 'Informe o valor da diária.' };
+  if (especial !== undefined && e < 0) return { erro: 'A tarifa combinada não pode ser negativa.' };
   B12.DB.ajustes.diaria = d;
+  if (especial !== undefined) B12.DB.ajustes.diariaEspecial = e || 0;
   B12.salvar();
   return { ok: true };
+};
+/* a primeira data que o turista pode escolher, pela política da casa */
+B12.primeiraData = function () {
+  var h = Math.max(0, Number(B12.DB.ajustes.antecedenciaHoras) || 0);
+  return B12.diaMais(B12.hoje(), h >= 24 ? Math.ceil(h / 24) : 0);
 };

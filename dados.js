@@ -15,7 +15,7 @@ var B12 = window.B12 || {};
 /* ---------------------------------------------------------------- identidade */
 /* o cofre: o servidor da Ti Artes que guarda a chave da IA. Vazio = assistente
    desligado (o app continua funcionando igual, só sem o chat). */
-B12.VERSAO = 'b12-v1.27.0';   /* tem que bater com o CACHE do sw.js */
+B12.VERSAO = 'b12-v1.28.0';   /* tem que bater com o CACHE do sw.js */
 
 B12.IA = { cofre: 'https://uopfqlogjzuqpabptxkb.supabase.co/functions/v1/cofre',
            modelo: 'claude-haiku-4-5' };
@@ -139,7 +139,8 @@ B12.TABELA = {
   noite: { de:'20h00', ate:'22h00', fixo:310, pessoa:80 },
 };
 B12.REGULAR = 60;      /* travessia comum, por pessoa — PENDENTE de confirmação */
-B12.DIARIA  = 40;      /* estacionamento por dia — média da planilha */
+B12.DIARIA  = 50;      /* estacionamento por dia — o valor de balcão, o que o cliente vê */
+B12.DIARIA_ESPECIAL = 35;  /* tarifa combinada. NUNCA aparece para o turista: quem aplica é o Dhalsin */
 B12.DESC_DINHEIRO = 0.05;
 B12.IDADE_CORTESIA = 5;
 

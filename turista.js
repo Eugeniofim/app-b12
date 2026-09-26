@@ -283,8 +283,9 @@ B12.montarFormulario = function () {
   B12.montarFaixas();
   var hoje = B12.hoje();
   var i = document.getElementById('f-ida');
-  i.value = hoje; i.defaultValue = hoje; i.min = hoje;
-  document.getElementById('f-volta').min = hoje;
+  var primeira = B12.primeiraData();          /* a política da casa: 24 h de antecedência */
+  i.value = primeira; i.defaultValue = primeira; i.min = primeira;
+  document.getElementById('f-volta').min = primeira;
   ['f-ida','f-volta','f-hora','f-pag','f-pousada'].forEach(function (id) {
     document.getElementById(id).onchange = B12.calcular;
   });
@@ -319,8 +320,8 @@ B12.calcular = function () {
   var t = faixa === 'fora' ? null : B12.DB.ajustes.tabela[faixa];
 
   document.getElementById('escolhas-produto').innerHTML =
-    escolha('regular', 'Travessia regular',
-      'lancha compartilhada' + (t ? ' · ' + t.de + ' às ' + t.ate : '') +
+    escolha('regular', 'Táxi Náutico',
+      'lancha compartilhada, ida e volta' + (t ? ' · ' + t.de + ' às ' + t.ate : '') +
       (B12.DB.ajustes.precosConferidos ? '<br>por pessoa, ida e volta' : '<br><span class="pend">preço por pessoa a confirmar com a B12</span>'),
       reg ? B12.brl(reg.travessia) : 'consultar') +
     escolha('nautico', 'Serviço Náutico Premium',
@@ -339,7 +340,7 @@ B12.calcular = function () {
   document.getElementById('est-nao').classList.toggle('on', !F.estac);
   var bp = document.getElementById('bloco-placa'); if (bp) bp.hidden = !F.estac;
 
-  var nome = F.produto === 'nautico' ? 'Serviço náutico' : 'Travessia';
+  var nome = F.produto === 'nautico' ? 'Serviço náutico' : 'Táxi náutico';
   document.getElementById('c-desc').textContent = nome + ' · ' + F.pax +
     (F.pax > 1 ? ' pessoas' : ' pessoa') + ' · ida e volta';
   document.getElementById('c-trav').textContent = p ? B12.brl(p.travessia) : 'sob consulta';
@@ -405,7 +406,7 @@ B12.reservar = function () {
     aceites: { termos: agora, ofertas: document.getElementById('f-ofertas').checked ? agora : null, versao: 'termos-v1' },
     destino: document.getElementById('f-destino').value,
     pousada: document.getElementById('f-pousada').value,
-    produto: F.produto === 'nautico' ? 'Serviço Náutico Premium' : 'Travessia regular',
+    produto: F.produto === 'nautico' ? 'Serviço Náutico Premium' : 'Táxi Náutico',
     faixa: t ? t.de + ' às ' + t.ate : 'sob consulta',
     estacionamento: F.estac ? dd : 0,
     placa: F.estac ? document.getElementById('f-placa').value : '',

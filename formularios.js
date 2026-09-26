@@ -236,6 +236,9 @@ B12.formEntradaPatio = function (depois) {
       campo('Vaga', 'vaga', { dica:'opcional, ex: A12', max:8 }) +
       campo('Valor da diária', 'diaria', { tipo:'number', passo:'1', modo:'numeric',
         valor: B12.DB.ajustes.diaria }) +
+      B12.f_lista('Tarifa', 'tarifa', [
+        ['balcao', 'Balcão · ' + B12.brl(B12.DB.ajustes.diaria)],
+        ['combinada', 'Combinada · ' + B12.brl(B12.DB.ajustes.diariaEspecial)]], 'balcao') +
       lista('Quando cobrar', 'cobrarAgora', [['0','Na saída, pelo tempo real'],
         ['1','Agora, pelo tempo previsto (acerta a diferença na saída)']],
         cfg.cobranca === 'chegada' ? '1' : '0') +
@@ -255,7 +258,8 @@ B12.formEntradaPatio = function (depois) {
         .forEach(function (c) { c.oninput = calc; c.onchange = calc; });
       calc();
     },
-    aoSalvar: function (d) { d.cobrarAgora = d.cobrarAgora === '1'; return B12.entradaPatio(d); },
+    aoSalvar: function (d) {
+      if (d.tarifa === 'combinada') d.diaria = B12.DB.ajustes.diariaEspecial; d.cobrarAgora = d.cobrarAgora === '1'; return B12.entradaPatio(d); },
     depois: depois
   });
 };
@@ -475,9 +479,15 @@ B12.formDiaria = function (depois) {
   B12.folha({
     titulo: 'Diária do estacionamento',
     sub: 'As regras de contagem e de cobrança ficam em Ajustes',
-    corpo: B12.f_campo('Valor da diária', 'diaria', { tipo: 'number', modo: 'decimal', passo: '1', valor: B12.DB.ajustes.diaria, obrig: true }),
+    corpo:
+      B12.f_campo('Diária de balcão', 'diaria', { tipo: 'number', modo: 'decimal', passo: '1',
+        valor: B12.DB.ajustes.diaria, obrig: true,
+        ajuda: 'É esta que o cliente vê no app e na reserva.' }) +
+      B12.f_campo('Tarifa combinada', 'diariaEspecial', { tipo: 'number', modo: 'decimal', passo: '1',
+        valor: B12.DB.ajustes.diariaEspecial,
+        ajuda: 'NÃO aparece para o cliente. Você escolhe carro a carro, na entrada ou no fechamento.' }),
     acao: 'Salvar',
-    aoSalvar: function (d) { return B12.salvarDiaria(d.diaria); },
+    aoSalvar: function (d) { return B12.salvarDiaria(d.diaria, d.diariaEspecial); },
     depois: depois
   });
 };

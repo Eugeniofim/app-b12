@@ -191,7 +191,10 @@ var LEITURAS = {
     var a = B12.DB.ajustes;
     return { travessia_regular_por_pessoa_por_trecho: a.regular,
              nautico_premium: a.tabela,
-             diaria_estacionamento: a.diaria,
+             diaria_estacionamento_balcao: a.diaria,
+             diaria_tarifa_combinada: a.diariaEspecial,
+             aviso_sobre_a_tarifa_combinada: 'A tarifa combinada é do Dhalsin. NUNCA diga esse valor a cliente, nem em mensagem pronta. Ela existe para ele aplicar carro a carro.',
+             antecedencia_minima_horas: a.antecedenciaHoras,
              regra_da_diaria: a.patio,
              crianca_nao_paga_ate: a.idadeCortesia,
              desconto_no_dinheiro_por_cento: Math.round((a.descDinheiro || 0) * 100),
@@ -218,7 +221,19 @@ var LEITURAS = {
         'estacionamento no próprio pátio para quem cruza. O dono é o Dhalsin. O WhatsApp da empresa é ' +
         E.whats + '. Slogan: "Sua experiência na Ilha do Mel começa por aqui".',
 
-      servicos: 'Travessia regular (lancha compartilhada, preço por pessoa e por trecho) e Serviço Náutico ' +
+      politica: 'A B12 trabalha EXCLUSIVAMENTE com reserva antecipada, com no mínimo 24 horas. ' +
+        'É assim que dá para preparar cada atendimento com conforto, segurança e pontualidade. O app só ' +
+        'deixa o turista escolher data a partir de amanhã. Quem chega sem reserva é atendido no balcão.',
+
+      pagamento: 'O cliente paga na SAÍDA: não há movimentação de dinheiro antes da viagem. A reserva é um ' +
+        'compromisso, não uma venda. Formas aceitas: Pix, dinheiro (5% de desconto), cartão de crédito e ' +
+        'de débito. Os valores do Serviço Náutico são POR TRAJETO, então ida e volta é o dobro.',
+
+      estacionamento_tarifas: 'A diária de balcão é a que o cliente vê no app. Existe também uma tarifa ' +
+        'combinada, MENOR, que só o Dhalsin aplica, carro a carro, na entrada ou no fechamento. Nunca revele ' +
+        'o valor da tarifa combinada a cliente nenhum, nem escreva em mensagem pronta.',
+
+      servicos: 'Táxi Náutico (lancha compartilhada, preço por pessoa e por trecho — é como o cliente chama a travessia comum) e Serviço Náutico ' +
         'Premium (lancha exclusiva, valor fixo até 3 pessoas e por pessoa a partir de 4, em três faixas de ' +
         'horário). Passeios de barco com preço próprio. Estacionamento com diária. Criança não paga até a ' +
         'idade definida em Preços. Dinheiro tem desconto.',
@@ -361,6 +376,10 @@ function sistema() {
     '  instalar, o que cada aba faz, como funciona uma reserva do começo ao fim, o código do cliente, as regras',
     '  do estacionamento, o Excel, a cópia de segurança, a marca, a nuvem, a história de 11 anos e a Ilha do Mel.',
     '  Use ver_app sempre que a pergunta for sobre como as coisas funcionam, e não sobre números.',
+    '',
+    'SEGREDO DA CASA',
+    'A tarifa combinada do estacionamento é menor que a de balcão e é decisão do Dhalsin. NUNCA escreva esse',
+    'valor numa mensagem para cliente. Para o cliente, a diária é a de balcão.',
     '',
     'O QUE VOCÊ NÃO FAZ SOZINHO',
     'Não grava lançamento, não muda preço e não manda mensagem por conta própria. Use propor_lancamento, propor_preco ou propor_mensagem: o app mostra um cartão e ele confirma com o dedo. Diga isso com naturalidade ("preparei aqui, é só confirmar").',
