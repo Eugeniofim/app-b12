@@ -339,23 +339,17 @@ B12.calcular = function () {
     return B12.preco({ produto:prod, pax:F.pax, criancas:F.cri, faixa:faixa,
       diarias: F.estac ? dd : 0, pg:pg });
   }
-  var reg = cotar('regular'), nau = cotar('nautico');
+  F.produto = 'regular';                    /* a B12 opera um serviço só: táxi náutico */
+  var reg = cotar('regular');
   var t = faixa === 'fora' ? null : B12.DB.ajustes.tabela[faixa];
   var mostra = B12.mostraPrecos();          /* enquanto desligado, o valor se combina no WhatsApp */
   function valor(p) { return !mostra ? 'sob consulta' : (p ? B12.brl(p.travessia) : 'consultar'); }
 
   document.getElementById('escolhas-produto').innerHTML =
-    escolha('regular', 'Táxi Náutico',
-      'lancha compartilhada, ida e volta' + (t ? ' · ' + t.de + ' às ' + t.ate : '') +
+    servico('Táxi Náutico',
+      'lancha, ida e volta' + (t ? ' · ' + t.de + ' às ' + t.ate : '') +
       (mostra ? '<br>por pessoa, ida e volta' : '<br><span class="pend">valor combinado pelo WhatsApp</span>'),
-      valor(reg)) +
-    escolha('nautico', 'Serviço Náutico Premium',
-      'lancha exclusiva' + (t ? ' · ' + t.de + ' às ' + t.ate : '') + '<br>' +
-      (F.pax <= 3 ? 'valor fixo para até 3 pessoas' : 'por pessoa, a partir de 4'),
-      valor(nau));
-  document.querySelectorAll('[data-prod]').forEach(function (b) {
-    b.onclick = function () { F.produto = b.dataset.prod; B12.calcular(); };
-  });
+      valor(reg));
 
   var p = cotar(F.produto);
   document.getElementById('est-txt').textContent = dd + (dd > 1 ? ' diárias' : ' diária') +
@@ -367,7 +361,7 @@ B12.calcular = function () {
   var bpag = document.getElementById('bloco-pagamento');
   if (bpag) bpag.hidden = !mostra;          /* sem preço na tela, escolher pagamento não faz sentido */
 
-  var nome = F.produto === 'nautico' ? 'Serviço náutico' : 'Táxi náutico';
+  var nome = 'Táxi náutico';
   document.getElementById('c-desc').textContent = nome + ' · ' + F.pax +
     (F.pax > 1 ? ' pessoas' : ' pessoa') + ' · ida e volta';
   var tit = document.getElementById('c-titulo');
@@ -391,10 +385,11 @@ B12.calcular = function () {
     : (p ? 'Ida e volta, por trajeto. ' + cri + 'Valores da tabela do material da B12.'
          : 'Horário especial é sob consulta antecipada. Fale com a B12 pelo WhatsApp.');
 };
-function escolha(id, titulo, sub, valor) {
-  return '<button class="escolha' + (F.produto === id ? ' on' : '') + '" data-prod="' + id + '">' +
+function servico(titulo, sub, valor) {
+  /* serviço único: mostra como cartão marcado, sem virar botão que não faz nada */
+  return '<div class="escolha on fixo">' +
     '<div><b>' + titulo + '</b><small>' + sub + '</small></div>' +
-    '<span class="vv">' + valor + '</span></button>';
+    '<span class="vv">' + valor + '</span></div>';
 }
 
 function erroReserva(msg, campo) {

@@ -255,6 +255,7 @@ input:focus,select:focus{border-color:var(--turq-500)}
   align-items:center;gap:10px;transition:border-color .18s,background .18s,transform .15s}
 body.adm .escolha{background:var(--noite-3);border-color:var(--noite-risco)}
 .escolha:active{transform:scale(.985)}
+.escolha.fixo,.escolha.fixo:active{transform:none;cursor:default}
 .escolha.on{border-color:var(--turq-500);background:#EDFBF9}
 body.adm .escolha.on{background:#0A3B37;border-color:var(--turq-400)}
 .escolha b{display:block;font-size:14px}
