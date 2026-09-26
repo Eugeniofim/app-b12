@@ -266,6 +266,10 @@ function comecar() {
   document.getElementById('b-ajustes').onclick = function () { B12.formAjustes(function () { B12.admDesenhar(); }); };
   document.getElementById('b-sair-equipe').onclick = B12.sair;
 
+  var zi = document.getElementById('zap-inicio');
+  if (zi) zi.href = 'https://wa.me/' + B12.EMPRESA.whats + '?text=' + encodeURIComponent(
+    'Olá! Vi o app da Estação B12 e quero saber sobre a travessia para a Ilha do Mel.');
+
   B12.buscarClima();
   if (B12.iaBolhaFlutuante) B12.iaBolhaFlutuante();
   ligarAtualizacao();

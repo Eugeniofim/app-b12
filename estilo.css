@@ -821,6 +821,26 @@ body:not(.adm) .semninguem{border-color:var(--risco);color:var(--tinta-3)}
   background:#EDFBF9;border-left:3px solid var(--turq-500)}
 
 
+
+/* ------------------------------------------------------- O WHATSAPP, GRANDE
+   É por aqui que o cliente da B12 começa: ele manda mensagem, vê tudo e só
+   depois reserva. Por isso fica na entrada, antes dos quatro botões. */
+.zap-grande{display:flex;align-items:center;gap:13px;margin:14px 12px 2px;padding:15px 14px;
+  border-radius:var(--r-m);text-decoration:none;color:#04240F;
+  background:linear-gradient(135deg,#25D366,#12B455);
+  box-shadow:0 6px 22px rgba(18,180,85,.32);transition:transform .18s var(--curva),box-shadow .18s}
+.zap-grande:active{transform:scale(.985)}
+.zap-ico{flex:none;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;
+  background:rgba(255,255,255,.9);color:#12B455}
+.zap-ico svg{width:28px;height:28px}
+.zap-txt{flex:1;min-width:0}
+.zap-txt b{display:block;font-size:15.5px;line-height:1.2}
+.zap-txt small{display:block;font-size:12px;margin-top:3px;opacity:.82;line-height:1.35}
+.zap-seta{width:19px;height:19px;flex:none;opacity:.6}
+@media (pointer:coarse){ .zap-grande{min-height:76px} }
+@media (hover:hover) and (pointer:fine){
+  .zap-grande:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(18,180,85,.42)} }
+
 /* ------------------------------------------------------------- O AVISO
    Confirma o que acabou de acontecer. Fica acima da barra de baixo, some
    sozinho, e some antes com um toque. Leitores de tela leem pelo role. */
