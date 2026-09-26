@@ -967,84 +967,111 @@ B12.bemVindo = function (c, depois) {
   };
 };
 
-/* ------------------------------------------------- as buscas na Ilha (véspera)
-   O Dhalsin monta na véspera os horários em que a lancha vai buscar quem está
-   na Ilha. Até ele montar, o app diz ao passageiro que os horários ainda não
-   abriram — em vez de inventar um horário que pode não existir. */
-B12.formVoltas = function (iso, depois) {
-  var jaTem = B12.voltasDoDia(iso);
-  var sugeridas = B12.voltasSugeridas();
-  var naIlha = (B12.naIlha(iso) || {});
-  var quantos = (naIlha.voltam || []).reduce(function (t, p) { return t + (p.pessoas || 1); }, 0);
-  var atuais = jaTem.map(function (s) { return s.hora; });
-  var presas = jaTem.filter(function (s) {
-    return B12.DB.reservas.some(function (r) { return r.saidaVoltaId === s.id; });
-  }).map(function (s) { return s.hora; });
+/* -------------------------------------------- os horários do dia (véspera)
+   Uma folha só, dois blocos: as IDAS (levar para a Ilha) e as VOLTAS (buscar
+   na Ilha). O Dhalsin monta na véspera, olhando quem está lá e como está o
+   mar. Toca nos horários; não digita nada, a não ser um horário fora da lista.
+   Só o que ficar marcado aqui aparece para o passageiro. */
+B12.formHorariosDia = function (iso, depois) {
+  var d = B12.naIlha(iso) || {};
+  var voltam = (d.voltam || []).reduce(function (t, p) { return t + (p.pessoas || 1); }, 0);
+  var chegam = (d.chegam || []).reduce(function (t, p) { return t + (p.pessoas || 1); }, 0);
 
-  var todas = sugeridas.concat(atuais).filter(function (h, i, a) { return a.indexOf(h) === i; }).sort();
+  function bloco(sentido, titulo, ajuda, sugeridas) {
+    var campo = sentido === 'ida' ? 'saidaId' : 'saidaVoltaId';
+    var jaTem = B12.saidasDoDia(iso, sentido);
+    var atuais = jaTem.map(function (s) { return s.hora; });
+    var presas = jaTem.filter(function (s) {
+      return s.ocupadas > 0 || B12.DB.reservas.some(function (r) { return r[campo] === s.id; });
+    }).map(function (s) { return s.hora; });
+    var todas = sugeridas.concat(atuais)
+      .filter(function (h, i, a) { return a.indexOf(h) === i; }).sort();
 
-  var form = B12.folha({
-    titulo: 'Buscas de ' + B12.dataBR(iso),
-    sub: quantos ? quantos + (quantos > 1 ? ' pessoas voltam nesse dia' : ' pessoa volta nesse dia')
-                 : 'Ninguém marcou volta ainda',
-    corpo:
-      '<p style="font-size:13px;color:var(--gelo-3);margin-bottom:12px">Toque nos horários em que ' +
-      'a lancha vai buscar na Ilha. Só o que estiver marcado aqui aparece para o passageiro.</p>' +
-      '<div class="horas" id="hx">' + todas.map(function (h) {
+    return '<div class="grupo">' + titulo + '</div>' +
+      '<p style="font-size:12.5px;color:var(--gelo-3);margin-bottom:10px">' + ajuda + '</p>' +
+      '<div class="horas" id="hx-' + sentido + '">' + todas.map(function (h) {
         var presa = presas.indexOf(h) >= 0;
         return '<button type="button" class="hchip' + (atuais.indexOf(h) >= 0 ? ' on' : '') +
-          (presa ? ' presa' : '') + '" data-h="' + h + '"' + (presa ? ' disabled' : '') + '>' + h +
-          (presa ? ' ·com gente' : '') + '</button>';
+          (presa ? ' presa' : '') + '" data-s="' + sentido + '" data-h="' + h + '"' +
+          (presa ? ' disabled' : '') + '>' + h + (presa ? ' ·com gente' : '') + '</button>';
       }).join('') + '</div>' +
       (presas.length
-        ? '<div class="ajuda" style="margin-top:10px">' + presas.join(', ') +
-          ' não pode' + (presas.length > 1 ? 'm' : '') + ' ser tirado' + (presas.length > 1 ? 's' : '') +
-          ': já tem passageiro marcado. Para mudar, fale com a pessoa antes.</div>'
+        ? '<div class="ajuda" style="margin-top:8px">' + presas.join(', ') + ' não sai' +
+          (presas.length > 1 ? 'em' : '') + ': já tem passageiro. Para mudar, fale com a pessoa antes.</div>'
         : '') +
-      campo('Acrescentar um horário', 'extra', { tipo:'time', ajuda:'Use para um horário fora da lista.' }) +
-      campo('Vagas por lancha', 'vagas', { tipo:'number', modo:'numeric', valor: B12.CAPACIDADE,
-        ajuda:'Quantas pessoas cabem em cada busca.' }) +
-      '<input type="hidden" name="horas" value="' + atuais.join(',') + '">',
-    acao: 'Abrir as buscas',
+      campo_hora(sentido) +
+      '<input type="hidden" name="h-' + sentido + '" value="' + atuais.join(',') + '">';
+  }
+  function campo_hora(sentido) {
+    return '<label for="c-extra-' + sentido + '" style="margin-top:10px">Acrescentar um horário</label>' +
+      '<input id="c-extra-' + sentido + '" name="extra-' + sentido + '" type="time">';
+  }
+
+  var form = B12.folha({
+    titulo: 'Horários de ' + B12.dataBR(iso),
+    sub: (chegam ? chegam + ' chega' + (chegam > 1 ? 'm' : '') : 'ninguém marcado') +
+         ' · ' + (voltam ? voltam + ' volta' + (voltam > 1 ? 'm' : '') : 'nenhuma volta'),
+    corpo:
+      bloco('ida', 'Idas — levar para a Ilha',
+        'Os horários em que a lancha sai do trapiche da B12.', B12.idasSugeridas()) +
+      bloco('volta', 'Voltas — buscar na Ilha',
+        'Os horários em que a lancha vai buscar quem está lá.', B12.voltasSugeridas()) +
+      '<div class="grupo">Para as duas</div>' +
+      campo('Lugares por saída', 'vagas', { tipo:'number', modo:'numeric', valor: B12.CAPACIDADE,
+        ajuda: 'A lancha leva ' + B12.CAPACIDADE + ' pessoas.' }) +
+      campo('Marinheiro do dia', 'marinheiro', { valor: '', dica: 'opcional' }),
+    acao: 'Salvar os horários',
     aoAbrir: function (f) {
-      var guardadas = f.querySelector('[name=horas]');
-      function sincronizar() {
-        var marcadas = [];
-        f.querySelectorAll('.hchip.on').forEach(function (b) { marcadas.push(b.dataset.h); });
-        guardadas.value = marcadas.join(',');
-      }
-      f.querySelectorAll('.hchip').forEach(function (b) {
-        b.onclick = function () { b.classList.toggle('on'); sincronizar(); };
-      });
-      var extra = f.querySelector('[name=extra]');
-      extra.onchange = function () {
-        var h = extra.value;
-        if (!h) return;
-        if (f.querySelector('.hchip[data-h="' + h + '"]')) {
-          f.querySelector('.hchip[data-h="' + h + '"]').classList.add('on');
-        } else {
-          var b = document.createElement('button');
-          b.type = 'button'; b.className = 'hchip on'; b.dataset.h = h; b.textContent = h;
-          b.onclick = function () { b.classList.toggle('on'); sincronizar(); };
-          f.querySelector('#hx').appendChild(b);
+      ['ida', 'volta'].forEach(function (sentido) {
+        var guardadas = f.querySelector('[name="h-' + sentido + '"]');
+        function sincronizar() {
+          var m = [];
+          f.querySelectorAll('.hchip.on[data-s="' + sentido + '"]').forEach(function (b) { m.push(b.dataset.h); });
+          guardadas.value = m.join(',');
         }
-        extra.value = '';
-        sincronizar();
-      };
+        f.querySelectorAll('.hchip[data-s="' + sentido + '"]').forEach(function (b) {
+          b.onclick = function () { b.classList.toggle('on'); sincronizar(); };
+        });
+        var extra = f.querySelector('[name="extra-' + sentido + '"]');
+        extra.onchange = function () {
+          var h = extra.value; if (!h) return;
+          var ja = f.querySelector('.hchip[data-s="' + sentido + '"][data-h="' + h + '"]');
+          if (ja) { ja.classList.add('on'); }
+          else {
+            var b = document.createElement('button');
+            b.type = 'button'; b.className = 'hchip on'; b.dataset.s = sentido; b.dataset.h = h;
+            b.textContent = h;
+            b.onclick = function () { b.classList.toggle('on'); sincronizar(); };
+            f.querySelector('#hx-' + sentido).appendChild(b);
+          }
+          extra.value = ''; sincronizar();
+        };
+      });
     },
-    aoSalvar: function (d) {
-      var horas = String(d.horas || '').split(',').filter(Boolean);
-      return B12.abrirVoltas(iso, horas, { vagas: d.vagas });
+    aoSalvar: function (dd) {
+      var opc = { vagas: dd.vagas, marinheiro: dd.marinheiro };
+      var idas = String(dd['h-ida'] || '').split(',').filter(Boolean);
+      var voltas = String(dd['h-volta'] || '').split(',').filter(Boolean);
+      if (!idas.length && !voltas.length) {
+        return { erro: 'Marque pelo menos um horário de ida ou de volta.' };
+      }
+      var r1 = idas.length ? B12.abrirSaidas(iso, 'ida', idas, opc) : { total: 0 };
+      if (r1.erro) return r1;
+      var r2 = voltas.length ? B12.abrirSaidas(iso, 'volta', voltas, opc) : { total: 0 };
+      if (r2.erro) return r2;
+      return { ok: true, idas: r1.total, voltas: r2.total };
     },
     depois: function (r) {
       if (r && r.ok) {
-        B12.aviso('Buscas de ' + B12.dataBR(iso) + ' abertas: ' + r.total +
-          (r.total === 1 ? ' horário.' : ' horários.'), 'bom');
+        B12.aviso('Horários de ' + B12.dataBR(iso) + ' salvos: ' + r.idas +
+          ' de ida e ' + r.voltas + ' de volta.', 'bom');
       }
       if (depois) depois(r);
     }
   });
   return form;
 };
+/* o nome antigo continua valendo */
+B12.formVoltas = function (iso, depois) { return B12.formHorariosDia(iso, depois); };
 
 })();

@@ -291,6 +291,7 @@ function bloco(html) { var d = document.createElement('div'); d.innerHTML = html
 function pHoje(raiz) {
   var hoje = B12.hoje(), r = B12.resumoDia(hoje), mes = B12.resumoMes(B12.mesAtual());
   var venc = B12.contasVencidas(), prox = B12.contasProximas(7);
+  blocoLembretes(raiz);
   raiz.appendChild(bloco(
     '<div class="placar entra">' +
     tile(r.faturamento,'Faturamento','brl','destaque') +
@@ -339,10 +340,12 @@ function pHoje(raiz) {
         '<small>' + c.cat + '</small></div><span class="v sai">' + B12.brl(c.valor) + '</span></div>'; }).join('') +
       '</div>' : '')
   ));
-  /* as buscas da Ilha: hoje, e amanhã enquanto não estiverem montadas */
-  raiz.appendChild(blocoBuscas(hoje));
+  /* os horários: hoje, e amanhã enquanto não estiverem montados */
+  raiz.appendChild(blocoHorarios(hoje));
   var manha = B12.diaMais(hoje, 1);
-  if (!B12.voltasDoDia(manha).length) raiz.appendChild(blocoBuscas(manha));
+  if (!B12.saidasDoDia(manha, 'volta').length || !B12.saidasDoDia(manha, 'ida').length) {
+    raiz.appendChild(blocoHorarios(manha));
+  }
 
   var g = document.createElement('div'); g.className = 'cx entra entra-4';
   g.innerHTML = '<h3>Últimos 14 dias <span class="selo-demo">demonstração</span></h3>';
@@ -1217,38 +1220,126 @@ function pGestao(raiz) {
 
 /* ================================================================ ESCALA */
 var diaEscala = null;
-/* ---------------------------------------------------------- BUSCAS NA ILHA
-   A ida sai em horário de tabela. A volta o Dhalsin monta na véspera, olhando
-   quem está na Ilha. Este bloco é o lugar disso, e aparece em Horários e em
-   Hoje — porque é ali que ele está quando lembra. */
-function blocoBuscas(dia) {
-  var voltas = B12.voltasDoDia(dia);
+/* --------------------------------------------------------- HORÁRIOS DO DIA
+   A ida sai do trapiche da B12; a volta é a lancha indo buscar na Ilha. Os
+   dois o Dhalsin monta na véspera. Este bloco é o lugar disso, e aparece em
+   Horários e em Hoje — porque é ali que ele está quando lembra. */
+function blocoHorarios(dia) {
+  var idas = B12.saidasDoDia(dia, 'ida'), voltas = B12.saidasDoDia(dia, 'volta');
   var d = B12.naIlha(dia) || {};
-  var quantos = (d.voltam || []).reduce(function (t, p) { return t + (p.pessoas || 1); }, 0);
-  var amanha = dia === B12.diaMais(B12.hoje(), 1);
-  var quando = dia === B12.hoje() ? 'hoje' : amanha ? 'amanhã' : B12.dataBR(dia);
+  var voltam = (d.voltam || []).reduce(function (t, p) { return t + (p.pessoas || 1); }, 0);
+  var hoje = B12.hoje();
+  var quando = dia === hoje ? 'hoje' : dia === B12.diaMais(hoje, 1) ? 'amanhã' : B12.dataBR(dia);
+  var falta = !idas.length || !voltas.length;
+
+  function tira(lista, rotulo) {
+    return '<div style="margin-top:10px"><div class="sub-lin" style="margin-bottom:6px">' + rotulo + '</div>' +
+      (lista.length
+        ? '<div class="horas">' + lista.map(function (s) {
+            return '<span class="hchip on">' + s.hora +
+              (s.ocupadas ? ' · ' + s.ocupadas : '') + '</span>'; }).join('') + '</div>'
+        : '<div class="ajuda" style="margin:0">nenhum horário aberto</div>') + '</div>';
+  }
 
   var b = bloco(
-    '<div class="cx ' + (voltas.length ? 'nota' : 'aviso') + ' entra entra-2">' +
-    '<div class="cx-topo"><h3>Buscas na Ilha · ' + quando + '</h3>' +
-    '<button class="mini-btn" data-buscas="' + dia + '">' +
-      (voltas.length ? 'Mudar' : 'Montar') + '</button></div>' +
-    (voltas.length
-      ? '<p>' + voltas.length + (voltas.length === 1 ? ' horário aberto' : ' horários abertos') +
-        (quantos ? ' · ' + quantos + (quantos > 1 ? ' pessoas voltam' : ' pessoa volta') : '') + '.</p>' +
-        '<div class="horas" style="margin-top:10px">' + voltas.map(function (s) {
-          return '<span class="hchip on">' + s.hora +
-            (s.ocupadas ? ' · ' + s.ocupadas : '') + '</span>'; }).join('') + '</div>'
-      : '<p>Você ainda não montou as buscas ' + (quando === 'hoje' ? 'de hoje' : 'de ' + quando) +
-        '. Enquanto não montar, quem está na Ilha vê no app que os horários ainda não abriram — ' +
-        'e ninguém escolhe um horário que não existe.</p>') +
+    '<div class="cx ' + (falta ? 'aviso' : 'nota') + ' entra entra-2">' +
+    '<div class="cx-topo"><h3>Horários · ' + quando + '</h3>' +
+    '<button class="mini-btn" data-horarios="' + dia + '">' + (falta ? 'Montar' : 'Mudar') + '</button></div>' +
+    (falta
+      ? '<p>Falta montar ' + (!idas.length && !voltas.length ? 'as idas e as voltas'
+          : !idas.length ? 'as idas' : 'as voltas') + ' de ' + quando +
+        '. Enquanto não montar, o passageiro vê no app que os horários ainda não abriram.</p>'
+      : '<p>' + idas.length + ' de ida e ' + voltas.length + ' de volta' +
+        (voltam ? ' · ' + voltam + (voltam > 1 ? ' pessoas voltam' : ' pessoa volta') : '') + '.</p>') +
+    tira(idas, 'Idas — levar para a Ilha') +
+    tira(voltas, 'Voltas — buscar na Ilha') +
     '</div>');
-  b.querySelectorAll('[data-buscas]').forEach(function (x) {
+  b.querySelectorAll('[data-horarios]').forEach(function (x) {
     x.onclick = function () {
-      B12.formVoltas(x.dataset.buscas, function () { B12.admDesenhar(); });
+      B12.formHorariosDia(x.dataset.horarios, function () { B12.admDesenhar(); });
     };
   });
   return b;
+}
+/* o nome antigo continua valendo em quem já chamava */
+function blocoBuscas(dia) { return blocoHorarios(dia); }
+
+/* ------------------------------------------------------------- LEMBRETES
+   O que o Dhalsin precisa fazer hoje, em cima da tela, cada linha com o
+   botão que resolve. É o aviso que o app consegue dar sem nuvem: aparece
+   quando ele abre. */
+function blocoLembretes(raiz) {
+  var hoje = B12.hoje(), amanha = B12.diaMais(hoje, 1);
+  var itens = [];
+
+  function add(urgente, texto, rotulo, acao) {
+    itens.push({ urgente: urgente, texto: texto, rotulo: rotulo, acao: acao });
+  }
+
+  /* 1. os horários da véspera — é a rotina dele */
+  [[amanha, 'amanhã'], [hoje, 'hoje']].forEach(function (par) {
+    var dia = par[0], nome = par[1];
+    var i = B12.saidasDoDia(dia, 'ida').length, v = B12.saidasDoDia(dia, 'volta').length;
+    if (i && v) return;
+    add(dia === hoje, 'Faltam os horários de ' + nome +
+      (!i && !v ? ' (ida e volta)' : !i ? ' (ida)' : ' (volta)'),
+      'Montar', function () { B12.formHorariosDia(dia, function () { B12.admDesenhar(); }); });
+  });
+
+  /* 2. quem está na Ilha sem volta marcada */
+  var d = B12.naIlha(hoje) || {};
+  if ((d.semVolta || []).length) {
+    add(true, d.semVolta.length + (d.semVolta.length > 1 ? ' pessoas estão' : ' pessoa está') +
+      ' na Ilha sem horário de volta', 'Ver', function () { B12.admDesenhar('ilha'); });
+  }
+
+  /* 3. quem chega e quem volta hoje */
+  var chegam = (d.chegam || []).reduce(function (t, p) { return t + (p.pessoas || 1); }, 0);
+  var voltam = (d.voltam || []).reduce(function (t, p) { return t + (p.pessoas || 1); }, 0);
+  if (chegam) add(false, chegam + (chegam > 1 ? ' pessoas chegam' : ' pessoa chega') + ' hoje',
+    'Ver', function () { B12.admDesenhar('ilha'); });
+  if (voltam) add(false, voltam + (voltam > 1 ? ' pessoas voltam' : ' pessoa volta') + ' hoje',
+    'Ver', function () { B12.admDesenhar('ilha'); });
+
+  /* 4. pedidos esperando confirmação */
+  var novos = B12.pedidosNovos();
+  if (novos.length) add(true, novos.length + ' pedido' + (novos.length > 1 ? 's' : '') +
+    ' de reserva esperando você confirmar', 'Confirmar',
+    function () { B12.admDesenhar('escala'); });
+
+  /* 5. contas vencidas */
+  var venc = B12.contasVencidas();
+  if (venc.length) add(true, venc.length + ' conta' + (venc.length > 1 ? 's vencidas' : ' vencida'),
+    'Ver', function () { B12.admDesenhar('contas'); });
+
+  /* 6. carros passando da data */
+  var atrasados = (B12.patioHoje() || []).filter(function (v) {
+    return v.saidaPrevista && v.saidaPrevista < hoje; });
+  if (atrasados.length) add(false, atrasados.length + ' carro' + (atrasados.length > 1 ? 's' : '') +
+    ' passou da data no pátio', 'Ver', function () { B12.admDesenhar('patio'); });
+
+  if (!itens.length) {
+    raiz.appendChild(bloco('<div class="cx nota entra entra-1"><h3>Nada pendente</h3>' +
+      '<p>Os horários estão montados, ninguém está na Ilha sem volta e não há conta vencida. ' +
+      'Bom dia de trabalho.</p></div>'));
+    return;
+  }
+  itens.sort(function (a, b) { return (b.urgente ? 1 : 0) - (a.urgente ? 1 : 0); });
+
+  var urgentes = itens.filter(function (x) { return x.urgente; }).length;
+  var b = bloco(
+    '<div class="cx ' + (urgentes ? 'aviso' : 'nota') + ' entra entra-1">' +
+    '<div class="cx-topo"><h3>Seus lembretes</h3>' +
+    '<span style="font-size:12px;color:var(--gelo-3)">' + itens.length + '</span></div>' +
+    '<div class="lembretes">' + itens.map(function (x, i) {
+      return '<div class="lb' + (x.urgente ? ' urgente' : '') + '">' +
+        '<span class="lb-ponto"></span><span class="lb-txt">' + esc(x.texto) + '</span>' +
+        '<button type="button" class="mini-btn" data-lb="' + i + '">' + x.rotulo + '</button></div>';
+    }).join('') + '</div></div>');
+  b.querySelectorAll('[data-lb]').forEach(function (btn) {
+    btn.onclick = function () { itens[Number(btn.dataset.lb)].acao(); };
+  });
+  raiz.appendChild(b);
 }
 
 function pEscala(raiz) {
@@ -1285,7 +1376,7 @@ function pEscala(raiz) {
   raiz.querySelector('#b-nova-ida').onclick = function () { formSaida('ida', dia); };
   raiz.querySelector('#b-nova-volta').onclick = function () { formSaida('volta', dia); };
 
-  raiz.appendChild(blocoBuscas(dia));
+  raiz.appendChild(blocoHorarios(dia));
 
   /* ---- pedidos que chegaram pelo app e ainda não têm saída ---- */
   var novos = B12.pedidosNovos();

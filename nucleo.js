@@ -824,8 +824,14 @@ B12.voltasSugeridas = function () {
 B12.voltasDoDia = function (iso) { return B12.saidasDoDia(iso, 'volta'); };
 /* Abre (ou refaz) as buscas de um dia. Horário com gente marcada nunca some:
    apagar por engano o horário de quem já confirmou seria o pior estrago. */
-B12.abrirVoltas = function (iso, horas, opc) {
+/* Abre (ou refaz) os horários de um dia, num sentido. Horário com gente
+   marcada nunca some: apagar por engano quem já confirmou seria o pior
+   estrago que este app pode fazer. */
+B12.abrirSaidas = function (iso, sentido, horas, opc) {
   opc = opc || {};
+  sentido = sentido === 'ida' ? 'ida' : 'volta';
+  var campo = sentido === 'ida' ? 'saidaId' : 'saidaVoltaId';
+
   var limpas = (horas || []).map(function (h) { return String(h || '').trim(); })
     .filter(function (h) { return /^\d{1,2}:\d{2}$/.test(h); })
     .map(function (h) { return h.length === 4 ? '0' + h : h; });
@@ -833,10 +839,10 @@ B12.abrirVoltas = function (iso, horas, opc) {
   if (!limpas.length) return { erro: 'Informe pelo menos um horário, no formato 16:00.' };
 
   var g = B12.DB.ajustes.grade || B12.GRADE_PADRAO;
-  var jaTem = B12.DB.saidas.filter(function (s) { return s.data === iso && s.sentido === 'volta'; });
+  var jaTem = B12.DB.saidas.filter(function (s) { return s.data === iso && s.sentido === sentido; });
   var comGente = [], removidas = 0;
   jaTem.forEach(function (s) {
-    var gente = B12.DB.reservas.some(function (r) { return r.saidaVoltaId === s.id; });
+    var gente = B12.DB.reservas.some(function (r) { return r[campo] === s.id; }) || s.ocupadas > 0;
     if (gente) { comGente.push(s.hora); return; }
     if (limpas.indexOf(s.hora) < 0) {
       B12.DB.saidas = B12.DB.saidas.filter(function (x) { return x.id !== s.id; });
@@ -845,16 +851,25 @@ B12.abrirVoltas = function (iso, horas, opc) {
   });
   var criadas = 0;
   limpas.forEach(function (h) {
-    if (B12.DB.saidas.some(function (s) { return s.data === iso && s.sentido === 'volta' && s.hora === h; })) return;
-    B12.DB.saidas.push({ id: novoId('sd'), data: iso, hora: h, sentido: 'volta',
-      destino: 'Pontal do Sul', embarcacao: opc.embarcacao || 'l01', marinheiro: opc.marinheiro || '',
+    if (B12.DB.saidas.some(function (s) { return s.data === iso && s.sentido === sentido && s.hora === h; })) return;
+    B12.DB.saidas.push({ id: novoId('sd'), data: iso, hora: h, sentido: sentido,
+      destino: sentido === 'ida' ? (opc.destino || 'Brasília') : 'Pontal do Sul',
+      embarcacao: opc.embarcacao || 'l01', marinheiro: opc.marinheiro || '',
       vagas: Number(opc.vagas) || g.vagas || B12.CAPACIDADE, ocupadas: 0, grade: false });
     criadas++;
   });
   B12.salvar();
-  return { ok: true, criadas: criadas, removidas: removidas, mantidas: comGente,
-           total: B12.voltasDoDia(iso).length };
+  return { ok: true, sentido: sentido, criadas: criadas, removidas: removidas, mantidas: comGente,
+           total: B12.saidasDoDia(iso, sentido).length };
 };
+B12.abrirVoltas = function (iso, horas, opc) { return B12.abrirSaidas(iso, 'volta', horas, opc); };
+B12.abrirIdas   = function (iso, horas, opc) { return B12.abrirSaidas(iso, 'ida',   horas, opc); };
+/* os sugeridos, para o Dhalsin tocar em vez de digitar */
+B12.idasSugeridas = function () {
+  var g = B12.DB.ajustes.grade || {};
+  return g.ida || B12.GRADE_PADRAO.ida;
+};
+
 B12.saidasDoDia = function (iso, sentido) {
   B12.materializarDia(iso);
   return B12.DB.saidas.filter(function (s) {

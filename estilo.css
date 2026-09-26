@@ -1279,3 +1279,14 @@ body:not(.adm) .hchip{background:var(--gelo);border-color:var(--risco);color:var
 body:not(.adm) .hchip.on{background:var(--turq-600);border-color:var(--turq-500);color:#fff}
 .sub-lin{font-size:11px;color:var(--gelo-3);margin-top:3px;line-height:1.4;font-weight:400}
 body:not(.adm) .sub-lin{color:var(--tinta-3)}
+
+/* --------------------------------------------------------- lembretes do dia */
+.lembretes{display:grid;gap:2px;margin-top:4px}
+.lb{display:flex;align-items:center;gap:10px;padding:11px 0;
+  border-bottom:1px solid var(--noite-risco)}
+.lb:last-child{border-bottom:0;padding-bottom:0}
+body:not(.adm) .lb{border-bottom-color:var(--risco)}
+.lb-ponto{flex:none;width:8px;height:8px;border-radius:99px;background:var(--gelo-3)}
+.lb.urgente .lb-ponto{background:var(--atencao);box-shadow:0 0 0 3px rgba(217,147,43,.22)}
+.lb-txt{flex:1;min-width:0;font-size:13px;line-height:1.4}
+.lb .mini-btn{flex:none;padding:7px 12px;font-size:12px}
