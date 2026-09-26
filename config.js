@@ -17,6 +17,11 @@ var B12 = window.B12 || {};
 B12.NUVEM = {
   url: 'https://jvvniuzwltmbhhweaoqd.supabase.co',
   chave: 'sb_publishable_xXWoJeyTEaH3qCEjtS3XWg_H_ml5WIx',
+
+  /* a chave PÚBLICA dos avisos (VAPID). A privada fica só no servidor, no
+     cofre do Supabase, e existe uma cópia em ~/Desktop/B12/12-CHAVES-AVISOS.txt */
+  chavePush: 'BEodWJtTSP-0emsKuBXDZKM7MqW1mhDsX5cLYZ74bMhMOuAMNbvNaNBPfo6m-tqug93dShcIShAdvoUGfE1CbpU',
+
   ligada: false      /* vira true quando a troca do banco do aparelho estiver testada */
 };
 

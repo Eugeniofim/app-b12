@@ -347,6 +347,8 @@ function pHoje(raiz) {
     raiz.appendChild(blocoHorarios(manha));
   }
 
+  blocoAvisos(raiz);
+
   var g = document.createElement('div'); g.className = 'cx entra entra-4';
   g.innerHTML = '<h3>Últimos 14 dias <span class="selo-demo">demonstração</span></h3>';
   raiz.appendChild(g);
@@ -1268,6 +1270,67 @@ function blocoBuscas(dia) { return blocoHorarios(dia); }
    O que o Dhalsin precisa fazer hoje, em cima da tela, cada linha com o
    botão que resolve. É o aviso que o app consegue dar sem nuvem: aparece
    quando ele abre. */
+/* --------------------------------------------------- AVISOS NO CELULAR
+   O cartão que liga o empurrão. Diz a verdade sobre o que falta em vez de
+   mostrar um botão que não funciona. */
+function blocoAvisos(raiz) {
+  if (!B12.avEstado) return;
+  var e = B12.avEstado();
+
+  function cartao(classe, titulo, texto, botao) {
+    return '<div class="cx ' + classe + ' entra entra-3">' +
+      '<div class="cx-topo"><h3>' + titulo + '</h3>' +
+      (e.ligado ? '<span class="pilula dentro">ligado</span>' : '') + '</div>' +
+      '<p>' + texto + '</p>' + (botao || '') + '</div>';
+  }
+
+  var b;
+  if (e.ligado) {
+    b = bloco(cartao('nota', 'Avisos no celular',
+      'Este aparelho recebe aviso da B12 mesmo com o app fechado: horário que falta montar, ' +
+      'gente na Ilha sem volta, pedido novo.',
+      '<button type="button" class="btn sec" id="b-av-off" style="margin-top:12px">' +
+      'Parar de receber neste aparelho</button>'));
+    b.querySelector('#b-av-off').onclick = function () {
+      B12.ocupar(b.querySelector('#b-av-off'), 'Desligando…');
+      B12.avDesligar().then(function () {
+        B12.aviso('Este aparelho não recebe mais aviso.', 'bom');
+        B12.admDesenhar();
+      });
+    };
+  } else if (e.pode) {
+    b = bloco(cartao('aviso', 'Ligue os avisos no celular',
+      'Com isto ligado, o seu celular apita quando faltar montar horário, quando alguém ' +
+      'ficar na Ilha sem volta marcada e quando chegar pedido novo — sem você abrir o app.',
+      '<button type="button" class="btn pri" id="b-av-on" style="margin-top:12px">' +
+      'Quero receber avisos</button>'));
+    b.querySelector('#b-av-on').onclick = function () {
+      B12.ocupar(b.querySelector('#b-av-on'), 'Pedindo permissão…');
+      B12.avLigar().then(function (r) {
+        if (r.erro) { B12.aviso(r.erro, 'ruim'); B12.admDesenhar(); return; }
+        B12.aviso('Pronto. Este aparelho vai receber os avisos da B12.', 'bom');
+        B12.admDesenhar();
+      });
+    };
+  } else if (e.precisaInstalar) {
+    b = bloco(cartao('nota', 'Avisos no celular',
+      'No iPhone o aviso só funciona com o app instalado na tela de início. ' +
+      'Toque em Compartilhar, depois em "Adicionar à Tela de Início", abra por lá e volte aqui.'));
+  } else if (e.semLogin) {
+    b = bloco(cartao('nota', 'Avisos no celular',
+      'O banco dos avisos já existe e já está trancado. O que falta é o <b>login da nuvem</b>: ' +
+      'sem ele, o banco só aceita a inscrição de quem viaja, não a sua. É o próximo passo, ' +
+      'e é o mesmo login que vai sincronizar o app entre o seu celular e o computador.'));
+  } else if (e.semNuvem) {
+    b = bloco(cartao('nota', 'Avisos no celular',
+      'Falta ligar a nuvem. O banco da B12 já existe; o que falta é o app passar a ' +
+      'usá-lo. Enquanto isso, os lembretes aparecem aqui quando você abre o app.'));
+  } else {
+    b = bloco(cartao('nota', 'Avisos no celular', esc(e.motivo)));
+  }
+  raiz.appendChild(b);
+}
+
 function blocoLembretes(raiz) {
   var hoje = B12.hoje(), amanha = B12.diaMais(hoje, 1);
   var itens = [];
