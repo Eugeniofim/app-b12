@@ -15,7 +15,7 @@ var B12 = window.B12 || {};
 /* ---------------------------------------------------------------- identidade */
 /* o cofre: o servidor da Ti Artes que guarda a chave da IA. Vazio = assistente
    desligado (o app continua funcionando igual, só sem o chat). */
-B12.VERSAO = 'b12-v1.53.0';   /* tem que bater com o CACHE do sw.js */
+B12.VERSAO = 'b12-v1.54.0';   /* tem que bater com o CACHE do sw.js */
 
 B12.IA = { cofre: 'https://uopfqlogjzuqpabptxkb.supabase.co/functions/v1/cofre',
            modelo: 'claude-haiku-4-5' };
@@ -292,6 +292,7 @@ B12.FICAR = [
 
 B12.CREDITOS = [
   {a:"ilha-heroi.jpg", autor:"Cyrus Augustus Moro Daldin", lic:"CC BY-SA 4.0", url:"https://commons.wikimedia.org/wiki/File%3AIlha_do_Mel_-_Praia_do_Farol.jpg"},
+  {a:"farol.jpg", autor:"Cyrus Augustus Moro Daldin", lic:"CC BY-SA 4.0", url:"https://commons.wikimedia.org/wiki/File%3AIlha_do_Mel_-_Praia_do_Farol.jpg"},
   {a:"ilha-farol.jpg", autor:"Cyrus Augustus Moro Daldin", lic:"CC BY-SA 4.0", url:"https://commons.wikimedia.org/wiki/File%3AIlha_do_Mel_-_Farol_das_Conchas.jpg"},
   {a:"ilha-forte.jpg", autor:"Cyrus Daldin", lic:"CC BY-SA 4.0", url:"https://commons.wikimedia.org/wiki/File%3AFortaleza_de_Nossa_Senhora_dos_Prazeres_de_Paranagu%C3%A1_-_Ilha_do_Mel.jpg"},
   {a:"ilha-gruta.jpg", autor:"MTur Destinos", lic:"Public domain", url:"https://commons.wikimedia.org/wiki/File%3ARenato_Soares_Ilha_do_Mel_Gruta_das_Encantadas_Paranagua_PR_%2840667917555%29.jpg"},

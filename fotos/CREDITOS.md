@@ -11,6 +11,7 @@ nas versões recortadas.
 | Arquivo | Autor | Licença | Original |
 |---|---|---|---|
 | `ilha-heroi.jpg` | Cyrus Augustus Moro Daldin | CC BY-SA 4.0 | [Ilha do Mel - Praia do Farol.jpg](https://commons.wikimedia.org/wiki/File%3AIlha_do_Mel_-_Praia_do_Farol.jpg) |
+| `farol.jpg` | Cyrus Augustus Moro Daldin | CC BY-SA 4.0 | [Ilha do Mel - Praia do Farol.jpg](https://commons.wikimedia.org/wiki/File%3AIlha_do_Mel_-_Praia_do_Farol.jpg) |
 | `ilha-farol.jpg` | Cyrus Augustus Moro Daldin | CC BY-SA 4.0 | [Ilha do Mel - Farol das Conchas.jpg](https://commons.wikimedia.org/wiki/File%3AIlha_do_Mel_-_Farol_das_Conchas.jpg) |
 | `ilha-forte.jpg` | Cyrus Daldin | CC BY-SA 4.0 | [Fortaleza de Nossa Senhora dos Prazeres de Paranaguá - Ilha ](https://commons.wikimedia.org/wiki/File%3AFortaleza_de_Nossa_Senhora_dos_Prazeres_de_Paranagu%C3%A1_-_Ilha_do_Mel.jpg) |
 | `ilha-gruta.jpg` | MTur Destinos | Public domain | [Renato Soares Ilha do Mel Gruta das Encantadas Paranagua PR ](https://commons.wikimedia.org/wiki/File%3ARenato_Soares_Ilha_do_Mel_Gruta_das_Encantadas_Paranagua_PR_%2840667917555%29.jpg) |
