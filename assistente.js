@@ -715,7 +715,10 @@ var SUGESTOES = ['Como foi o dia de hoje?', 'Quem viaja amanhã?', 'Quais contas
 
 B12.iaBolhaFlutuante = function () {
   var ja = document.getElementById('ia-bolha');
-  var pode = B12.pode && B12.pode('equipe');
+  /* Só dentro da área da B12. Na cara do turista ele NUNCA aparece, mesmo com
+     o dono logado: o cliente pode estar com o celular na mão. */
+  var telaDaB12 = !!document.querySelector('#t-adm.on, #t-equipe.on');
+  var pode = telaDaB12 && B12.pode && B12.pode('equipe');
   if (!pode) { if (ja) ja.remove(); B12.iaFecharGaveta(); return; }
   if (ja) return;
   var b = document.createElement('button');
