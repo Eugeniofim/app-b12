@@ -174,7 +174,11 @@ B12.formAjustes = function (depois) {
         B12.iaVoz11 ? B12.iaVoz11() : '') +
       '<div class="ajuda">Todas falam português do Brasil. Só valem com a chave acima preenchida.</div>' +
       '<button type="button" class="btn sec" id="b-ouvir-voz" style="margin-top:10px">Ouvir um exemplo</button>' +
-      '<div class="ajuda" id="voz-aviso"></div>' +
+      '<div class="ajuda" id="voz-aviso">' + (B12.iaVozEstado ? (function (e) {
+        return e.modo === 'elevenlabs' ? 'Agora: voz profissional da ElevenLabs.'
+             : e.modo === 'nao' ? 'Agora: desligada.'
+             : e.temChave ? 'Agora: voz do aparelho (você escolheu assim).'
+             : 'Agora: voz do aparelho. Sem a chave, é só esta.'; })(B12.iaVozEstado()) : '') + '</div>' +
       '<div class="grupo">Motor do assistente</div>' +
       B12.f_lista('Qual motor', 'motor', (B12.MOTORES || []).map(function (m) { return [m[0], m[1]]; }),
         B12.iaMotor ? B12.iaMotor() : '') +

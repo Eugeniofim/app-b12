@@ -495,6 +495,11 @@ B12.iaTestar = function () {
     .catch(function () { return { ligado: false, motivo: 'endereço ainda não liberado no cofre' }; });
 };
 
+B12.iaVozEstado = function () {
+  return { modo: B12.iaVozModo(), temChave: !!B12.iaChave11(), voz: B12.iaVoz11(),
+           escolhaFeita: (ia().voz || '(nenhuma, usando o padrão)') };
+};
+
 B12.iaDados = function () {
   var x = ia();
   return { saldo: B12.iaSaldo(), posto: x.saldo, gasto: Math.round(x.gasto * 100) / 100,
@@ -579,9 +584,10 @@ B12.VOZES_11 = [
 ];
 var VOZ_PADRAO = 'ORgG8rwdAiMYRug8RJwR';
 B12.iaVozModo = function () {
-  var x = ia();
-  if (!x.voz) x.voz = 'aparelho';
-  if (x.voz === 'elevenlabs' && !B12.iaChave11()) return 'aparelho';
+  var x = ia(), tem = !!B12.iaChave11();
+  /* sem escolha feita: com chave, vale a voz profissional; sem chave, a do aparelho */
+  if (!x.voz) return tem ? 'elevenlabs' : 'aparelho';
+  if (x.voz === 'elevenlabs' && !tem) return 'aparelho';
   return x.voz;
 };
 B12.iaTrocarVoz = function (modo) {
@@ -626,7 +632,15 @@ B12.iaFalar11 = function (texto) {
     body: JSON.stringify({ text: limpaParaFalar(texto), model_id: 'eleven_flash_v2_5',
       voice_settings: { stability: 0.45, similarity_boost: 0.75, speed: 1.02 } })
   }).then(function (r) {
-    if (!r.ok) return r.text().then(function (t) { throw new Error(r.status === 401 ? 'A chave da ElevenLabs não foi aceita.' : 'A ElevenLabs recusou: ' + r.status); });
+    if (!r.ok) return r.text().then(function (t) {
+      var d = ''; try { d = (JSON.parse(t).detail || {}).message || ''; } catch (x) {}
+      throw new Error(
+        r.status === 401 ? 'A chave da ElevenLabs não foi aceita. Confira se copiou inteira.'
+      : r.status === 403 ? 'Esta chave não tem permissão de Text to Speech. Ligue esse item na ElevenLabs.'
+      : r.status === 422 ? 'A voz escolhida não existe nesta conta. Escolha outra na lista.'
+      : r.status === 429 ? 'Acabou o crédito da ElevenLabs ou o teto da chave.'
+      : 'A ElevenLabs recusou (' + r.status + ')' + (d ? ': ' + d : '') + '.');
+    });
     return r.blob();
   }).then(function (b) {
     B12.iaCalar();
@@ -641,7 +655,11 @@ B12.iaFalar = function (texto) {
   var modo = B12.iaVozModo();
   if (modo === 'nao' || !texto) return;
   if (modo === 'elevenlabs') {
-    return B12.iaFalar11(texto).catch(function () { vozDoAparelho(texto); });
+    return B12.iaFalar11(texto).catch(function (e) {
+      /* silêncio aqui é o que faz ele achar que "não mudou": diga o que houve */
+      if (B12.aviso) B12.aviso((e && e.message) || 'A voz profissional falhou. Usando a do aparelho.', 'ruim');
+      vozDoAparelho(texto);
+    });
   }
   vozDoAparelho(texto);
 };
