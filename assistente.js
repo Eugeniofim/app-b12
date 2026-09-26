@@ -265,7 +265,10 @@ var LEITURAS = {
              desconto_no_dinheiro_por_cento: Math.round((a.descDinheiro || 0) * 100),
              taxas_da_maquininha_por_cento: Object.keys(a.taxas || {}).reduce(function (o, k) {
                o[k] = Math.round((a.taxas[k] || 0) * 10000) / 100; return o; }, {}),
-             conferido_pelo_dono: !!a.precosConferidos };
+             conferido_pelo_dono: !!a.precosConferidos,
+             cliente_esta_vendo_os_valores: !!a.mostrarPrecos,
+             observacao: a.mostrarPrecos ? 'O cliente vê os preços no app.'
+               : 'Hoje o cliente NÃO vê valor nenhum no app: aparece "sob consulta" e o preço é combinado pelo WhatsApp. Quem liga isso é o Dhalsin, na aba Preços.' };
   },
   ver_problemas: function () { return B12.varrer(); },
 

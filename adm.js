@@ -1418,7 +1418,16 @@ function pPrecos(raiz) {
         B12.brl(T[k].pessoa) + '/pessoa</div></td></tr>'; }).join('') +
     '<tr><td>Criança não paga até</td><td class="n">' + A.idadeCortesia + ' anos</td></tr>' +
     '<tr><td>Desconto no dinheiro</td><td class="n">' + String(Math.round((A.descDinheiro || 0) * 100)) + '%</td></tr></table>' +
-    '<button type="button" class="btn pri" id="b-precos-trav">Editar preços da travessia</button></div>' +
+    '<button type="button" class="btn pri" id="b-precos-trav">Editar preços da travessia</button>' +
+    '<div class="cx ' + (B12.mostraPrecos() ? 'bom' : 'aviso') + '" style="margin:12px 0 0">' +
+      '<h3>' + (B12.mostraPrecos() ? 'O cliente está vendo os valores' : 'O cliente NÃO vê valores') + '</h3>' +
+      '<p>' + (B12.mostraPrecos()
+        ? 'Na tela de reserva aparecem os preços de cada serviço e o total.'
+        : 'Na tela de reserva aparece "sob consulta", e o valor é combinado por você no WhatsApp. ' +
+          'Ligue quando a tabela estiver fechada.') + '</p>' +
+      '<button type="button" class="btn sec peq" id="b-mostrar-precos">' +
+      (B12.mostraPrecos() ? 'Esconder os valores do cliente' : 'Mostrar os valores ao cliente') +
+      '</button></div></div>' +
 
     '<div class="cx entra entra-2"><h3>Passeios</h3>' +
     '<table class="tabela">' + P.map(function (p) {
@@ -1444,6 +1453,12 @@ function pPrecos(raiz) {
     '</p><button type="button" class="btn sec peq" id="b-taxas">Editar taxas</button></div></div>'
   ));
   raiz.querySelector('#b-precos-trav').onclick = function () { B12.formPrecosTravessia(re); };
+  raiz.querySelector('#b-mostrar-precos').onclick = function () {
+    var r = B12.trocarMostraPrecos(!B12.mostraPrecos());
+    B12.aviso(r.mostrando ? 'Os valores passaram a aparecer para o cliente.'
+                          : 'Os valores sumiram da tela do cliente.', 'bom');
+    re();
+  };
   raiz.querySelector('#b-passeio-novo').onclick = function () { B12.formPasseio(null, re); };
   raiz.querySelector('#b-diaria').onclick = function () { B12.formDiaria(re); };
   raiz.querySelector('#b-taxas').onclick = function () { B12.formTaxas(re); };

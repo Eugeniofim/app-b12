@@ -318,24 +318,26 @@ B12.calcular = function () {
   }
   var reg = cotar('regular'), nau = cotar('nautico');
   var t = faixa === 'fora' ? null : B12.DB.ajustes.tabela[faixa];
+  var mostra = B12.mostraPrecos();          /* enquanto desligado, o valor se combina no WhatsApp */
+  function valor(p) { return !mostra ? 'sob consulta' : (p ? B12.brl(p.travessia) : 'consultar'); }
 
   document.getElementById('escolhas-produto').innerHTML =
     escolha('regular', 'Táxi Náutico',
       'lancha compartilhada, ida e volta' + (t ? ' · ' + t.de + ' às ' + t.ate : '') +
-      (B12.DB.ajustes.precosConferidos ? '<br>por pessoa, ida e volta' : '<br><span class="pend">preço por pessoa a confirmar com a B12</span>'),
-      reg ? B12.brl(reg.travessia) : 'consultar') +
+      (mostra ? '<br>por pessoa, ida e volta' : '<br><span class="pend">valor combinado pelo WhatsApp</span>'),
+      valor(reg)) +
     escolha('nautico', 'Serviço Náutico Premium',
       'lancha exclusiva' + (t ? ' · ' + t.de + ' às ' + t.ate : '') + '<br>' +
       (F.pax <= 3 ? 'valor fixo para até 3 pessoas' : 'por pessoa, a partir de 4'),
-      nau ? B12.brl(nau.travessia) : 'consultar');
+      valor(nau));
   document.querySelectorAll('[data-prod]').forEach(function (b) {
     b.onclick = function () { F.produto = b.dataset.prod; B12.calcular(); };
   });
 
   var p = cotar(F.produto);
   document.getElementById('est-txt').textContent = dd + (dd > 1 ? ' diárias' : ' diária') +
-    ' de ' + B12.brl(B12.DB.ajustes.diaria);
-  document.getElementById('est-val').textContent = B12.brl(B12.DB.ajustes.diaria * dd);
+    (mostra ? ' de ' + B12.brl(B12.DB.ajustes.diaria) : '');
+  document.getElementById('est-val').textContent = mostra ? B12.brl(B12.DB.ajustes.diaria * dd) : 'sob consulta';
   document.getElementById('est-sim').classList.toggle('on', !!F.estac);
   document.getElementById('est-nao').classList.toggle('on', !F.estac);
   var bp = document.getElementById('bloco-placa'); if (bp) bp.hidden = !F.estac;
@@ -343,20 +345,22 @@ B12.calcular = function () {
   var nome = F.produto === 'nautico' ? 'Serviço náutico' : 'Táxi náutico';
   document.getElementById('c-desc').textContent = nome + ' · ' + F.pax +
     (F.pax > 1 ? ' pessoas' : ' pessoa') + ' · ida e volta';
-  document.getElementById('c-trav').textContent = p ? B12.brl(p.travessia) : 'sob consulta';
+  document.getElementById('c-trav').textContent = (mostra && p) ? B12.brl(p.travessia) : 'sob consulta';
   document.getElementById('c-lin-est').style.display = F.estac ? 'flex' : 'none';
   document.getElementById('c-est-desc').textContent = 'Estacionamento · ' + dd +
     (dd > 1 ? ' diárias' : ' diária');
-  document.getElementById('c-est').textContent = B12.brl(p ? p.estacionamento : 0);
-  document.getElementById('c-lin-desc').style.display = (p && p.desconto) ? 'flex' : 'none';
+  document.getElementById('c-est').textContent = mostra ? B12.brl(p ? p.estacionamento : 0) : 'sob consulta';
+  document.getElementById('c-lin-desc').style.display = (mostra && p && p.desconto) ? 'flex' : 'none';
   document.getElementById('c-desc-val').textContent = '− ' + B12.brl(p ? p.desconto : 0);
-  document.getElementById('c-total').textContent = p ? B12.brl(p.total) : 'sob consulta';
-  document.getElementById('c-obs').innerHTML = p
-    ? 'Ida e volta, por trajeto. ' + (F.cri
-        ? F.cri + (F.cri > 1 ? ' crianças' : ' criança') + ' até ' + B12.DB.ajustes.idadeCortesia + ' anos sem cobrança. '
-        : 'Crianças até ' + B12.DB.ajustes.idadeCortesia + ' anos não pagam. ') +
-      'Valores da tabela do material da B12.'
-    : 'Horário especial é sob consulta antecipada. Fale com a B12 pelo WhatsApp.';
+  document.getElementById('c-total').textContent = (mostra && p) ? B12.brl(p.total) : 'a combinar';
+  var cri = F.cri
+    ? F.cri + (F.cri > 1 ? ' crianças' : ' criança') + ' até ' + B12.DB.ajustes.idadeCortesia + ' anos sem cobrança. '
+    : 'Crianças até ' + B12.DB.ajustes.idadeCortesia + ' anos não pagam. ';
+  document.getElementById('c-obs').innerHTML = !mostra
+    ? 'Ida e volta, por trajeto. ' + cri + '<b>O valor é confirmado pela B12 no WhatsApp</b>, ' +
+      'junto com o horário. Você paga na saída, não agora.'
+    : (p ? 'Ida e volta, por trajeto. ' + cri + 'Valores da tabela do material da B12.'
+         : 'Horário especial é sob consulta antecipada. Fale com a B12 pelo WhatsApp.');
 };
 function escolha(id, titulo, sub, valor) {
   return '<button class="escolha' + (F.produto === id ? ' on' : '') + '" data-prod="' + id + '">' +
@@ -411,7 +415,7 @@ B12.reservar = function () {
     estacionamento: F.estac ? dd : 0,
     placa: F.estac ? document.getElementById('f-placa').value : '',
     pg: document.getElementById('f-pag').selectedOptions[0].textContent,
-    total: p ? p.total : null
+    total: (B12.mostraPrecos() && p) ? p.total : null
   });
 
   var linhas = ['Olá! Quero reservar uma travessia com a B12.', '',

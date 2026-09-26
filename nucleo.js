@@ -76,6 +76,8 @@ function vazio() {
       passeios: {},                      /* preço/duração/ativo por passeio, por cima de B12.PASSEIOS */
       passeiosExtras: [],                /* passeios que o dono criou no painel */
       precosConferidos: false,           /* vira true quando o dono salva os preços uma vez */
+      mostrarPrecos: false,              /* o cliente vê valores? Começa DESLIGADO: o preço é
+                                            combinado no WhatsApp até o Dhalsin liberar */
       pins: null,                 /* null = usa o PIN padrão de demonstração */
       grade: null,                /* null = usa B12.GRADE_PADRAO */
       patio: { regra: 'dia', tolerancia: 60, cobranca: 'saida' }
@@ -105,6 +107,7 @@ B12.carregar = function () {
      escolhido um valor seu fica como está. */
   if (A.diaria === 40 && !A.precosConferidos) A.diaria = B12.DIARIA;
   if (A.antecedenciaHoras == null) A.antecedenciaHoras = 24;
+  if (A.mostrarPrecos == null) A.mostrarPrecos = false;
   if (A.idadeCortesia == null) A.idadeCortesia = B12.IDADE_CORTESIA;
   if (!A.passeios) A.passeios = {};
   if (!Array.isArray(A.passeiosExtras)) A.passeiosExtras = [];
@@ -1407,6 +1410,12 @@ B12.salvarTaxas = function (d) {
   B12.salvar();
   return { ok: true };
 };
+B12.mostraPrecos = function () { return !!B12.DB.ajustes.mostrarPrecos; };
+B12.trocarMostraPrecos = function (lig) {
+  B12.DB.ajustes.mostrarPrecos = !!lig; B12.salvar();
+  return { ok: true, mostrando: !!lig };
+};
+
 B12.salvarDiaria = function (v, especial) {
   var d = reais(v), e = reais(especial);
   if (d <= 0) return { erro: 'Informe o valor da diária.' };
