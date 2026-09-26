@@ -974,6 +974,18 @@ body:not(.adm) .ia-ele{background:var(--carta);color:var(--tinta);box-shadow:var
 .ia-pensa span:nth-child(2){animation-delay:.16s} .ia-pensa span:nth-child(3){animation-delay:.32s}
 @keyframes pulsinho{0%,60%,100%{opacity:.28;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
 
+
+.ia-atencao{background:var(--noite-2);border:1px solid var(--noite-risco);border-radius:var(--r-m);
+  padding:14px;margin:auto 0}
+.ia-atencao>b{display:block;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--gelo-3);margin-bottom:10px}
+.ia-ponto{display:block;width:100%;text-align:left;font:600 13.5px var(--sans);color:var(--gelo);
+  background:var(--noite-3);border:0;border-left:3px solid var(--atencao);border-radius:9px;
+  padding:11px 12px;margin-bottom:7px;cursor:pointer;line-height:1.35}
+.ia-ponto.urgente{border-left-color:var(--ruim)}
+.ia-ponto:active{background:var(--noite-risco)}
+.ia-atencao small{display:block;font-size:11.5px;color:var(--gelo-3);margin-top:8px}
+@media (pointer:coarse){ .ia-ponto{min-height:44px} }
 .ia-proposta{align-self:stretch;background:var(--noite-2);border:1px solid var(--turq-700);
   border-radius:14px;padding:13px;animation:sobe .3s var(--curva) both}
 body:not(.adm) .ia-proposta{background:var(--carta);border-color:var(--turq-500)}

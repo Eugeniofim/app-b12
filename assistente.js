@@ -53,6 +53,50 @@ function cobrar(uso) {
   B12.salvar();
 }
 
+
+/* ==================================================== o olho vivo
+   Varre o app e devolve o que precisa de atenção. Roda aqui no aparelho, de
+   graça, e é o que o assistente lê quando ele pergunta "o que preciso ver?". */
+B12.varrer = function () {
+  var hoje = B12.hoje(), A = B12.DB.ajustes, p = [];
+  function achar(grau, o_que, detalhe, aba) { p.push({ grau: grau, o_que: o_que, detalhe: detalhe, onde: aba }); }
+
+  var venc = B12.contasVencidas();
+  if (venc.length) achar('urgente', venc.length + ' conta' + (venc.length>1?'s vencidas':' vencida'),
+    venc.slice(0,4).map(function(c){ return c.desc + ' ' + B12.brl(c.valor) + ' (venceu ' + B12.dataBR(c.venc) + ')'; }).join(' · '), 'contas');
+
+  var pedidos = B12.pedidosNovos();
+  if (pedidos.length) achar('urgente', pedidos.length + ' reserva' + (pedidos.length>1?'s esperando':' esperando') + ' você confirmar',
+    pedidos.slice(0,4).map(function(r){ return r.cod + ' ' + r.nome + ' (' + B12.dataBR(r.ida) + ')'; }).join(' · '), 'escala');
+
+  var atrasados = B12.DB.patio.filter(function (c) { return !c.saidaReal && c.saidaPrevista && c.saidaPrevista < hoje; });
+  if (atrasados.length) achar('urgente', atrasados.length + ' carro' + (atrasados.length>1?'s passaram':' passou') + ' da data',
+    atrasados.slice(0,4).map(function(c){ return c.placa + ' de ' + (c.nome||'sem dono cadastrado') + ', ' + B12.diariasDe(c, hoje) + ' diárias'; }).join(' · '), 'patio');
+
+  var semVolta = B12.semHorarioDeVolta ? B12.semHorarioDeVolta(hoje) : [];
+  if (semVolta.length) achar('atencao', semVolta.length + ' na Ilha sem horário de volta marcado',
+    semVolta.slice(0,5).map(function(r){ return r.nome + ' (' + r.cod + ')'; }).join(' · '), 'escala');
+
+  var prox = B12.contasProximas(7);
+  if (prox.length) achar('atencao', prox.length + ' conta' + (prox.length>1?'s vencem':' vence') + ' em 7 dias',
+    B12.brl(prox.reduce(function(t,c){return t+c.valor;},0)) + ' ao todo', 'contas');
+
+  var mes = B12.resumoMes(B12.mesAtual()), dia = +hoje.slice(8);
+  var esperado = A.metaMensal * (dia / 30);
+  if (mes.entradas < esperado * 0.75) achar('atencao', 'a meta do mês está atrasada',
+    'entrou ' + B12.brl(mes.entradas) + ' de ' + B12.brl(A.metaMensal) + '; no ritmo do dia ' + dia + ' era para estar em ' + B12.brl(esperado), 'painel');
+
+  var manut = B12.DB.manutencoes.filter(function (m) { return m.proxima && m.proxima <= B12.diaMais(hoje, 15); });
+  if (manut.length) achar('atencao', 'manutenção chegando',
+    manut.slice(0,3).map(function(m){ return m.descricao + ' em ' + B12.dataBR(m.proxima); }).join(' · '), 'manut');
+
+  if (!A.precosConferidos) achar('atencao', 'os preços ainda não foram conferidos por você',
+    'o app mostra um aviso laranja ao cliente enquanto isso', 'precos');
+
+  var d = B12.diagnostico ? B12.diagnostico() : null;
+  return { dia: hoje, quantos: p.length, pontos: p, saude: d };
+};
+
 /* ==================================================== o que ele sabe olhar
    Cada ferramenta é uma pergunta que a IA pode fazer ao aparelho. Só leitura,
    menos as três do fim, que pedem confirmação. */
@@ -89,6 +133,13 @@ var FERRAMENTAS = [
 
   { name: 'ver_app', description: 'Informações do próprio app e da marca: endereço, QR code, senhas, como instalar no celular, o que cada aba faz, onde baixar o Excel, como a marca é usada.',
     input_schema: { type: 'object', properties: { assunto: { type: 'string', description: 'endereco, senhas, instalar, abas, excel, marca, nuvem, qr' } } } },
+
+  { name: 'ver_problemas', description: 'A varredura do app: tudo o que precisa da atenção do Dhalsin agora — contas vencidas, reservas esperando confirmação, carros passando da data, gente na Ilha sem volta marcada, meta atrasada, manutenção chegando. Use ao abrir a conversa, quando ele perguntar "e aí?", "tudo certo?", "o que preciso ver hoje?", ou antes de dar qualquer conselho.',
+    input_schema: { type: 'object', properties: {} } },
+
+  { name: 'ver_cliente', description: 'A ficha completa de UMA pessoa: contato, de onde vem, todas as viagens dela, quanto já gastou, quando veio a última vez, se deixou carro e se aceita ofertas. Use quando ele falar de alguém pelo nome ou pelo número.',
+    input_schema: { type: 'object', required: ['quem'], properties: {
+      quem: { type: 'string', description: 'nome, parte do nome, WhatsApp ou código de reserva' } } } },
 
   { name: 'analisar', description: 'O motor financeiro do app, o mesmo que desenha os gráficos do painel. Use para pergunta de gestão, não para número solto: se a empresa está bem, quanto dá para retirar, quanto precisa faturar para empatar, qual serviço dá mais margem, quanto custa cada passageiro, como vai fechar o mês, qual dia da semana rende mais, quanto já foi investido na lancha.',
     input_schema: { type: 'object', required: ['o_que'], properties: {
@@ -216,6 +267,40 @@ var LEITURAS = {
                o[k] = Math.round((a.taxas[k] || 0) * 10000) / 100; return o; }, {}),
              conferido_pelo_dono: !!a.precosConferidos };
   },
+  ver_problemas: function () { return B12.varrer(); },
+
+  ver_cliente: function (a) {
+    var q = String(a.quem || '').trim(), qn = q.toLowerCase(), qd = q.replace(/\D/g, '');
+    var C = B12.DB.clientes, R = B12.DB.reservas;
+    var cli = null;
+    if (/^B12-/i.test(q)) {
+      var r0 = R.filter(function (r) { return (r.cod || '').toUpperCase() === q.toUpperCase(); })[0];
+      if (r0) cli = C.filter(function (c) { return c.id === r0.clienteId; })[0] || { nome: r0.nome, whats: r0.zap };
+    }
+    if (!cli && qd.length >= 8) cli = C.filter(function (c) { return (c.whats || '').indexOf(qd) >= 0; })[0];
+    if (!cli) cli = C.filter(function (c) { return (c.nome || '').toLowerCase().indexOf(qn) >= 0; })[0];
+    if (!cli) return { achou: false, procurei_por: q,
+      parecidos: C.filter(function (c) { return (c.nome||'').toLowerCase().split(' ').some(function (p) { return qn.indexOf(p) >= 0; }); })
+        .slice(0, 5).map(function (c) { return c.nome; }) };
+
+    var viagens = R.filter(function (r) { return r.clienteId === cli.id ||
+      (cli.whats && (r.zap || '').replace(/\D/g,'') === cli.whats); })
+      .sort(function (x, y) { return (y.ida || '') < (x.ida || '') ? -1 : 1; });
+    var carros = B12.DB.patio.filter(function (p) { return p.clienteId === cli.id ||
+      (cli.whats && (p.whats || '').replace(/\D/g,'') === cli.whats); });
+    return { achou: true,
+      nome: cli.nome, whats: cli.whats, email: cli.email, instagram: cli.instagram,
+      cidade: cli.cidade, pousada: cli.pousada, observacoes: cli.obs,
+      viagens_no_app: viagens.length, total_gasto: dinheiro(cli.gasto),
+      cliente_desde: (cli.criadoEm || '').slice(0, 10),
+      aceita_ofertas: !!cli.aceitaOfertas,
+      historico: so(viagens, 12).map(function (r) {
+        return { cod: r.cod, situacao: r.situacao, chegada: r.ida, retorno: r.volta,
+                 pessoas: r.pax, produto: r.produto, valor: r.total, carro: r.placa || null }; }),
+      carros: carros.map(function (p) {
+        return { placa: p.placa, modelo: p.modelo, entrada: p.entrada, saida: p.saidaReal || 'ainda dentro' }; }) };
+  },
+
   analisar: function (a) {
     var q = String(a.o_que || '');
     if (q === 'diagnostico')        return B12.diagnostico();
@@ -407,12 +492,23 @@ function sistema() {
     'Você é o assistente da Estação B12, dentro do app da empresa. Fala com o Dhalsin, o dono.',
     'A B12 faz travessias de lancha de Pontal do Paraná para a Ilha do Mel, passeios de barco pela baía de Paranaguá e tem estacionamento no próprio pátio. Endereço: ' + e.endereco + '.',
     '',
+    'QUEM VOCÊ É',
+    'O braço direito do Dhalsin. Você conhece a empresa inteira: o dinheiro, a agenda, cada cliente pelo',
+    'nome, o pátio, as contas e os onze anos de história. Ele confia em você para não deixar passar nada.',
+    'Aja como quem já olhou tudo antes de ele perguntar: se algo está pegando fogo, diga primeiro, mesmo',
+    'que ele tenha perguntado outra coisa. Uma linha basta ("antes: tem 2 contas vencidas").',
+    'Seja curto e certeiro. Ele está no balcão, com gente esperando.',
+    '',
     'COMO RESPONDER',
     '- Português do Brasil, direto, sem enrolação. Frases curtas.',
     '- Ele não é programador: nada de palavra técnica. Diga "o app", "a tela", "a aba".',
     '- Antes de dar qualquer número, BUSQUE com as ferramentas. Nunca invente valor, nome ou data.',
     '- Pergunta de GESTÃO (a empresa está bem? posso retirar? o que dá mais lucro?) se responde com a',
     '  ferramenta analisar, que usa o mesmo motor dos gráficos do painel. Não faça a conta de cabeça.',
+    '- Pergunta aberta ("e aí?", "tudo certo?", "bom dia") se responde com ver_problemas primeiro.',
+    '- Falou de alguém pelo nome? Use ver_cliente e traga o histórico da pessoa, não só o contato.',
+    '- Quando vir um problema, proponha a saída: a conta a pagar, a mensagem para o cliente atrasado,',
+    '  a reserva a confirmar. Não pare no diagnóstico.',
     '- Valores em reais, no formato R$ 1.234. Datas em dia/mês.',
     '- Quando a resposta for uma lista, use no máximo 5 itens e diga o total.',
     '- A ferramenta ver_app sabe TUDO sobre a empresa e sobre o app: serviços, endereço, QR, senhas, como',
@@ -903,8 +999,19 @@ B12.iaAbrirGaveta = function () {
       if (t) bolha({ papel: 'assistant', texto: t });
     }
   });
-  if (!area.children.length) area.innerHTML = '<div class="ia-vazio"><b>Pergunte o que quiser</b>' +
-    '<p>Ele lê os dados deste app para responder.</p></div>';
+  if (!area.children.length) {
+    var v = B12.varrer(), urg = v.pontos.filter(function (p) { return p.grau === 'urgente'; });
+    area.innerHTML = v.quantos
+      ? '<div class="ia-atencao"><b>' + (urg.length ? 'Precisa de você agora' : 'De olho hoje') + '</b>' +
+        v.pontos.slice(0, 4).map(function (p) {
+          return '<span class="ia-ponto ' + p.grau + '">' + esc(p.o_que) + '</span>'; }).join('') +
+        '<small>Toque para eu explicar qualquer um.</small></div>'
+      : '<div class="ia-vazio"><b>Tudo em ordem por aqui</b>' +
+        '<p>Nenhuma conta vencida, nenhuma reserva esperando. Pergunte o que quiser.</p></div>';
+    area.querySelectorAll('.ia-ponto').forEach(function (b) {
+      b.onclick = function () { perguntar('Me explica isso: ' + b.textContent + '. O que eu faço?'); };
+    });
+  }
   desce();
   B12.iaTestar().then(function (e) {
     if (!e.ligado && !area.querySelector('.ia-erro')) bolha({ papel: 'erro',
