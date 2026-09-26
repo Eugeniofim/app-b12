@@ -81,7 +81,8 @@ function vazio() {
                                             combinado no WhatsApp até o Dhalsin liberar */
       pins: null,                 /* null = usa o PIN padrão de demonstração */
       grade: null,                /* null = usa B12.GRADE_PADRAO */
-      patio: { regra: 'dia', tolerancia: 60, cobranca: 'saida' }
+      patio: { regra: 'dia', tolerancia: 60, cobranca: 'saida' },
+      fidelidade: null            /* null = usa B12.FIDELIDADE */
       /* regra: 'dia' = cada dia de calendário conta uma diária
                 '24h' = uma diária a cada 24 horas desde a hora de entrada
          tolerancia: minutos de folga antes de contar a diária seguinte (só na regra 24h)
@@ -117,6 +118,7 @@ B12.carregar = function () {
   if (!A.taxas) A.taxas = JSON.parse(JSON.stringify(B12.TAXAS));
   if (!A.regular) A.regular = B12.REGULAR;
   if (!A.diaria) A.diaria = B12.DIARIA;
+  if (A.fidelidade === undefined) A.fidelidade = null;
   if (!B12.DB.semeado) { B12.semear(); }
   else if (B12.DB.demoDia !== B12.hoje()) { B12.refrescarDemo(); }
   return B12.DB;
@@ -908,6 +910,136 @@ B12.buscarClientes = function (termo) {
       .toLowerCase().indexOf(t) >= 0;
   }).slice(0, 60);
 };
+/* ------------------------------------------------------- fidelidade
+   Ponto sai de dinheiro gasto, e a faixa sai do ponto. A regra mora no
+   banco para o Dhalsin poder mexer sem me chamar. */
+B12.fidelidade = function () {
+  var f = B12.DB.ajustes.fidelidade;
+  if (!f) return JSON.parse(JSON.stringify(B12.FIDELIDADE));
+  return f;
+};
+B12.salvarFidelidade = function (v) {
+  var rpp = Number(String(v.reaisPorPonto).replace(',', '.')) || 0;
+  if (rpp <= 0) return { erro: 'Quantos reais valem 1 ponto? Informe um número maior que zero.' };
+  var faixas = (v.faixas || []).map(function (f) {
+    return { nome: String(f.nome || '').trim(), de: Math.max(0, Math.round(Number(f.de) || 0)),
+             mimo: String(f.mimo || '').trim() };
+  }).filter(function (f) { return f.nome; });
+  if (!faixas.length) return { erro: 'Deixe pelo menos uma faixa com nome.' };
+  faixas.sort(function (a, b) { return a.de - b.de; });
+  if (faixas[0].de !== 0) return { erro: 'A primeira faixa precisa começar em 0 ponto.' };
+  for (var i = 1; i < faixas.length; i++) {
+    if (faixas[i].de === faixas[i-1].de) {
+      return { erro: 'Duas faixas começam em ' + faixas[i].de + ' pontos. Cada faixa precisa de um número.' };
+    }
+  }
+  B12.DB.ajustes.fidelidade = { ligada: v.ligada !== false, reaisPorPonto: rpp,
+    validadeMeses: 0, faixas: faixas };
+  B12.salvar();
+  return { ok: true };
+};
+B12.pontosDe = function (gasto) {
+  var f = B12.fidelidade();
+  return Math.floor((gasto || 0) / f.reaisPorPonto);
+};
+B12.faixaDe = function (pontos) {
+  var f = B12.fidelidade(), atual = f.faixas[0] || { nome:'—', de:0, mimo:'' }, prox = null;
+  f.faixas.forEach(function (x) {
+    if (pontos >= x.de) atual = x;
+    else if (!prox) prox = x;
+  });
+  return { faixa: atual, proxima: prox,
+           faltam: prox ? Math.max(0, prox.de - pontos) : 0,
+           /* quanto andou dentro da faixa, de 0 a 1, para a barrinha */
+           andado: prox ? Math.min(1, (pontos - atual.de) / Math.max(1, prox.de - atual.de)) : 1 };
+};
+
+/* ---------------------------------------------- a ficha completa do cliente
+   Tudo o que o Dhalsin precisa para decidir um mimo: quanto entrou, em quê,
+   desde quando, com que frequência, e o que ainda está em aberto. */
+B12.dadosCliente = function (id) {
+  var c = B12.DB.clientes.filter(function (x) { return x.id === id; })[0];
+  if (!c) return null;
+  var L = B12.DB.lancamentos.filter(function (l) { return l.clienteId === id && l.tipo === 'entrada'; });
+  var R = B12.DB.reservas.filter(function (r) { return r.clienteId === id; });
+
+  var gastoLanc = L.reduce(function (s, l) { return s + l.valor; }, 0);
+  var gasto = Math.max(gastoLanc, c.gasto || 0);          /* a planilha antiga também conta */
+  var viagens = Math.max(L.length, c.viagens || 0);
+
+  /* por onde o dinheiro entrou */
+  var porCat = {};
+  L.forEach(function (l) { porCat[l.cat] = (porCat[l.cat] || 0) + l.valor; });
+  var cats = Object.keys(porCat).map(function (k) { return { cat: k, valor: porCat[k] }; })
+    .sort(function (a, b) { return b.valor - a.valor; });
+
+  /* por ano, para ver se a pessoa sumiu */
+  var porAno = {};
+  L.forEach(function (l) { var a = String(l.data).slice(0, 4); porAno[a] = (porAno[a] || 0) + l.valor; });
+  var anos = Object.keys(porAno).sort().reverse()
+    .map(function (a) { return { ano: a, valor: porAno[a] }; });
+
+  var datas = L.map(function (l) { return l.data; })
+    .concat(R.map(function (r) { return r.ida; })).filter(Boolean).sort();
+  var primeira = datas[0] || null, ultima = datas[datas.length - 1] || null;
+  var hoje = B12.hoje();
+  function diasAte(d) {
+    if (!d) return null;
+    return Math.round((new Date(hoje + 'T12:00') - new Date(d + 'T12:00')) / 86400000);
+  }
+
+  /* quanto ainda está em aberto, somando as reservas não pagas */
+  var aberto = 0;
+  R.forEach(function (r) {
+    var cc = B12.contaDaReserva(r.id);
+    if (cc && !(cc.jaPago && !cc.estacionamento)) aberto += cc.total;
+  });
+
+  /* onde costuma ficar e para onde costuma ir */
+  function maisUsado(lista) {
+    var m = {}, melhor = null;
+    lista.filter(Boolean).forEach(function (v) { m[v] = (m[v] || 0) + 1;
+      if (!melhor || m[v] > m[melhor]) melhor = v; });
+    return melhor;
+  }
+
+  var carros = c.whats ? B12.DB.patio.filter(function (v) {
+    return String(v.zap || '').replace(/\D/g, '') === String(c.whats).replace(/\D/g, ''); }) : [];
+
+  var pontos = B12.pontosDe(gasto), f = B12.faixaDe(pontos);
+  return {
+    cliente: c, gasto: gasto, viagens: viagens, reservas: R.length,
+    ticket: viagens ? Math.round(gasto / viagens) : 0,
+    primeira: primeira, ultima: ultima,
+    diasSemVir: diasAte(ultima), diasDeCasa: diasAte(primeira),
+    cats: cats, anos: anos, aberto: Math.round(aberto * 100) / 100,
+    pousada: c.pousada || maisUsado(R.map(function (r) { return r.pousada; })),
+    destino: maisUsado(R.map(function (r) { return r.destino; })),
+    pessoasTipicas: R.length ? Math.round(R.reduce(function (s, r) { return s + (r.pax || 1); }, 0) / R.length) : 0,
+    placas: carros.map(function (v) { return v.placa; }).filter(function (v, i, a) { return v && a.indexOf(v) === i; }),
+    diariasPatio: carros.length,
+    pontos: pontos, faixa: f.faixa, proxima: f.proxima, faltam: f.faltam, andado: f.andado,
+    lista: L, reservasLista: R
+  };
+};
+
+/* a lista da aba, já com gasto, pontos e faixa — é por aqui que o painel ordena */
+B12.clientesComResumo = function (termo, ordem) {
+  var base = B12.buscarClientes(termo).map(function (c) {
+    var h = B12.histCliente(c.id);
+    var pontos = B12.pontosDe(h.gasto);
+    return { cliente: c, gasto: h.gasto, viagens: h.viagens, pontos: pontos,
+             faixa: B12.faixaDe(pontos).faixa };
+  });
+  var como = {
+    gasto:   function (a, b) { return b.gasto - a.gasto; },
+    viagens: function (a, b) { return b.viagens - a.viagens; },
+    nome:    function (a, b) { return a.cliente.nome.localeCompare(b.cliente.nome, 'pt'); },
+    novos:   function (a, b) { return String(b.cliente.criadoEm||'').localeCompare(String(a.cliente.criadoEm||'')); }
+  };
+  return base.sort(como[ordem] || como.gasto);
+};
+
 B12.apagarCliente = function (id) {
   /* a pessoa tem direito de sumir: some o contato, o histórico fica sem nome */
   B12.DB.clientes = B12.DB.clientes.filter(function (c) { return c.id !== id; });

@@ -1161,3 +1161,39 @@ body.adm .ficha-cod{color:var(--turq-300)}
   justify-content:center}
 body.adm .ficha-conta{background:#3A2E12;color:var(--gelo)}
 body.adm .ficha-conta.paga{background:#0A3B37;color:var(--turq-300)}
+
+/* ------------------------------------------------- fidelidade e ficha do cliente */
+.cx-topo{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:5px}
+.cx-topo h3{margin-bottom:0}
+
+.abas-mini{margin:10px 12px 0;gap:6px}
+.abas-mini .aba{font-size:12px;padding:8px 12px}
+
+.mimos{display:grid;gap:8px}
+.mimo{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;
+  text-align:left;background:var(--noite-3);border:1.5px solid var(--noite-risco);
+  border-radius:var(--r-m);padding:11px 12px;color:var(--gelo);min-height:56px}
+.mimo:active{transform:scale(.99)}
+.mimo-faixa{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+  color:#04240F;background:var(--ouro);border-radius:99px;padding:4px 9px;white-space:nowrap}
+.mimo-nome{font-size:14px;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap}
+.mimo-sub{font-size:11.5px;color:var(--gelo-3);white-space:nowrap}
+
+.fid{background:linear-gradient(150deg,#0B2A4A,#0B7A70);color:#fff;border-radius:var(--r-m);
+  padding:14px 15px;margin-bottom:4px}
+.fid-topo{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.fid-faixa{font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+  background:var(--ouro);color:#04240F;border-radius:99px;padding:5px 11px}
+.fid-topo b{font-size:26px;font-weight:800;line-height:1}
+.fid-topo b small{font-size:12px;font-weight:600;opacity:.8}
+.fid-barra{height:6px;border-radius:99px;background:rgba(255,255,255,.25);margin:12px 0 7px;
+  overflow:hidden}
+.fid-barra i{display:block;height:100%;border-radius:99px;background:var(--ouro);
+  transition:width .5s cubic-bezier(.22,.61,.36,1)}
+.fid small{font-size:11.5px;opacity:.85;line-height:1.45;display:block}
+.fid-mimo{margin-top:11px;padding:9px 11px;border-radius:10px;font-size:12.5px;font-weight:600;
+  background:rgba(255,255,255,.16)}
+
+.ficha-acoes{display:flex;gap:8px}
+.ficha-acoes .btn{margin-top:0;flex:1}

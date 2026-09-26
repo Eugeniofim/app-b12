@@ -39,7 +39,9 @@ var C = { turq:'#14A99A', turq3:'#57D8C8', azul:'#3C86B8', gelo3:'#6C8FA3',
 
 /* ---------------------------------------------------- número que sobe sozinho */
 function subirNumero(nodo, alvo, fmt, ms) {
-  if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  /* sem animação quando a pessoa pediu menos movimento, e quando a tela está
+     escondida — ali o requestAnimationFrame não roda e o número ficaria em 0 */
+  if (document.hidden || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) {
     nodo.textContent = fmt(alvo); return;
   }
   var t0 = performance.now(); ms = ms || 850;
@@ -809,27 +811,64 @@ function pIntel(raiz) {
 
 
 /* ============================================================== CLIENTES */
-var buscaCli = '';
+var buscaCli = '', ordemCli = 'gasto';
 function pClientes(raiz) {
-  var todos = B12.DB.clientes, achados = B12.buscarClientes(buscaCli);
+  var todos = B12.DB.clientes;
+  var achados = B12.clientesComResumo(buscaCli, ordemCli);
   var comZap = todos.filter(function (c) { return c.whats; }).length;
   var comOfertas = todos.filter(function (c) { return c.aceitaOfertas; }).length;
   var comInsta = todos.filter(function (c) { return c.instagram; }).length;
+  var fid = B12.fidelidade();
 
   raiz.appendChild(bloco(
     '<div class="placar entra">' +
       tile(todos.length,'Clientes','n','destaque') +
-      tile(comZap,'Com WhatsApp','n') +
-      tile(comOfertas,'Aceitam ofertas','n') +
-      tile(comInsta,'Com Instagram','n') +
-      tile(todos.reduce(function(s,c){return s+(c.viagens||0);},0),'Viagens','n') +
       tile(todos.reduce(function(s,c){return s+(c.gasto||0);},0),'Já gastaram','brl','destaque') +
+      tile(todos.reduce(function(s,c){return s+(c.viagens||0);},0),'Viagens','n') +
+      tile(comOfertas,'Aceitam ofertas','n') +
+      tile(comZap,'Com WhatsApp','n') +
+      tile(comInsta,'Com Instagram','n') +
     '</div>'
   ));
+
+  /* quem merece um mimo: as cinco maiores faixas que já autorizaram promoção */
+  if (fid.ligada) {
+    var topo = B12.clientesComResumo('', 'gasto')
+      .filter(function (x) { return x.cliente.aceitaOfertas && x.pontos > 0; }).slice(0, 5);
+    var m = bloco(
+      '<div class="cx entra entra-1"><div class="cx-topo"><h3>Quem merece um mimo</h3>' +
+      '<button class="mini-btn" id="b-fid">Regras</button></div>' +
+      '<p style="margin-bottom:10px">Os que mais gastaram <b>e</b> já autorizaram promoção. ' +
+      'Cada ' + B12.brl(fid.reaisPorPonto) + ' vale 1 ponto.</p>' +
+      (topo.length
+        ? '<div class="mimos">' + topo.map(function (x) {
+            return '<button type="button" class="mimo" data-mimo="' + x.cliente.id + '">' +
+              '<span class="mimo-faixa">' + esc(x.faixa.nome) + '</span>' +
+              '<span class="mimo-nome">' + esc(x.cliente.nome) + '</span>' +
+              '<span class="mimo-sub">' + B12.brl(x.gasto) + ' · ' + x.pontos + ' pts</span>' +
+              '</button>';
+          }).join('') + '</div>'
+        : '<div class="ajuda">Ninguém ainda: ou não gastaram, ou não autorizaram promoção. ' +
+          'O aceite entra no cadastro.</div>') +
+      '</div>');
+    raiz.appendChild(m);
+    m.querySelector('#b-fid').onclick = function () {
+      B12.formFidelidade(function () { B12.admDesenhar('clientes'); }); };
+    m.querySelectorAll('[data-mimo]').forEach(function (b) {
+      b.onclick = function () {
+        B12.fichaCliente(b.dataset.mimo, function () { B12.admDesenhar('clientes'); }); };
+    });
+  }
+
+  var ORDENS = [['gasto','Mais gastaram'],['viagens','Mais viagens'],
+                ['novos','Mais recentes'],['nome','A a Z']];
   var b = bloco('<div class="busca">' +
     '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4" stroke-linecap="round"/></svg>' +
     '<input id="q-cli" placeholder="buscar por nome, WhatsApp, e-mail ou pousada" value="' +
     buscaCli.replace(/"/g,'&quot;') + '"></div>' +
+    '<div class="abas abas-mini">' + ORDENS.map(function (o) {
+      return '<button class="aba' + (ordemCli===o[0]?' on':'') + '" data-ord="' + o[0] + '">' +
+        o[1] + '</button>'; }).join('') + '</div>' +
     '<div style="padding:0 12px"><button class="btn pri" style="margin:0" id="b-novo-cli">' +
     '+ Cadastrar cliente</button></div>');
   raiz.appendChild(b);
@@ -841,23 +880,28 @@ function pClientes(raiz) {
     var novo = document.getElementById('q-cli');
     if (novo) { novo.focus(); novo.setSelectionRange(pos, pos); }
   };
+  b.querySelectorAll('[data-ord]').forEach(function (x) {
+    x.onclick = function () { ordemCli = x.dataset.ord; B12.admDesenhar('clientes'); }; });
   b.querySelector('#b-novo-cli').onclick = function () {
     B12.formCliente(null, function () { B12.admDesenhar('clientes'); }); };
 
   var lista = document.createElement('div'); lista.className = 'lista';
-  lista.innerHTML = achados.length ? achados.map(function (c) {
-    var h = B12.histCliente(c.id);
+  lista.innerHTML = achados.length ? achados.map(function (x) {
+    var c = x.cliente;
     return '<div class="linha toca" data-cli="' + c.id + '">' +
       '<span class="tag">' + (c.nome[0] || '?').toUpperCase() + '</span>' +
-      '<div class="d"><b>' + c.nome + (c.aceitaOfertas ?
-        ' <span class="pilula dentro">ofertas ok</span>' : '') + '</b>' +
+      '<div class="d"><b>' + esc(c.nome) +
+        (fid.ligada && x.pontos > 0 ? ' <span class="pilula dentro">' + esc(x.faixa.nome) + '</span>' : '') +
+        (c.aceitaOfertas ? ' <span class="pilula dentro">ofertas ok</span>' : '') + '</b>' +
       '<small>' + [c.whats ? fmtZap(c.whats) : null, c.email || null,
         c.instagram ? '@' + c.instagram : null, c.cpf ? 'CPF ok' : null].filter(Boolean).join(' · ') +
-      (c.pousada ? '<br>' + c.pousada : '') +
+      (c.pousada ? '<br>' + esc(c.pousada) : '') +
       (c.origem === 'app' ? ' <span class="pilula dentro">pelo app</span>' : '') + '</small></div>' +
-      '<div style="text-align:right"><div class="v">' + B12.brl(h.gasto) + '</div>' +
-      '<small style="font-size:10.5px;color:var(--gelo-3)">' + h.viagens +
-      (h.viagens === 1 ? ' viagem' : ' viagens') + '</small></div></div>';
+      '<div style="text-align:right"><div class="v">' + B12.brl(x.gasto) + '</div>' +
+      '<small style="font-size:10.5px;color:var(--gelo-3)">' + x.viagens +
+      (x.viagens === 1 ? ' viagem' : ' viagens') +
+      (fid.ligada && x.pontos > 0 ? ' · ' + x.pontos + ' pts' : '') +
+      '</small></div></div>';
   }).join('') : '<div class="vazio">' +
     '<svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>' +
     '<b>' + (buscaCli ? 'Ninguém com esse nome' : 'Nenhum cliente ainda') + '</b>' +
@@ -866,8 +910,7 @@ function pClientes(raiz) {
   raiz.appendChild(lista);
   lista.querySelectorAll('[data-cli]').forEach(function (li) {
     li.onclick = function () {
-      var c = B12.DB.clientes.filter(function(x){ return x.id === li.dataset.cli; })[0];
-      B12.formCliente(c, function () { B12.admDesenhar('clientes'); });
+      B12.fichaCliente(li.dataset.cli, function () { B12.admDesenhar('clientes'); });
     };
   });
   raiz.appendChild(bloco(

@@ -146,7 +146,10 @@ var FERRAMENTAS = [
   { name: 'ver_problemas', description: 'A varredura do app: tudo o que precisa da atenção do Dhalsin agora — contas vencidas, reservas esperando confirmação, carros passando da data, gente na Ilha sem volta marcada, meta atrasada, manutenção chegando. Use ao abrir a conversa, quando ele perguntar "e aí?", "tudo certo?", "o que preciso ver hoje?", ou antes de dar qualquer conselho.',
     input_schema: { type: 'object', properties: {} } },
 
-  { name: 'ver_cliente', description: 'A ficha completa de UMA pessoa: contato, de onde vem, todas as viagens dela, quanto já gastou, quando veio a última vez, se deixou carro e se aceita ofertas. Use quando ele falar de alguém pelo nome ou pelo número.',
+  { name: 'ver_fidelidade', description: 'O ranking de clientes por quanto gastaram, com pontos e faixa (Bronze, Prata, Ouro, Diamante), e a regra em vigor. Use quando ele falar em brinde, mimo, promoção, fidelidade, quem merece um agrado, ou quem são os melhores clientes.',
+    input_schema: { type: 'object', properties: {} } },
+
+  { name: 'ver_cliente', description: 'A ficha completa de UMA pessoa: contato, de onde vem, todas as viagens dela, quanto já gastou, quando veio a última vez, se deixou carro, se aceita ofertas, e quantos pontos e que faixa de fidelidade ela tem. Use quando ele falar de alguém pelo nome ou pelo número.',
     input_schema: { type: 'object', required: ['quem'], properties: {
       quem: { type: 'string', description: 'nome, parte do nome, WhatsApp ou código de reserva' } } } },
 
@@ -318,7 +321,33 @@ var LEITURAS = {
         return { cod: r.cod, situacao: r.situacao, chegada: r.ida, retorno: r.volta,
                  pessoas: r.pax, produto: r.produto, valor: r.total, carro: r.placa || null }; }),
       carros: carros.map(function (p) {
-        return { placa: p.placa, modelo: p.modelo, entrada: p.entrada, saida: p.saidaReal || 'ainda dentro' }; }) };
+        return { placa: p.placa, modelo: p.modelo, entrada: p.entrada, saida: p.saidaReal || 'ainda dentro' }; }),
+      fidelidade: (function () {
+        var d = B12.dadosCliente(cli.id);
+        if (!d) return null;
+        return { pontos: d.pontos, faixa: d.faixa.nome, mimo_da_faixa: d.faixa.mimo,
+                 proxima_faixa: d.proxima ? d.proxima.nome : null, faltam_pontos: d.faltam,
+                 media_por_viagem: dinheiro(d.ticket), em_aberto: dinheiro(d.aberto),
+                 primeira_vez: d.primeira, ultima_vez: d.ultima, dias_sem_vir: d.diasSemVir,
+                 gasto_por_categoria: d.cats.map(function (x) { return x.cat + ': ' + dinheiro(x.valor); }) };
+      })() };
+  },
+
+  ver_fidelidade: function () {
+    var f = B12.fidelidade();
+    var lista = B12.clientesComResumo('', 'gasto').slice(0, 25).map(function (x) {
+      return { nome: x.cliente.nome, gasto: dinheiro(x.gasto), viagens: x.viagens,
+               pontos: x.pontos, faixa: x.faixa.nome,
+               aceita_ofertas: !!x.cliente.aceitaOfertas,
+               whats: x.cliente.whats || null };
+    });
+    return {
+      regra: { ligada: f.ligada !== false, reais_por_ponto: f.reaisPorPonto,
+               faixas: f.faixas.map(function (x) { return x.nome + ' a partir de ' + x.de + ' pts: ' + (x.mimo || '—'); }) },
+      onde_muda: 'Painel → Clientes → botão Regras, no cartão "Quem merece um mimo".',
+      cuidado: 'Só quem marcou "aceita ofertas" pode receber disparo de promoção. Os outros, ' +
+        'só assunto da viagem deles.',
+      ranking: lista };
   },
 
   analisar: function (a) {

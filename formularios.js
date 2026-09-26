@@ -725,4 +725,155 @@ B12.fichaReserva = function (id, depois) {
   };
 };
 
+/* -------------------------------------------- a ficha completa do cliente
+   Aberta com um toque na lista. Não é formulário: é o retrato da pessoa,
+   para o Dhalsin decidir um mimo, uma promoção ou uma cobrança. */
+B12.fichaCliente = function (id, depois) {
+  var d = B12.dadosCliente(id);
+  if (!d) return B12.aviso('Não achei essa ficha.', 'ruim');
+  var c = d.cliente;
+  var zap = String(c.whats || '').replace(/\D/g, '');
+  var fid = B12.fidelidade();
+
+  function l(rot, val) { return val ? '<tr><td>' + rot + '</td><td class="n">' + val + '</td></tr>' : ''; }
+  /* seção só existe se tiver linha: título solto com tabela vazia parece bug */
+  function sec(titulo, linhas) {
+    var corpo = linhas.filter(Boolean).join('');
+    return corpo ? '<div class="grupo">' + titulo + '</div><table class="tabela">' + corpo + '</table>' : '';
+  }
+  function dias(n, um, muitos) {
+    if (n == null) return '';
+    if (n === 0) return 'hoje';
+    return n + ' ' + (n === 1 ? um : muitos);
+  }
+
+  var corpo =
+    (fid.ligada
+      ? '<div class="fid">' +
+          '<div class="fid-topo"><span class="fid-faixa">' + esc(d.faixa.nome) + '</span>' +
+            '<b>' + d.pontos + '<small>' + (d.pontos === 1 ? ' ponto' : ' pontos') + '</small></b></div>' +
+          (d.proxima
+            ? '<div class="fid-barra"><i style="width:' + Math.round(d.andado * 100) + '%"></i></div>' +
+              '<small>Faltam ' + d.faltam + ' ponto' + (d.faltam === 1 ? '' : 's') +
+              ' para ' + esc(d.proxima.nome) + ' · cada ' + B12.brl(fid.reaisPorPonto) + ' vale 1 ponto</small>'
+            : '<small>Faixa mais alta da casa.</small>') +
+          (d.faixa.mimo ? '<div class="fid-mimo">' + esc(d.faixa.mimo) + '</div>' : '') +
+        '</div>'
+      : '') +
+
+    sec('Quanto já deixou na B12', [
+      l('Total gasto', '<b>' + B12.brl(d.gasto) + '</b>'),
+      l('Viagens', String(d.viagens || 0)),
+      l('Média por viagem', d.ticket ? B12.brl(d.ticket) : ''),
+      l('Em aberto agora', d.aberto ? '<span class="pend">' + B12.brl(d.aberto) + '</span>' : '')
+    ]) +
+
+    sec('Em quê', d.cats.map(function (x) { return l(esc(x.cat), B12.brl(x.valor)); })) +
+    (d.anos.length > 1
+      ? sec('Por ano', d.anos.map(function (x) { return l(x.ano, B12.brl(x.valor)); })) : '') +
+
+    sec('Como viaja', [
+      l('Primeira vez', d.primeira ? B12.dataBR(d.primeira) +
+        (d.diasDeCasa ? ' · ' + dias(d.diasDeCasa, 'dia de casa', 'dias de casa') : '') : ''),
+      l('Última vez', d.ultima ? B12.dataBR(d.ultima) +
+        (d.diasSemVir > 0 ? ' · há ' + dias(d.diasSemVir, 'dia', 'dias') : '') : ''),
+      l('Costuma ir para', esc(d.destino)),
+      l('Costuma ficar em', esc(d.pousada)),
+      l('Costuma vir em', d.pessoasTipicas ? d.pessoasTipicas +
+        (d.pessoasTipicas > 1 ? ' pessoas' : ' pessoa') : ''),
+      l('Carro', d.placas.length ? esc(d.placas.join(', ')) +
+        (d.diariasPatio ? ' · ' + d.diariasPatio + ' vez' + (d.diariasPatio > 1 ? 'es' : '') + ' no pátio' : '') : '')
+    ]) +
+
+    sec('Como falar com ela', [
+      l('WhatsApp', esc(c.whats)),
+      l('E-mail', esc(c.email)),
+      l('Instagram', c.instagram ? '@' + esc(c.instagram) : ''),
+      l('Cidade', esc(c.cidade)),
+      l('Promoções', c.aceitaOfertas
+        ? 'aceita' + (c.consentidoEm ? ' · desde ' + B12.dataBR(String(c.consentidoEm).slice(0, 10)) : '')
+        : '<span class="pend">não autorizou</span>')
+    ]) +
+    (!d.lista.length && d.gasto > 0
+      ? '<div class="ajuda" style="margin-top:12px">O detalhe por categoria e por ano aparece ' +
+        'a partir do primeiro recebimento feito pelo app. O total acima veio do histórico ' +
+        'que já existia.</div>' : '') +
+    (c.obs ? '<div class="ajuda" style="margin-top:12px"><b>Observações:</b> ' + esc(c.obs) + '</div>' : '') +
+    (!c.aceitaOfertas
+      ? '<div class="ajuda" style="margin-top:12px">Sem o aceite, esta pessoa <b>não pode</b> entrar ' +
+        'em disparo de promoção. Falar sobre a viagem dela, pode.</div>' : '');
+
+  var acoes = '<div class="ficha-acoes">' +
+    (zap ? '<button type="button" class="btn sec" id="fc-zap">WhatsApp</button>' : '') +
+    (c.instagram ? '<button type="button" class="btn sec" id="fc-ig">Instagram</button>' : '') +
+    (c.email ? '<button type="button" class="btn sec" id="fc-mail">E-mail</button>' : '') +
+    '</div>' +
+    '<button type="button" class="btn sec" id="fc-editar" style="margin-top:8px">Editar cadastro</button>';
+
+  var form = B12.folha({
+    titulo: c.nome,
+    sub: d.viagens + (d.viagens === 1 ? ' viagem' : ' viagens') + ' · ' + B12.brl(d.gasto) + ' na casa',
+    corpo: corpo,
+    extra: acoes,
+    acao: 'Fechar',
+    aoSalvar: function () { return { ok: true }; },
+    depois: function () { if (depois) depois(); }
+  });
+
+  var bz = form.querySelector('#fc-zap');
+  if (bz) bz.onclick = function () {
+    var txt = 'Olá, ' + String(c.nome).split(' ')[0] + '! Aqui é a Estação B12.';
+    window.open('https://wa.me/' + zap + '?text=' + encodeURIComponent(txt), '_blank');
+  };
+  var bi = form.querySelector('#fc-ig');
+  if (bi) bi.onclick = function () {
+    window.open('https://instagram.com/' + c.instagram, '_blank');
+  };
+  var bm = form.querySelector('#fc-mail');
+  if (bm) bm.onclick = function () {
+    window.open('mailto:' + c.email + '?subject=' + encodeURIComponent('Estação B12'), '_blank');
+  };
+  form.querySelector('#fc-editar').onclick = function () {
+    B12.fecharFolha();
+    B12.formCliente(c, function () { if (depois) depois(); });
+  };
+};
+
+/* --------------------------------------------------- regras de fidelidade
+   Quantos reais valem um ponto, e o que cada faixa ganha. Tudo do Dhalsin. */
+B12.formFidelidade = function (depois) {
+  var f = B12.fidelidade();
+  var linhas = f.faixas.map(function (x, i) {
+    return '<div class="grupo">Faixa ' + (i + 1) + '</div>' +
+      campo('Nome', 'n' + i, { valor: x.nome, max: 20 }) +
+      campo('A partir de (pontos)', 'p' + i, { tipo:'number', modo:'numeric', valor: x.de,
+        ajuda: i === 0 ? 'A primeira faixa começa sempre em 0.' : '' }) +
+      campo('O que ganha', 'm' + i, { valor: x.mimo, dica:'um café, uma diária, um upgrade…' });
+  }).join('');
+
+  B12.folha({
+    titulo: 'Regras de fidelidade',
+    sub: 'Ponto por real gasto · faixa por ponto',
+    corpo:
+      marca('Contar pontos dos clientes', 'ligada', f.ligada !== false,
+        'Desligando, a ficha para de mostrar pontos e faixa. O gasto continua aparecendo.') +
+      campo('Quantos reais valem 1 ponto', 'rpp', { tipo:'number', modo:'decimal', passo:'1',
+        valor: f.reaisPorPonto, ajuda:'Com 10, quem gasta R$ 300 fica com 30 pontos.' }) +
+      linhas +
+      '<div class="ajuda" style="margin-top:14px">São quatro faixas. Para usar menos, ' +
+      'apague o nome da que sobrar.</div>',
+    acao: 'Salvar regras',
+    aoSalvar: function (d) {
+      var faixas = f.faixas.map(function (x, i) {
+        return { nome: d['n' + i], de: d['p' + i], mimo: d['m' + i] };
+      });
+      return B12.salvarFidelidade({ ligada: d.ligada, reaisPorPonto: d.rpp, faixas: faixas });
+    },
+    depois: function (r) {
+      if (r && r.ok) B12.aviso('Regras salvas. As fichas já usam o novo cálculo.', 'bom');
+      if (depois) depois();
+    }
+  });
+};
+
 })();

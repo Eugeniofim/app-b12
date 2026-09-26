@@ -15,7 +15,7 @@ var B12 = window.B12 || {};
 /* ---------------------------------------------------------------- identidade */
 /* o cofre: o servidor da Ti Artes que guarda a chave da IA. Vazio = assistente
    desligado (o app continua funcionando igual, só sem o chat). */
-B12.VERSAO = 'b12-v1.43.0';   /* tem que bater com o CACHE do sw.js */
+B12.VERSAO = 'b12-v1.46.0';   /* tem que bater com o CACHE do sw.js */
 
 B12.IA = { cofre: 'https://uopfqlogjzuqpabptxkb.supabase.co/functions/v1/cofre',
            modelo: 'claude-haiku-4-5' };
@@ -145,6 +145,22 @@ B12.DESC_DINHEIRO = 0.05;
 B12.IDADE_CORTESIA = 5;
 
 B12.DESTINOS = ['Brasília', 'Encantadas'];
+
+/* ------------------------------------------------------- fidelidade
+   Ponto por real gasto, faixa por ponto. Tudo com valor de partida — quem
+   manda é o Dhalsin, que muda na aba Clientes → Regras de fidelidade.
+   O 'mimo' é o texto que aparece na ficha quando a pessoa chega na faixa. */
+B12.FIDELIDADE = {
+  ligada: true,
+  reaisPorPonto: 10,          /* cada R$ 10 gastos = 1 ponto */
+  validadeMeses: 0,           /* 0 = os pontos não vencem */
+  faixas: [
+    { nome:'Bronze',   de:0,   mimo:'Cadastro na casa. Já entra no aviso de promoção.' },
+    { nome:'Prata',    de:50,  mimo:'Café na chegada por conta da B12.' },
+    { nome:'Ouro',     de:150, mimo:'Uma diária de estacionamento de cortesia.' },
+    { nome:'Diamante', de:400, mimo:'Travessia de cortesia ou upgrade na lancha.' }
+  ]
+};
 
 /* O @ de cada parceiro foi conferido um a um na busca; o Dhalsin confirma e
    corrige na aba Parceiros do painel. Sem @, o cartão sai só com o nome. */
