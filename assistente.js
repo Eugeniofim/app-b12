@@ -90,6 +90,20 @@ var FERRAMENTAS = [
   { name: 'ver_app', description: 'Informações do próprio app e da marca: endereço, QR code, senhas, como instalar no celular, o que cada aba faz, onde baixar o Excel, como a marca é usada.',
     input_schema: { type: 'object', properties: { assunto: { type: 'string', description: 'endereco, senhas, instalar, abas, excel, marca, nuvem, qr' } } } },
 
+  { name: 'analisar', description: 'O motor financeiro do app, o mesmo que desenha os gráficos do painel. Use para pergunta de gestão, não para número solto: se a empresa está bem, quanto dá para retirar, quanto precisa faturar para empatar, qual serviço dá mais margem, quanto custa cada passageiro, como vai fechar o mês, qual dia da semana rende mais, quanto já foi investido na lancha.',
+    input_schema: { type: 'object', required: ['o_que'], properties: {
+      o_que: { type: 'string', enum: ['diagnostico','retirada','projecao','ponto_de_equilibrio',
+        'margem_por_servico','custo_por_passageiro','ano','dia_da_semana','investimento'],
+        description: 'diagnostico=como a empresa está · retirada=quanto dá para tirar sem furar a reserva · projecao=como fecha o mês · ponto_de_equilibrio=quanto precisa faturar para empatar · margem_por_servico=qual serviço dá mais lucro · custo_por_passageiro=quanto custa levar uma pessoa · ano=acumulado do ano · dia_da_semana=que dia rende mais · investimento=o que já foi posto na lancha' },
+      valor: { type: 'number', description: 'só para retirada: quanto ele quer tirar' },
+      dias: { type: 'number', description: 'só para projecao: quantos dias à frente, padrão 30' } } } },
+
+  { name: 'abrir_tela', description: 'Leva o Dhalsin até a tela de que ele precisa, abrindo a aba do painel. Use quando ele perguntar ONDE fica alguma coisa, ou pedir para ver, mudar ou aprender algo que tem tela própria. Explique em uma frase o que ele vai encontrar lá.',
+    input_schema: { type: 'object', required: ['aba'], properties: {
+      aba: { type: 'string', enum: ['hoje','escala','painel','precos','gestao','caixa','lanc','clientes',
+        'patio','manut','contas','relat','dados','oper','prosp','msgs','intel','ajustes'],
+        description: 'hoje=os números do dia · escala=saídas e confirmação de reservas · painel=o mês · precos=os valores · caixa=fluxo e retirada · lanc=lançar dinheiro · clientes=as fichas · patio=estacionamento · manut=manutenção · contas=a pagar · relat=relatórios · dados=Excel e PDF · oper=operação · prosp=prospecção · msgs=mensagens prontas · intel=inteligência · ajustes=PINs, grade e regras' } } } },
+
   /* ---- as três que mexem em alguma coisa: o app pede confirmação ---- */
   { name: 'propor_lancamento', description: 'Monta uma entrada ou saída no caixa para o Dhalsin confirmar com o dedo. NÃO grava sozinho.',
     input_schema: { type: 'object', required: ['tipo', 'valor', 'cat'], properties: {
@@ -201,6 +215,19 @@ var LEITURAS = {
              taxas_da_maquininha_por_cento: Object.keys(a.taxas || {}).reduce(function (o, k) {
                o[k] = Math.round((a.taxas[k] || 0) * 10000) / 100; return o; }, {}),
              conferido_pelo_dono: !!a.precosConferidos };
+  },
+  analisar: function (a) {
+    var q = String(a.o_que || '');
+    if (q === 'diagnostico')        return B12.diagnostico();
+    if (q === 'retirada')           return B12.retirada(Number(a.valor) || 0);
+    if (q === 'projecao')           return B12.projecao(Number(a.dias) || 30);
+    if (q === 'ponto_de_equilibrio') return B12.pontoEquilibrio();
+    if (q === 'margem_por_servico') return B12.margemPorServico(B12.mesAtual());
+    if (q === 'custo_por_passageiro') return B12.custoPorPassageiro();
+    if (q === 'ano')                return B12.acumuladoAno();
+    if (q === 'dia_da_semana')      return B12.porDiaDaSemana();
+    if (q === 'investimento')       return B12.resumoInvestimento();
+    return { erro: 'não conheço essa análise' };
   },
   ver_historico: function (a) {
     var V = B12.HIST_VENDAS || [];
@@ -350,10 +377,24 @@ var PROPOSTAS = {
   },
 };
 
+var ACOES = {
+  abrir_tela: function (a) {
+    var aba = String(a.aba || '').toLowerCase();
+    setTimeout(function () {
+      B12.iaFecharGaveta();
+      if (aba === 'ajustes') { B12.ir('adm'); setTimeout(function () { B12.formAjustes(); }, 350); }
+      else { B12.ir('adm'); setTimeout(function () { B12.admDesenhar(aba); }, 250); }
+    }, 900);            /* deixa ele ler a resposta antes de a tela trocar */
+    return { ok: true, abrindo: aba,
+      aviso: 'Já estou abrindo essa tela para ele. Diga em uma frase o que ele vai ver lá.' };
+  },
+};
+
 B12.iaFerramenta = function (nome, entrada) {
   entrada = entrada || {};
   try {
     if (LEITURAS[nome]) return LEITURAS[nome](entrada);
+    if (ACOES[nome]) return ACOES[nome](entrada);
     if (PROPOSTAS[nome]) return PROPOSTAS[nome](entrada);
     return { erro: 'não conheço essa ferramenta' };
   } catch (e) { return { erro: String(e && e.message || e) }; }
@@ -370,12 +411,20 @@ function sistema() {
     '- Português do Brasil, direto, sem enrolação. Frases curtas.',
     '- Ele não é programador: nada de palavra técnica. Diga "o app", "a tela", "a aba".',
     '- Antes de dar qualquer número, BUSQUE com as ferramentas. Nunca invente valor, nome ou data.',
+    '- Pergunta de GESTÃO (a empresa está bem? posso retirar? o que dá mais lucro?) se responde com a',
+    '  ferramenta analisar, que usa o mesmo motor dos gráficos do painel. Não faça a conta de cabeça.',
     '- Valores em reais, no formato R$ 1.234. Datas em dia/mês.',
     '- Quando a resposta for uma lista, use no máximo 5 itens e diga o total.',
     '- A ferramenta ver_app sabe TUDO sobre a empresa e sobre o app: serviços, endereço, QR, senhas, como',
     '  instalar, o que cada aba faz, como funciona uma reserva do começo ao fim, o código do cliente, as regras',
     '  do estacionamento, o Excel, a cópia de segurança, a marca, a nuvem, a história de 11 anos e a Ilha do Mel.',
     '  Use ver_app sempre que a pergunta for sobre como as coisas funcionam, e não sobre números.',
+    '',
+    'VOCÊ TAMBÉM ENSINA O APP',
+    'O Dhalsin está aprendendo a usar o painel. Quando ele perguntar onde fica alguma coisa, como se faz,',
+    'ou pedir para ver algo: responda em uma ou duas frases E use abrir_tela para levá-lo até lá. Não mande',
+    'ele procurar sozinho. Se ele pedir para aprender do zero, ensine um passo de cada vez e pergunte se',
+    'quer o próximo — nunca despeje um manual.',
     '',
     'SEGREDO DA CASA',
     'A tarifa combinada do estacionamento é menor que a de balcão e é decisão do Dhalsin. NUNCA escreva esse',
@@ -603,10 +652,11 @@ B12.VOZES_11 = [
 ];
 var VOZ_PADRAO = 'ORgG8rwdAiMYRug8RJwR';
 B12.iaVozModo = function () {
-  var x = ia(), tem = !!B12.iaChave11();
-  /* sem escolha feita: com chave, vale a voz profissional; sem chave, a do aparelho */
-  if (!x.voz) return tem ? 'elevenlabs' : 'aparelho';
-  if (x.voz === 'elevenlabs' && !tem) return 'aparelho';
+  var x = ia();
+  /* O PADRÃO É CALADO. App que começa a falar sozinho assusta, e o celular do
+     dono fica no balcão, perto de cliente. A voz é escolha dele, num toque. */
+  if (!x.voz) return 'nao';
+  if (x.voz === 'elevenlabs' && !B12.iaChave11()) return 'aparelho';
   return x.voz;
 };
 B12.iaTrocarVoz = function (modo) {
@@ -622,8 +672,9 @@ B12.iaGuardarChave11 = function (k, vozId) {
     var tinha = !!B12.iaChave11();
     if (!k) localStorage.removeItem(CHAVE_11); else localStorage.setItem(CHAVE_11, k);
     localStorage.setItem(VOZ_11, String(vozId || '').trim() || VOZ_PADRAO);
-    /* acabou de pôr a chave: já liga a voz profissional, senão ele cola e nada muda */
-    if (k && !tinha && ia().voz !== 'nao') { ia().voz = 'elevenlabs'; B12.salvar(); }
+    /* pôr a chave NÃO liga a voz: quem liga é o alto-falante da conversa.
+       Só troca o motor de quem já estava ouvindo pela voz do aparelho. */
+    if (k && !tinha && ia().voz === 'aparelho') { ia().voz = 'elevenlabs'; B12.salvar(); }
     if (!k && ia().voz === 'elevenlabs') { ia().voz = 'aparelho'; B12.salvar(); }
     return { ok: true, ligou: !!k && !tinha };
   } catch (e) { return { erro: 'Não consegui guardar neste aparelho.' }; }
@@ -710,8 +761,10 @@ function marcar(t) {
   return esc(t).replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
     .replace(/^- (.+)$/gm, '<span class="ia-item">$1</span>').replace(/\n/g, '<br>');
 }
-var SUGESTOES = ['Como foi o dia de hoje?', 'Quem viaja amanhã?', 'Quais contas vencem esta semana?',
-                 'Quanto posso retirar?', 'Tem carro passando da data?', 'Compare com o ano passado'];
+var SUGESTOES = ['Como foi o dia de hoje?', 'Me ensina a usar o painel', 'Quem viaja amanhã?',
+                 'Onde eu mudo os preços?', 'Como confirmo uma reserva?', 'Quais contas vencem esta semana?',
+                 'Onde baixo o Excel do contador?', 'Quanto posso retirar?', 'Tem carro passando da data?',
+                 'Compare com o ano passado'];
 
 B12.iaBolhaFlutuante = function () {
   var ja = document.getElementById('ia-bolha');

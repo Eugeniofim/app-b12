@@ -165,9 +165,10 @@ B12.formAjustes = function (depois) {
         ajuda:'Liga o assistente na hora, usando a sua conta. A chave fica guardada SÓ neste aparelho, ' +
               'nunca vai para a internet nem para o repositório. Deixe vazio para apagar.' }) +
       B12.f_lista('Voz das respostas', 'vozModo', [
+        ['nao','Desligada — só texto (padrão)'],
         ['aparelho','Voz do próprio aparelho (de graça)'],
-        ['elevenlabs','Voz profissional da ElevenLabs (usa a chave abaixo)'],
-        ['nao','Desligada — só texto']], B12.iaVozModo ? B12.iaVozModo() : 'aparelho') +
+        ['elevenlabs','Voz profissional da ElevenLabs (usa a chave abaixo)']],
+        B12.iaVozModo ? B12.iaVozModo() : 'nao') +
       B12.f_campo('Chave da ElevenLabs', 'chave11', { tipo:'password', valor: B12.iaChave11 ? B12.iaChave11() : '',
         dica:'sk_…', ajuda:'Opcional. Também fica só neste aparelho. Sem ela, o app usa a voz do celular.' }) +
       B12.f_lista('Qual voz', 'voz11', (B12.VOZES_11 || []).map(function (v) { return [v[0], v[1]]; }),
