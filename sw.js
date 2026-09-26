@@ -1,7 +1,9 @@
 /* Estação B12 — service worker. SUBIR A VERSÃO A CADA PUBLICAÇÃO. */
-const CACHE = 'b12-v1.26.0';
-const ESSENCIAL = ['./', './index.html', './estilo.css', './marca.js', './dados.js', './nucleo.js',
-  './exportar.js', './oceano.js', './formularios.js', './acesso.js', './mensagens.js', './turista.js', './assistente.js', './adm.js', './app.js', './manifest.webmanifest',
+const CACHE = 'b12-v1.27.0';
+/* o index pede os arquivos carimbados (x.js?v=1.27.0); guardo os mesmos endereços */
+const V = CACHE.replace('b12-v', '');
+const ESSENCIAL = ['./', './index.html', './estilo.css?v=' + V, './marca.js?v=' + V, './dados.js?v=' + V, './nucleo.js?v=' + V,
+  './exportar.js?v=' + V, './oceano.js?v=' + V, './formularios.js?v=' + V, './acesso.js?v=' + V, './mensagens.js?v=' + V, './turista.js?v=' + V, './assistente.js?v=' + V, './adm.js?v=' + V, './app.js?v=' + V, './manifest.webmanifest',
   './compartilhar.jpg', './fotos/heroi.jpg', './fotos/farol.jpg', './fotos/ilha-heroi.jpg', './fotos/travessia.jpg',
   './fotos/p-golfinhos.jpg', './fotos/p-sebui.jpg', './fotos/p-tour360.jpg', './fotos/ilha-galheta.jpg'];
 /* as outras fotos entram no cache na primeira vez que são vistas (fetch abaixo) */
