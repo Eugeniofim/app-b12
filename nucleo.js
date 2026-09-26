@@ -119,6 +119,18 @@ B12.carregar = function () {
   if (!A.regular) A.regular = B12.REGULAR;
   if (!A.diaria) A.diaria = B12.DIARIA;
   if (A.fidelidade === undefined) A.fidelidade = null;
+  /* 26/09/2026: o Dhalsin confirmou 20 lugares. Saída de grade que ainda está
+     no número velho e não tem ninguém marcado ganha a capacidade certa. */
+  if (A.capacidadeConferida !== B12.CAPACIDADE) {
+    /* subir a lotação nunca tira lugar de ninguém: quem já está marcado cabe.
+       Só o passado fica como foi, porque é histórico. */
+    var hj = B12.hoje();
+    B12.DB.saidas.forEach(function (s) {
+      if (s.data >= hj && s.vagas < B12.CAPACIDADE) s.vagas = B12.CAPACIDADE;
+    });
+    if (A.grade && A.grade.vagas < B12.CAPACIDADE) A.grade.vagas = B12.CAPACIDADE;
+    A.capacidadeConferida = B12.CAPACIDADE;
+  }
   if (!B12.DB.semeado) { B12.semear(); }
   else if (B12.DB.demoDia !== B12.hoje()) { B12.refrescarDemo(); }
   return B12.DB;
@@ -216,11 +228,11 @@ B12.semear = function () {
   /* saídas programadas para hoje e amanhã (o que a equipe opera) */
   ['08:30','10:00','11:30','13:00','15:00','17:00','19:00'].forEach(function (h,i) {
     D.saidas.push({ id:'s'+i, data:hoje, hora:h, embarcacao:'l01', destino: i%2?'Encantadas':'Brasília',
-      sentido:'ida', vagas:12, ocupadas: Math.max(0, 11-i*2 + (i%3)), marinheiro:'Ismael', demo:true });
+      sentido:'ida', vagas:B12.CAPACIDADE, ocupadas: Math.max(0, 11-i*2 + (i%3)), marinheiro:'Ismael', demo:true });
   });
   ['09:30','12:00','16:00','18:00','20:30'].forEach(function (h,i) {
     D.saidas.push({ id:'v'+i, data:hoje, hora:h, embarcacao:'l01', destino:'Pontal do Sul',
-      sentido:'volta', vagas:12, ocupadas: Math.max(0, 9-i*2), marinheiro:'Ismael', demo:true });
+      sentido:'volta', vagas:B12.CAPACIDADE, ocupadas: Math.max(0, 9-i*2), marinheiro:'Ismael', demo:true });
   });
 
   semearOperacao(D, hoje);
@@ -793,13 +805,13 @@ B12.situacaoTxt = function (r) {
    nasce com as idas prontas e as voltas em aberto — e o app diz isso ao
    passageiro em vez de inventar horário que pode não existir. */
 B12.GRADE_PADRAO = { ida: ['08:30','10:00','11:30','13:00','15:00','17:00'],
-                     voltaSugerida: ['09:30','12:00','16:00','18:00'], vagas: 12 };
+                     voltaSugerida: ['09:30','12:00','16:00','18:00'], vagas: B12.CAPACIDADE };
 B12.materializarDia = function (iso) {
   if (iso < B12.hoje()) return false;                       /* passado não ganha grade */
   if (B12.DB.saidas.some(function (s) { return s.data === iso; })) return false;
   var g = B12.DB.ajustes.grade || B12.GRADE_PADRAO;
   g.ida.forEach(function (h) { B12.DB.saidas.push({ id: novoId('sd'), data: iso, hora: h, sentido: 'ida',
-    destino: 'Brasília', embarcacao: 'l01', marinheiro: '', vagas: g.vagas || 12, ocupadas: 0, grade: true }); });
+    destino: 'Brasília', embarcacao: 'l01', marinheiro: '', vagas: g.vagas || B12.CAPACIDADE, ocupadas: 0, grade: true }); });
   B12.salvar();
   return true;
 };
@@ -836,7 +848,7 @@ B12.abrirVoltas = function (iso, horas, opc) {
     if (B12.DB.saidas.some(function (s) { return s.data === iso && s.sentido === 'volta' && s.hora === h; })) return;
     B12.DB.saidas.push({ id: novoId('sd'), data: iso, hora: h, sentido: 'volta',
       destino: 'Pontal do Sul', embarcacao: opc.embarcacao || 'l01', marinheiro: opc.marinheiro || '',
-      vagas: Number(opc.vagas) || g.vagas || 12, ocupadas: 0, grade: false });
+      vagas: Number(opc.vagas) || g.vagas || B12.CAPACIDADE, ocupadas: 0, grade: false });
     criadas++;
   });
   B12.salvar();

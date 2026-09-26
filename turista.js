@@ -396,9 +396,17 @@ B12.montarFormulario = function () {
   B12.selarListas();
 };
 function mexer(campo, d) {
-  if (campo === 'pax') { F.pax = Math.max(1, Math.min(30, F.pax + d)); if (F.cri > F.pax) F.cri = F.pax; }
+  if (campo === 'pax') { F.pax = Math.max(1, Math.min(B12.CAPACIDADE, F.pax + d)); if (F.cri > F.pax) F.cri = F.pax; }
   else { F.cri = Math.max(0, Math.min(F.pax, F.cri + d)); }   /* não é mais usado pela tela */
   document.getElementById('v-pax').textContent = F.pax;
+  /* a lancha tem um teto: quem bate nele precisa saber que ainda dá, em duas viagens */
+  var av = document.getElementById('ajuda-lotacao');
+  if (av) {
+    var cheio = F.pax >= B12.CAPACIDADE;
+    av.hidden = !cheio;
+    if (cheio) av.innerHTML = 'A lancha leva <b>' + B12.CAPACIDADE + ' pessoas</b> por viagem. ' +
+      'Grupo maior a B12 atende em mais de uma saída — fale com a gente no WhatsApp.';
+  }
 
   B12.calcular();
 }

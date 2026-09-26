@@ -386,7 +386,9 @@ var LEITURAS = {
       empresa: 'Estação B12, em ' + E.endereco + '. Faz três coisas: travessia de lancha de Pontal do Paraná ' +
         'para a Ilha do Mel (destinos Brasília e Encantadas), passeios de barco pela baía de Paranaguá, e ' +
         'estacionamento no próprio pátio para quem cruza. O dono é o Dhalsin. O WhatsApp da empresa é ' +
-        E.whats + '. Slogan: "Sua experiência na Ilha do Mel começa por aqui".',
+        E.whats + '. Slogan: "Sua experiência na Ilha do Mel começa por aqui". ' +
+        'A lancha leva NO MÁXIMO ' + B12.CAPACIDADE + ' passageiros por viagem: grupo maior ' +
+        'só em mais de uma saída, e isso se combina no WhatsApp.',
 
       politica: 'A B12 trabalha EXCLUSIVAMENTE com reserva antecipada, com no mínimo 24 horas. ' +
         'É assim que dá para preparar cada atendimento com conforto, segurança e pontualidade. O app só ' +

@@ -1002,7 +1002,7 @@ B12.formVoltas = function (iso, depois) {
           ': já tem passageiro marcado. Para mudar, fale com a pessoa antes.</div>'
         : '') +
       campo('Acrescentar um horário', 'extra', { tipo:'time', ajuda:'Use para um horário fora da lista.' }) +
-      campo('Vagas por lancha', 'vagas', { tipo:'number', modo:'numeric', valor: 12,
+      campo('Vagas por lancha', 'vagas', { tipo:'number', modo:'numeric', valor: B12.CAPACIDADE,
         ajuda:'Quantas pessoas cabem em cada busca.' }) +
       '<input type="hidden" name="horas" value="' + atuais.join(',') + '">',
     acao: 'Abrir as buscas',

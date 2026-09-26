@@ -142,7 +142,7 @@ B12.formAjustes = function (depois) {
         ajuda:'Horários separados por vírgula. Valem para qualquer dia sem escala própria.' }) +
       B12.f_campo('Retornos da Ilha', 'gradeVolta', { valor: g.volta.join(', '),
         ajuda:'É esta lista que o turista vê no dia da volta.' }) +
-      B12.f_campo('Lugares por saída', 'vagas', { tipo:'number', modo:'numeric', valor: g.vagas || 12 }) +
+      B12.f_campo('Lugares por saída', 'vagas', { tipo:'number', modo:'numeric', valor: g.vagas || B12.CAPACIDADE }) +
       '<div class="grupo">Estacionamento</div>' +
       '<div class="ajuda">O valor da diária fica na aba <b>Preços</b>. Aqui são só as regras.</div>' +
       B12.f_lista('Como contar as diárias', 'patioRegra', [['dia','Por dia de calendário (entrou dia 5, saiu dia 7 = 2 diárias)'],
@@ -233,7 +233,7 @@ B12.formAjustes = function (depois) {
       var novoDono = d.pinDono || p.dono, novaEquipe = d.pinEquipe || p.equipe;
       if (novoDono === novaEquipe) return { erro: 'O PIN do proprietário não pode ser igual ao da equipe.' };
       a.pins = { dono: novoDono, equipe: novaEquipe };
-      a.grade = { ida: ida, volta: volta, vagas: Number(d.vagas) || 12 };
+      a.grade = { ida: ida, volta: volta, vagas: Number(d.vagas) || B12.CAPACIDADE };
       a.patio = { regra: d.patioRegra === '24h' ? '24h' : 'dia',
                   tolerancia: Math.max(0, Number(d.patioTol) || 0),
                   cobranca: d.patioCobranca === 'chegada' ? 'chegada' : 'saida' };

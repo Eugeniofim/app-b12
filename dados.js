@@ -15,7 +15,7 @@ var B12 = window.B12 || {};
 /* ---------------------------------------------------------------- identidade */
 /* o cofre: o servidor da Ti Artes que guarda a chave da IA. Vazio = assistente
    desligado (o app continua funcionando igual, só sem o chat). */
-B12.VERSAO = 'b12-v1.57.0';   /* tem que bater com o CACHE do sw.js */
+B12.VERSAO = 'b12-v1.59.0';   /* tem que bater com o CACHE do sw.js */
 
 B12.IA = { cofre: 'https://uopfqlogjzuqpabptxkb.supabase.co/functions/v1/cofre',
            modelo: 'claude-haiku-4-5' };
@@ -349,8 +349,11 @@ B12.CONTAS_FIXAS = [
   { desc:'Empanadas',            valor:620,  dia:8,  cat:'Compras e fornecedores',  centro:'Receptivo B12' },
 ];
 
+/* A lancha leva 20 pessoas no máximo — confirmado pelo Dhalsin em 26/09/2026.
+   Este número manda na grade, no balcão e no contador do turista. */
+B12.CAPACIDADE = 20;
 B12.EMBARCACOES = [
-  { id:'l01', nome:'Lancha 01', capacidade:12, ativa:true, motor:'225 HP' },
+  { id:'l01', nome:'Lancha 01', capacidade:B12.CAPACIDADE, ativa:true, motor:'225 HP' },
 ];
 
 /* ============================================================================

@@ -40,7 +40,7 @@ B12.novaSaida = function (d) {
     destino: d.destino || (d.sentido === 'volta' ? 'Pontal do Sul' : 'Brasília'),
     embarcacao: d.embarcacao || 'l01',
     marinheiro: String(d.marinheiro || '').trim(),
-    vagas: Number(d.vagas) || 12, ocupadas: 0,
+    vagas: Number(d.vagas) || B12.CAPACIDADE, ocupadas: 0,
     obs: String(d.obs || '').trim()
   };
   B12.DB.saidas.push(reg);

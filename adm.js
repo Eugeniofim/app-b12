@@ -1441,7 +1441,7 @@ function formSaida(sentido, dia) {
       B12.f_lista('Embarcação', 'embarcacao',
         B12.EMBARCACOES.map(function (e) { return [e.id, e.nome]; }), 'l01') +
       B12.f_campo('Marinheiro', 'marinheiro', { dica:'quem leva', max:30 }) +
-      B12.f_campo('Lugares', 'vagas', { tipo:'number', modo:'numeric', valor:12, passo:'1' }) +
+      B12.f_campo('Lugares', 'vagas', { tipo:'number', modo:'numeric', valor:B12.CAPACIDADE, passo:'1' }) +
       B12.f_campo('Observação', 'obs', { dica:'opcional', max:80 }),
     acao: 'Criar saída',
     aoSalvar: function (d) { d.sentido = sentido; return B12.novaSaida(d); },
