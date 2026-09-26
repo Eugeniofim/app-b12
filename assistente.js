@@ -506,7 +506,7 @@ B12.iaBolhaFlutuante = function () {
   b.setAttribute('aria-label', 'Abrir o assistente');
   b.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 0 0-9 9c0 1.6.4 3.1 1.2 4.4L3 21l4.8-1.1A9 9 0 1 0 12 3z" stroke-linejoin="round"/>' +
     '<path d="M8.5 11h.01M12 11h.01M15.5 11h.01" stroke-linecap="round" stroke-width="2.6"/></svg>' +
-    '<span class="ia-bolha-saldo">' + B12.brl(B12.iaSaldo(), 2) + '</span>';
+    '<span class="ia-bolha-nome">Assistente B12</span>';
   b.onclick = function () { B12.iaAbrirGaveta(); };
   document.body.appendChild(b);
 };
@@ -572,8 +572,7 @@ B12.iaAbrirGaveta = function () {
     if (s) s.textContent = B12.brl(x.saldo, 2) + ' de crédito · ' + x.perguntas + ' pergunta' + (x.perguntas === 1 ? '' : 's');
     var m = g.querySelector('.ia-g-medidor i');
     if (m) m.style.width = (x.posto ? Math.max(0, Math.min(100, x.saldo/x.posto*100)).toFixed(1) : 0) + '%';
-    var bs = document.querySelector('#ia-bolha .ia-bolha-saldo');
-    if (bs) bs.textContent = B12.brl(x.saldo, 2);
+
   }
   var porVoz = false;
   function perguntar(t, deVoz) {
