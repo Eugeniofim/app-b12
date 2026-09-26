@@ -978,7 +978,9 @@ B12.iaBolhaFlutuante = function () {
   /* Só dentro da área da B12. Na cara do turista ele NUNCA aparece, mesmo com
      o dono logado: o cliente pode estar com o celular na mão. */
   var telaDaB12 = !!document.querySelector('#t-adm.on, #t-equipe.on');
-  var pode = telaDaB12 && B12.pode && B12.pode('equipe');
+  /* folha ou portão aberto: a bolha sai de cena, senão cobre o que a pessoa lê */
+  var folhaAberta = !!document.querySelector('.folha, .portao');
+  var pode = telaDaB12 && !folhaAberta && B12.pode && B12.pode('equipe');
   if (!pode) { if (ja) ja.remove(); B12.iaFecharGaveta(); return; }
   if (ja) return;
   var b = document.createElement('button');

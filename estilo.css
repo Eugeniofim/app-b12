@@ -1290,3 +1290,9 @@ body:not(.adm) .lb{border-bottom-color:var(--risco)}
 .lb.urgente .lb-ponto{background:var(--atencao);box-shadow:0 0 0 3px rgba(217,147,43,.22)}
 .lb-txt{flex:1;min-width:0;font-size:13px;line-height:1.4}
 .lb .mini-btn{flex:none;padding:7px 12px;font-size:12px}
+
+/* Folha aberta manda na tela: a bolha do assistente sai da frente em vez de
+   cobrir o texto de quem está preenchendo. */
+body:has(.folha) .ia-bolha-flut,
+body:has(.portao) .ia-bolha-flut{opacity:0;pointer-events:none;transform:translateY(8px)}
+.ia-bolha-flut{transition:opacity .18s,transform .18s}

@@ -37,6 +37,7 @@ B12.folha = function (opc) {
   document.body.appendChild(f);
   aberta = f;
   document.body.style.overflow = 'hidden';
+  if (B12.iaBolhaFlutuante) B12.iaBolhaFlutuante();
 
   var form = f.querySelector('form');
   var erro = f.querySelector('.folha-erro');
@@ -95,6 +96,7 @@ B12.fecharFolha = function () {
   if (!aberta) return;
   aberta.remove(); aberta = null;
   document.body.style.overflow = '';
+  if (B12.iaBolhaFlutuante) B12.iaBolhaFlutuante();   /* a bolha volta */
 };
 document.addEventListener('keydown', function (e) { if (e.key === 'Escape') B12.fecharFolha(); });
 
