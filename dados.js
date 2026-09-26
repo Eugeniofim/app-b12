@@ -15,7 +15,7 @@ var B12 = window.B12 || {};
 /* ---------------------------------------------------------------- identidade */
 /* o cofre: o servidor da Ti Artes que guarda a chave da IA. Vazio = assistente
    desligado (o app continua funcionando igual, só sem o chat). */
-B12.VERSAO = 'b12-v1.42.0';   /* tem que bater com o CACHE do sw.js */
+B12.VERSAO = 'b12-v1.43.0';   /* tem que bater com o CACHE do sw.js */
 
 B12.IA = { cofre: 'https://uopfqlogjzuqpabptxkb.supabase.co/functions/v1/cofre',
            modelo: 'claude-haiku-4-5' };
@@ -146,18 +146,20 @@ B12.IDADE_CORTESIA = 5;
 
 B12.DESTINOS = ['Brasília', 'Encantadas'];
 
+/* O @ de cada parceiro foi conferido um a um na busca; o Dhalsin confirma e
+   corrige na aba Parceiros do painel. Sem @, o cartão sai só com o nome. */
 B12.PARCEIROS = [
-  { nome:'Villa Verde',          tipo:'restaurante', comissao:0 },
-  { nome:'Grajagan Surf Resort', tipo:'resort',      comissao:0 },
-  { nome:'Ilha do Mel Lodges',   tipo:'pousada',     comissao:0 },
-  { nome:'Village Mel',          tipo:'pousada',     comissao:0 },
-  { nome:'Bossa Beach House',    tipo:'pousada',     comissao:0 },
-  { nome:'Surfway',              tipo:'pousada',     comissao:0 },
-  { nome:'Pousada das Gêmeas',   tipo:'pousada',     comissao:0 },
-  { nome:'Casa da Ilha do Mel',  tipo:'pousada',     comissao:0 },
-  { nome:'Plancton',             tipo:'pousada',     comissao:0 },
-  { nome:'Yba',                  tipo:'pousada',     comissao:0 },
-  { nome:'13 Luas',              tipo:'pousada',     comissao:0 },
+  { nome:'Villa Verde',          tipo:'restaurante', insta:'villaverderestaurante', comissao:0 },
+  { nome:'Grajagan Surf Resort', tipo:'resort',      insta:'grajagansurfresort',    comissao:0 },
+  { nome:'Ilha do Mel Lodges',   tipo:'pousada',     insta:'ilhadomellodges',       comissao:0 },
+  { nome:'Village Mel',          tipo:'pousada',     insta:'villagemelpousada',     comissao:0 },
+  { nome:'Bossa Beach House',    tipo:'pousada',     insta:'bossabeachouse',        comissao:0 },
+  { nome:'Surfway',              tipo:'pousada',     insta:'surfwayilhadomel',      comissao:0 },
+  { nome:'Pousada das Gêmeas',   tipo:'pousada',     insta:'pousadadasgemeas',      comissao:0 },
+  { nome:'Casa da Ilha do Mel',  tipo:'pousada',     insta:'casa_da_ilha_do_mel',   comissao:0 },
+  { nome:'Plancton',             tipo:'pousada',     insta:'pousadaplancton',       comissao:0 },
+  { nome:'Pousada Bela Vista',   tipo:'pousada',     insta:'belavistailhadomel',    comissao:0 },
+  { nome:'13 Luas',              tipo:'pousada',     insta:'pousadatrezeluas',      comissao:0 },
 ];
 
 /* ------------------------------------------- a Ilha do Mel, lugar por lugar
@@ -365,7 +367,7 @@ B12.DESP_MAIORES = [
 B12.HIST_ORIGEM = [
   ['Direto (b12)',3719],['Náutico',2301],['Turista avulso',1702],['Hóspede de pousada',1635],
   ['Astral',1155],['Pacote Astral',615],['Grajagan',132],['Casamento',53],['Plancton',29],
-  ['Yba',25],['Ilha do Mel Lodges',17],['Bossa',15],['13 Luas',14],['Village Mel',11]
+  ['Bela Vista',25],['Ilha do Mel Lodges',17],['Bossa',15],['13 Luas',14],['Village Mel',11]
 ];
 
 B12.HIST_PAGAMENTO = [['credito',1277],['debito',436],['pix',339],['dinheiro',303],['transferencia',9]];

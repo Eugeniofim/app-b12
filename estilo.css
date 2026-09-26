@@ -434,9 +434,13 @@ body.adm .topo-tela{background:linear-gradient(160deg,var(--noite-2),var(--noite
 .rodape{text-align:center;font-size:12px;color:var(--tinta-3);padding:26px 22px 10px;line-height:1.7}
 body.adm .rodape{color:var(--gelo-3)}
 .parceiros{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.parceiros div{background:var(--carta);border-radius:11px;padding:12px 10px;text-align:center;
-  font-size:11.5px;font-weight:650;color:var(--azul-800);box-shadow:var(--sombra-1);line-height:1.3}
-.parceiros div small{display:block;font-weight:400;color:var(--tinta-3);font-size:9.5px;margin-top:3px}
+.parceiros .parc{display:block;background:var(--carta);border-radius:11px;padding:12px 10px;
+  text-align:center;font-size:11.5px;font-weight:650;color:var(--azul-800);
+  box-shadow:var(--sombra-1);line-height:1.3;min-height:44px}
+.parceiros .parc small{display:block;font-weight:400;color:var(--tinta-3);font-size:9.5px;margin-top:3px}
+.parceiros .parc-ig{display:inline-flex;align-items:center;gap:4px;margin-top:6px;
+  font-size:10px;font-weight:600;color:var(--turq-600);word-break:break-all}
+.parceiros .parc-ig svg{width:12px;height:12px;flex:none}
 
 /* ============================================================================
    FORMULÁRIOS — a folha que sobe de baixo
@@ -633,8 +637,8 @@ body:not(.adm) .semninguem{border-color:var(--risco);color:var(--tinta-3)}
   .navb.meio:hover .bolha{transform:scale(1.08) rotate(-6deg)}
   .mais-btn:hover{transform:scale(1.08) rotate(90deg);box-shadow:0 10px 28px rgba(14,140,128,.6)}
 
-  .parceiros div{transition:transform .2s,box-shadow .2s,color .2s}
-  .parceiros div:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(6,23,38,.14);color:var(--turq-600)}
+  .parceiros .parc{transition:transform .2s,box-shadow .2s,color .2s}
+  .parceiros .parc:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(6,23,38,.14);color:var(--turq-600)}
   .zapzinho{transition:transform .18s}
   .zapzinho:hover{transform:scale(1.18)}
   .pass{transition:background .2s}

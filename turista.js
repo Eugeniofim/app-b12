@@ -190,7 +190,17 @@ B12.pintarIlha = function () {
     }).join('') + '</div>';
   }
   var parceiros = B12.PARCEIROS.map(function (p) {
-    return '<div>' + p.nome + '<small>' + p.tipo + '</small></div>'; }).join('');
+    var miolo = p.nome + '<small>' + p.tipo + '</small>' +
+      (p.insta ? '<span class="parc-ig">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">' +
+        '<rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="3.6"/>' +
+        '<circle cx="17.2" cy="6.8" r="1.1" fill="currentColor" stroke="none"/></svg>@' + p.insta + '</span>' : '');
+    /* com @ o cartão vira link e abre o perfil; sem @, continua só um cartão */
+    return p.insta
+      ? '<a class="parc" href="https://instagram.com/' + p.insta + '" target="_blank" rel="noopener">' +
+        miolo + '</a>'
+      : '<div class="parc">' + miolo + '</div>';
+  }).join('');
 
   tela.innerHTML =
     fotoTopo('fotos/ilha-heroi.jpg', 'Litoral do Paraná', 'Ilha do Mel', 'Praias, atrações, onde comer e onde ficar', 'inicio', true) +
