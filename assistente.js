@@ -470,7 +470,67 @@ B12.iaOuvir = function (aoTexto, aoEstado) {
 };
 B12.iaPararDeOuvir = function () { if (ouvindo) { try { ouvindo.stop(); } catch (e) {} ouvindo = null; } };
 
+/* ------------------------------------------------- como a resposta é falada
+   'nao'        — calado
+   'aparelho'   — a voz que o próprio celular tem, de graça
+   'elevenlabs' — voz profissional, com a chave do dono, guardada só aqui */
+var CHAVE_11 = 'b12_chave_11', VOZ_11 = 'b12_voz_11';
+var VOZ_PADRAO = 'EXAVITQu4vr4xnSDxMaL';           /* Sarah, fala português */
+B12.iaVozModo = function () {
+  var x = ia();
+  if (!x.voz) x.voz = 'aparelho';
+  if (x.voz === 'elevenlabs' && !B12.iaChave11()) return 'aparelho';
+  return x.voz;
+};
+B12.iaTrocarVoz = function (modo) {
+  var x = ia();
+  x.voz = (modo === 'nao' || modo === 'elevenlabs') ? modo : 'aparelho';
+  B12.salvar(); return { ok: true, voz: x.voz };
+};
+B12.iaChave11 = function () { try { return localStorage.getItem(CHAVE_11) || ''; } catch (e) { return ''; } };
+B12.iaVoz11 = function () { try { return localStorage.getItem(VOZ_11) || VOZ_PADRAO; } catch (e) { return VOZ_PADRAO; } };
+B12.iaGuardarChave11 = function (k, vozId) {
+  k = String(k || '').trim();
+  try {
+    if (!k) localStorage.removeItem(CHAVE_11); else localStorage.setItem(CHAVE_11, k);
+    localStorage.setItem(VOZ_11, String(vozId || '').trim() || VOZ_PADRAO);
+    return { ok: true };
+  } catch (e) { return { erro: 'Não consegui guardar neste aparelho.' }; }
+};
+
+var tocando = null;
+function limpaParaFalar(t) {
+  return String(t).replace(/\*\*/g, '').replace(/^- /gm, '').replace(/R\$\s?/g, '').slice(0, 900);
+}
+B12.iaFalar11 = function (texto) {
+  var k = B12.iaChave11(); if (!k) return Promise.reject(new Error('sem chave'));
+  var ctrl = new AbortController(); setTimeout(function () { ctrl.abort(); }, 20000);
+  return fetch('https://api.elevenlabs.io/v1/text-to-speech/' + B12.iaVoz11() + '?output_format=mp3_44100_64', {
+    method: 'POST', signal: ctrl.signal,
+    headers: { 'xi-api-key': k, 'content-type': 'application/json' },
+    body: JSON.stringify({ text: limpaParaFalar(texto), model_id: 'eleven_flash_v2_5',
+      voice_settings: { stability: 0.45, similarity_boost: 0.75, speed: 1.02 } })
+  }).then(function (r) {
+    if (!r.ok) return r.text().then(function (t) { throw new Error(r.status === 401 ? 'A chave da ElevenLabs não foi aceita.' : 'A ElevenLabs recusou: ' + r.status); });
+    return r.blob();
+  }).then(function (b) {
+    B12.iaCalar();
+    var a = new Audio(URL.createObjectURL(b));
+    tocando = a; a.play();
+    a.onended = function () { URL.revokeObjectURL(a.src); tocando = null; };
+    return { ok: true };
+  });
+};
+
 B12.iaFalar = function (texto) {
+  var modo = B12.iaVozModo();
+  if (modo === 'nao' || !texto) return;
+  if (modo === 'elevenlabs') {
+    return B12.iaFalar11(texto).catch(function () { vozDoAparelho(texto); });
+  }
+  vozDoAparelho(texto);
+};
+function vozDoAparelho(texto) {
   if (!B12.iaTemFala() || !texto) return;
   try {
     speechSynthesis.cancel();
@@ -482,8 +542,13 @@ B12.iaFalar = function (texto) {
     speechSynthesis.speak(f);
   } catch (e) {}
 };
-B12.iaCalar = function () { try { speechSynthesis.cancel(); } catch (e) {} };
-B12.iaFalando = function () { try { return speechSynthesis.speaking; } catch (e) { return false; } };
+B12.iaCalar = function () {
+  try { speechSynthesis.cancel(); } catch (e) {}
+  if (tocando) { try { tocando.pause(); } catch (e) {} tocando = null; }
+};
+B12.iaFalando = function () {
+  try { return speechSynthesis.speaking || !!(tocando && !tocando.paused); } catch (e) { return false; }
+};
 
 /* ======================================================= a gaveta do chat
    A bolha fica no canto de baixo, em qualquer tela de quem entrou como dono ou
@@ -528,8 +593,9 @@ B12.iaAbrirGaveta = function () {
     '<div class="ia-gaveta-fundo"></div>' +
     '<div class="ia-gaveta-cx" role="dialog" aria-label="Assistente da B12">' +
       '<div class="ia-gaveta-topo">' +
-        '<div><b>Assistente</b><small id="ia-g-saldo">' + B12.brl(d.saldo, 2) + ' de crédito · ' +
+        '<div class="ia-g-quem"><b>Assistente</b><small id="ia-g-saldo">' + B12.brl(d.saldo, 2) + ' de crédito · ' +
           d.perguntas + ' pergunta' + (d.perguntas === 1 ? '' : 's') + '</small></div>' +
+        '<button type="button" class="ia-g-som" id="ia-g-som" aria-label="Ligar ou desligar a voz"></button>' +
         '<button type="button" class="ia-g-x" aria-label="Fechar">' +
         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">' +
         '<path d="M18 6L6 18M6 6l12 12"/></svg></button>' +
@@ -582,6 +648,28 @@ B12.iaAbrirGaveta = function () {
   }
   g.querySelector('#ia-g-barra').onsubmit = function (e) { e.preventDefault(); perguntar(g.querySelector('#ia-g-campo').value); };
   g.querySelectorAll('[data-gsug]').forEach(function (b) { b.onclick = function () { perguntar(b.dataset.gsug); }; });
+  var som = g.querySelector('#ia-g-som');
+  function pintarSom() {
+    var m = B12.iaVozModo(), ligado = m !== 'nao';
+    som.classList.toggle('mudo', !ligado);
+    som.title = ligado ? (m === 'elevenlabs' ? 'Voz profissional ligada' : 'Voz do aparelho ligada') : 'Voz desligada';
+    som.setAttribute('aria-pressed', ligado ? 'true' : 'false');
+    som.innerHTML = ligado
+      ? '<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z" stroke-linejoin="round"/>' +
+        '<path d="M16.5 8.5a5 5 0 0 1 0 7" stroke-linecap="round"/></svg>' +
+        (m === 'elevenlabs' ? '<i class="ia-som-pro">pro</i>' : '')
+      : '<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z" stroke-linejoin="round"/>' +
+        '<path d="M17 9.5l4 5M21 9.5l-4 5" stroke-linecap="round"/></svg>';
+  }
+  pintarSom();
+  som.onclick = function () {
+    var m = B12.iaVozModo();
+    if (m === 'nao') B12.iaTrocarVoz(B12.iaChave11() ? 'elevenlabs' : 'aparelho');
+    else { B12.iaCalar(); B12.iaTrocarVoz('nao'); }
+    pintarSom();
+    B12.aviso(B12.iaVozModo() === 'nao' ? 'Voz desligada.' : 'Voz ligada.', 'bom');
+  };
+
   var voz = g.querySelector('#ia-g-voz');
   if (voz) voz.onclick = function () {
     var campo = g.querySelector('#ia-g-campo');

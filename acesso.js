@@ -164,6 +164,14 @@ B12.formAjustes = function (depois) {
         dica:'sk-ant-…',
         ajuda:'Liga o assistente na hora, usando a sua conta. A chave fica guardada SÓ neste aparelho, ' +
               'nunca vai para a internet nem para o repositório. Deixe vazio para apagar.' }) +
+      B12.f_lista('Voz das respostas', 'vozModo', [
+        ['aparelho','Voz do próprio aparelho (de graça)'],
+        ['elevenlabs','Voz profissional da ElevenLabs (usa a chave abaixo)'],
+        ['nao','Desligada — só texto']], B12.iaVozModo ? B12.iaVozModo() : 'aparelho') +
+      B12.f_campo('Chave da ElevenLabs', 'chave11', { tipo:'password', valor: B12.iaChave11 ? B12.iaChave11() : '',
+        dica:'sk_…', ajuda:'Opcional. Também fica só neste aparelho. Sem ela, o app usa a voz do celular.' }) +
+      B12.f_campo('Voz escolhida (ID)', 'voz11', { valor: B12.iaVoz11 ? B12.iaVoz11() : '',
+        ajuda:'O identificador da voz no painel da ElevenLabs. O padrão já fala português.' }) +
       '<div class="grupo">Versão</div>' +
       '<div class="ajuda">Este aparelho está na <b>' + (B12.VERSAO || '?') + '</b>. O app confere sozinho ' +
       'se existe versão nova toda vez que você volta para ele, quando a internet volta e a cada 10 minutos. ' +
@@ -200,6 +208,8 @@ B12.formAjustes = function (depois) {
       a.patio = { regra: d.patioRegra === '24h' ? '24h' : 'dia',
                   tolerancia: Math.max(0, Number(d.patioTol) || 0),
                   cobranca: d.patioCobranca === 'chegada' ? 'chegada' : 'saida' };
+      if (B12.iaGuardarChave11 && d.chave11 !== undefined) B12.iaGuardarChave11(d.chave11, d.voz11);
+      if (B12.iaTrocarVoz && d.vozModo) B12.iaTrocarVoz(d.vozModo);
       if (B12.iaGuardarChave && d.chaveIA !== undefined) {
         var ck = B12.iaGuardarChave(d.chaveIA);
         if (ck.erro) return { erro: ck.erro };
