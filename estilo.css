@@ -1277,3 +1277,5 @@ body.adm .ficha-conta.paga{background:#0A3B37;color:var(--turq-300)}
 .hchip:active{transform:scale(.97)}
 body:not(.adm) .hchip{background:var(--gelo);border-color:var(--risco);color:var(--tinta-2)}
 body:not(.adm) .hchip.on{background:var(--turq-600);border-color:var(--turq-500);color:#fff}
+.sub-lin{font-size:11px;color:var(--gelo-3);margin-top:3px;line-height:1.4;font-weight:400}
+body:not(.adm) .sub-lin{color:var(--tinta-3)}

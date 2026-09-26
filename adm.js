@@ -736,10 +736,22 @@ function pProsp(raiz) {
      ['quanto cada cliente gastou','sim']].map(function (x) {
       return '<tr><td>' + x[0] + '</td><td class="n" style="color:' + C.turq3 + '">' + x[1] + '</td></tr>';
     }).join('') + '</table></div></div>' +
-    '<div class="cx nota entra entra-3"><h3>Como a notificação chega</h3>' +
-    '<p>Pelo app instalado na tela de início, que funciona em Android e em iPhone. Quem não ' +
-    'instalou recebe por e-mail. O disparo na quinta e na sexta é um relógio no servidor, ' +
-    'não depende de ninguém apertar botão.</p></div>'
+    '<div class="cx aviso entra entra-3"><h3>Como o aviso chega hoje — e o que falta</h3>' +
+    '<p>O quadro acima é o plano do briefing. Hoje, de verdade, funciona assim:</p>' +
+    '<table class="tabela" style="margin-top:10px">' +
+      '<tr><td><b>WhatsApp</b><div class="sub-lin">você toca no botão e a conversa abre com o ' +
+        'texto pronto</div></td><td class="n" style="color:' + C.turq3 + '">funciona</td></tr>' +
+      '<tr><td><b>Aviso dentro do app</b><div class="sub-lin">aparece em Promoções para quem ' +
+        'se cadastrou</div></td><td class="n" style="color:' + C.turq3 + '">funciona</td></tr>' +
+      '<tr><td><b>WhatsApp automático</b><div class="sub-lin">precisa da API oficial da Meta: ' +
+        'um número só para isso e textos aprovados</div></td><td class="n" style="color:' + C.aten + '">falta</td></tr>' +
+      '<tr><td><b>E-mail</b><div class="sub-lin">precisa da nuvem e do domínio verificado ' +
+        'para enviar</div></td><td class="n" style="color:' + C.aten + '">falta</td></tr>' +
+      '<tr><td><b>Notificação no celular</b><div class="sub-lin">precisa da nuvem, e a pessoa ' +
+        'tem de ter instalado o app na tela de início</div></td><td class="n" style="color:' + C.aten + '">falta</td></tr>' +
+    '</table>' +
+    '<p style="margin-top:10px">Os três que faltam dependem da mesma coisa: ligar a nuvem. ' +
+    'Enquanto isso, nada sai sozinho — e o app não promete ao cliente o que ainda não faz.</p></div>'
   ));
 }
 

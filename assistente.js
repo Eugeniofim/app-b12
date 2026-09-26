@@ -137,8 +137,8 @@ var FERRAMENTAS = [
   { name: 'ver_historico', description: 'O histórico da planilha da B12, de 2015 a 2025, mês a mês: lançamentos, passageiros, receita, combustível e despesas. Use para comparar com hoje.',
     input_schema: { type: 'object', properties: { ano: { type: 'number', description: 'um ano só; vazio = o resumo dos 11 anos' } } } },
 
-  { name: 'ver_app', description: 'Informações do próprio app e da marca: endereço, QR code, senhas, como instalar no celular, o que cada aba faz, onde baixar o Excel, como a marca é usada.',
-    input_schema: { type: 'object', properties: { assunto: { type: 'string', description: 'endereco, senhas, instalar, abas, excel, marca, nuvem, qr' } } } },
+  { name: 'ver_app', description: 'Informações do próprio app e da marca: endereço, QR code, senhas, como instalar no celular, o que cada aba faz, onde baixar o Excel, como a marca é usada, como o cliente é avisado (WhatsApp, e-mail, notificação no celular), como funcionam as buscas na Ilha e o clube de fidelidade.',
+    input_schema: { type: 'object', properties: { assunto: { type: 'string', description: 'endereco, senhas, instalar, abas, excel, marca, nuvem, qr, avisos, buscas, clube' } } } },
 
   { name: 'ver_a_receber', description: 'O que está para entrar: quem já viajou e ainda não pagou, porque na B12 o cliente paga na saída. Mostra travessia, estacionamento e total de cada um.',
     input_schema: { type: 'object', properties: {} } },
@@ -461,6 +461,26 @@ var LEITURAS = {
       nuvem: 'Hoje os dados ficam guardados neste aparelho. Com a nuvem ligada (Supabase na conta do Dhalsin), ' +
         'o celular e o computador passam a mostrar a mesma coisa na hora, a cópia de segurança fica automática ' +
         'no servidor, e o login vira de verdade, com a equipe sem enxergar o dinheiro. É a peça que falta.',
+
+      avisos: 'Como o cliente é avisado, hoje de verdade: (1) WhatsApp MANUAL — o app monta o texto e ' +
+        'abre a conversa, e o Dhalsin aperta enviar; é assim que chega a confirmação da reserva. ' +
+        '(2) Aviso dentro do app, na tela Promoções, para quem se cadastrou. ' +
+        'O que AINDA NÃO funciona, e por quê: WhatsApp automático precisa da API oficial da Meta, ' +
+        'que exige um número de telefone só para isso, verificação da empresa e textos aprovados, ' +
+        'e cobra por conversa. E-mail precisa da nuvem mais um serviço de envio com o domínio ' +
+        'estacaob12.com.br verificado. Notificação no celular (push) precisa da nuvem e só chega a ' +
+        'quem INSTALOU o app na tela de início — no iPhone só funciona instalado. ' +
+        'Os três dependem da nuvem ligada. Nunca diga ao Dhalsin que já sai sozinho: não sai.',
+
+      buscas: 'A ida sai em horário de tabela. A VOLTA não: o Dhalsin monta as buscas da Ilha na ' +
+        'véspera, olhando quem está lá e como está o mar. Ele faz isso na aba Horários, ou no cartão ' +
+        '"Buscas na Ilha" que aparece na aba Hoje. Enquanto ele não montar, quem está na Ilha vê no ' +
+        'app que os horários ainda não abriram. Horário com passageiro marcado não pode ser apagado.',
+
+      clube: 'O Clube B12 existe no painel e ainda NÃO aparece para o cliente. O cliente vê "Clube de ' +
+        'fidelidade em breve" e pode se cadastrar para entrar na primeira turma. O Dhalsin liga o clube ' +
+        'em Clientes → Regras, no interruptor "Mostrar o clube para os clientes". A regra é ponto por ' +
+        'real gasto, faixa por ponto, e um mimo por faixa — tudo editável por ele.',
 
       assistente: 'Eu leio os dados deste app para responder. Não guardo nada fora daqui. Não gravo lançamento, ' +
         'não mudo preço e não mando mensagem sozinho: monto o pedido e o Dhalsin confirma com o dedo. Falo por ' +
