@@ -85,8 +85,12 @@ function fotoTopo(foto, rotulo, titulo, sub, volta, alta) {
     '<h1>' + titulo + '</h1><p>' + sub + '</p></div></div>';
 }
 function zapPasseio(p) {
-  return 'https://wa.me/' + B12.EMPRESA.whats + '?text=' + encodeURIComponent(
-    'Olá! Quero reservar o passeio *' + p.nome + '* (' + p.dur + ').\nData: ___\nPessoas: ___');
+  var l = ['Olá! Quero reservar um passeio com a Estação B12. 🚤', '',
+    'Passeio: *' + p.nome + '*', 'Duração: ' + p.dur];
+  if (B12.mostraPrecos()) l.push('A partir de: ' + B12.brl(p.preco) + ' por pessoa');
+  l.push('', 'Data que eu quero: ___', 'Quantas pessoas: ___', '',
+    'Pode me confirmar o valor e o horário?');
+  return 'https://wa.me/' + B12.EMPRESA.whats + '?text=' + encodeURIComponent(l.join('\n'));
 }
 function creditosRodape() {
   return '<p class="creditos">Fotos ilustrativas até a B12 mandar as dela · ' +
@@ -102,7 +106,9 @@ B12.pintarPasseios = function () {
       '<div class="foto" style="background-image:url(' + p.foto + ')">' +
       '<span class="dur">' + p.dur + '</span></div>' +
       '<div class="in"><b>' + p.nome + '</b><small>' + p.resumo + '</small>' +
-      '<div class="pr">a partir de <b>' + B12.brl(p.preco) + '</b></div></div></button>';
+      '<div class="pr">' + (B12.mostraPrecos()
+        ? 'a partir de <b>' + B12.brl(p.preco) + '</b>'
+        : '<b>Conheça e reserve</b>') + '</div></div></button>';
   }).join('');
 
   var lista = document.getElementById('lista-passeios');
@@ -111,8 +117,10 @@ B12.pintarPasseios = function () {
       '<div class="pcard-foto" style="background-image:url(' + p.foto + ')">' +
       '<span class="dur">' + p.dur + '</span></div>' +
       '<div class="pcard-in"><h3>' + p.nome + '</h3><p>' + p.resumo + '</p>' +
-      '<div class="pcard-pe"><span>a partir de <b>' + B12.brl(p.preco) + '</b> por pessoa</span>' +
-      '<span class="pcard-ver">Ver o roteiro ›</span></div></div></button>';
+      '<div class="pcard-pe"><span>' + (B12.mostraPrecos()
+        ? 'a partir de <b>' + B12.brl(p.preco) + '</b> por pessoa'
+        : '<b>Valor sob consulta</b>') + '</span>' +
+      '<span class="pcard-ver">Conheça e reserve ›</span></div></div></button>';
   }).join('') + creditosRodape();
 };
 
@@ -138,8 +146,10 @@ B12.pintarPasseio = function (id) {
     fotoTopo(p.foto, 'Passeio de barco · ' + p.dur, p.nome, p.resumo, 'passeios') +
     '<div class="chips-info entra entra-1">' +
       '<div class="chip-info"><small>Duração</small><b>' + p.dur + '</b><small class="sub">na lancha</small></div>' +
-      '<div class="chip-info"><small>A partir de</small><b>' + B12.brl(p.preco) + '</b><small class="sub">' +
-        (p.precoCrianca != null ? 'adulto · criança ' + B12.brl(p.precoCrianca) : 'por pessoa') + '</small></div>' +
+      (B12.mostraPrecos()
+        ? '<div class="chip-info"><small>A partir de</small><b>' + B12.brl(p.preco) + '</b><small class="sub">' +
+          (p.precoCrianca != null ? 'adulto · criança ' + B12.brl(p.precoCrianca) : 'por pessoa') + '</small></div>'
+        : '<div class="chip-info"><small>Valor</small><b>Sob consulta</b><small class="sub">fale com a B12</small></div>') +
       '<div class="chip-info"><small>Saída</small><b>Pontal do Sul</b><small class="sub">trapiche da B12</small></div>' +
     '</div>' +
     '<div class="cx entra entra-2"><p class="lead">' + p.texto + '</p>' +

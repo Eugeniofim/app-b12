@@ -300,71 +300,156 @@ B12.confirmarSaidaPatio = function (id, depois) {
 /* ================================================ ATENDIMENTO DE BALCÃO */
 /* A pessoa chegou agora, sem reserva. Ficha + venda + carro num caminho só. */
 B12.formBalcao = function (depois) {
-  var faixaAgora = B12.faixaHora(new Date().getHours() + ':00');
+  var agora = new Date();
+  var horaAgora = String(agora.getHours()).padStart(2,'0') + ':' + String(agora.getMinutes()).padStart(2,'0');
+  var faixaAgora = B12.faixaHora(horaAgora);
   B12.folha({
     titulo: 'Chegou agora',
-    sub: 'Cadastra a pessoa, lança a travessia e abre o pátio, de uma vez',
+    sub: 'Na mesma ordem da ficha de papel',
     corpo:
-      grupo('Quem é') +
-      campo('Nome', 'nome', { obrig:true, max:60, dica:'como a pessoa se chama' }) +
-      campo('WhatsApp', 'whats', { tipo:'tel', modo:'tel', dica:'(41) 90000-0000' }) +
-      campo('E-mail', 'email', { tipo:'email', modo:'email', dica:'opcional' }) +
-      campo('Instagram', 'instagram', { dica:'opcional, sem o @' }) +
-      campo('CPF', 'cpf', { modo:'numeric', max:14, dica:'só se pedir nota fiscal' }) +
+      /* ---- a ficha, campo por campo, como está no bloquinho ---- */
+      '<div class="par">' +
+        '<div style="grid-column:span 2">' + campo('Nome', 'nome', { obrig:true, max:60, dica:'como a pessoa se chama' }) + '</div>' +
+      '</div>' +
+      '<div class="par">' +
+        '<div>' + campo('Nº pessoas', 'pax', { tipo:'number', modo:'numeric', valor:1, passo:'1' }) + '</div>' +
+        '<div>' + campo('Idades das crianças', 'idades', { modo:'numeric', max:24,
+          dica:'3, 7, 11' }) + '</div>' +
+      '</div>' +
+      '<div class="par">' +
+        '<div>' + campo('Ida', 'data', { tipo:'date', valor: B12.hoje() }) + '</div>' +
+        '<div>' + campo('Hora', 'hora', { tipo:'time', valor: horaAgora }) + '</div>' +
+      '</div>' +
+      '<div class="par">' +
+        '<div>' + campo('Volta', 'volta', { tipo:'date' }) + '</div>' +
+        '<div>' + campo('Hora', 'horaVolta', { tipo:'time' }) + '</div>' +
+      '</div>' +
+      campo('Placa', 'placa', { max:8, dica:'deixe vazio se não deixou carro' }) +
+      campo('Celular', 'whats', { tipo:'tel', modo:'tel', dica:'(41) 90000-0000' }) +
+      '<div class="par">' +
+        '<div>' + campo('Valor', 'valorManual', { tipo:'number', passo:'0.01', modo:'decimal',
+          dica:'vazio = pela tabela' }) + '</div>' +
+        '<div>' + lista('Pagamento', 'pg', PAGAMENTOS, 'pix') + '</div>' +
+      '</div>' +
       lista('Pousada', 'pousada', ['', 'Direto (sem pousada)']
         .concat(B12.PARCEIROS.map(function (p) { return p.nome; })).concat(['Outra']), '') +
-      grupo('A travessia') +
-      '<div class="par">' +
-        '<div>' + campo('Pessoas', 'pax', { tipo:'number', modo:'numeric', valor:1, passo:'1' }) + '</div>' +
-        '<div>' + campo('Até 5 anos', 'criancas', { tipo:'number', modo:'numeric', valor:0, passo:'1' }) + '</div>' +
-      '</div>' +
-      lista('Destino', 'destino', B12.DESTINOS, 'Brasília') +
-      campo('Data da volta', 'volta', { tipo:'date', ajuda:'Opcional. Se souber, o app já mostra os horários de volta na data certa.' }) +
-      lista('Serviço', 'produto', [['regular','Travessia regular'],
-        ['nautico','Serviço Náutico Premium']], 'regular') +
-      lista('Faixa de horário', 'faixa', [['dia','08h30 às 18h00'],['tarde','18h00 às 20h00'],
-        ['noite','20h00 às 22h00'],['fora','Fora da tabela']], faixaAgora) +
-      campo('Valor combinado', 'valorManual', { tipo:'number', passo:'0.01', modo:'decimal',
-        dica:'só se for fora da tabela' }) +
-      lista('Pagamento', 'pg', PAGAMENTOS, 'pix') +
-      campo('Marinheiro', 'responsavel', { dica:'quem levou', max:30 }) +
-      grupo('Deixou carro?') +
-      campo('Placa', 'placa', { dica:'deixe vazio se não deixou carro', max:8 }) +
-      campo('Saída prevista', 'saidaPrevista', { tipo:'date' }) +
-      grupo('Consentimento') +
-      marca('Aceita receber ofertas e novidades', 'aceitaOfertas', false,
-        'Guardado com data e hora. Sem isso, só dá para falar sobre a viagem dele.') +
-      '<div class="previa" id="previa-balcao"></div>',
+      '<div class="previa" id="previa-balcao"></div>' +
+
+      /* ---- o resto fica guardado, para não atrapalhar quem tem fila ---- */
+      '<button type="button" class="btn sec" id="b-mais-balcao" style="margin-top:14px">' +
+      'Mais informações (opcional)</button>' +
+      '<div id="mais-balcao" hidden>' +
+        grupo('Mais sobre a pessoa') +
+        campo('E-mail', 'email', { tipo:'email', modo:'email', dica:'opcional' }) +
+        campo('Instagram', 'instagram', { dica:'opcional, sem o @' }) +
+        campo('CPF', 'cpf', { modo:'numeric', max:14, dica:'só se pedir nota fiscal' }) +
+        campo('Cidade', 'cidade', { dica:'opcional' }) +
+        grupo('Sobre a viagem') +
+        lista('Destino', 'destino', B12.DESTINOS, 'Brasília') +
+        lista('Serviço', 'produto', [['regular','Táxi Náutico'],
+          ['nautico','Serviço Náutico Premium']], 'regular') +
+        lista('Faixa de horário', 'faixa', [['dia','08h30 às 18h00'],['tarde','18h00 às 20h00'],
+          ['noite','20h00 às 22h00'],['fora','Fora da tabela']], faixaAgora) +
+        campo('Marinheiro', 'responsavel', { dica:'quem levou', max:30 }) +
+        marca('Aceita receber ofertas e novidades', 'aceitaOfertas', false,
+          'Guardado com data e hora. Sem isso, só dá para falar sobre a viagem dele.') +
+      '</div>',
     acao: 'Registrar atendimento',
     aoAbrir: function (form) {
+      var mais = form.querySelector('#mais-balcao'), bm = form.querySelector('#b-mais-balcao');
+      bm.onclick = function () {
+        mais.hidden = !mais.hidden;
+        bm.textContent = mais.hidden ? 'Mais informações (opcional)' : 'Esconder o resto';
+      };
+      /* a hora da ida escolhe a faixa sozinha: uma decisão a menos para quem atende */
+      var hora = form.querySelector('[name=hora]'), faixa = form.querySelector('[name=faixa]');
+      hora.onchange = function () {
+        var f = B12.faixaHora(hora.value);
+        faixa.value = f;
+        calcular();
+      };
       function calcular() {
         var pax = +form.querySelector('[name=pax]').value || 1;
-        var cri = +form.querySelector('[name=criancas]').value || 0;
+        var cri = B12.contarCortesia(form.querySelector('[name=idades]').value);
+        var manual = Number(form.querySelector('[name=valorManual]').value) || 0;
         var pr = B12.preco({ produto: form.querySelector('[name=produto]').value,
-          pax: pax, criancas: cri, faixa: form.querySelector('[name=faixa]').value,
+          pax: pax, criancas: cri, faixa: faixa.value,
           diarias: 0, pg: form.querySelector('[name=pg]').value });
-        form.querySelector('#previa-balcao').innerHTML = pr
-          ? '<span>A cobrar</span><b>' + B12.brl(pr.travessia) + '</b>'
-          : '<span>Fora da tabela</span><b>informe o valor</b>';
+        var el = form.querySelector('#previa-balcao');
+        var nota = cri ? ' · ' + cri + (cri > 1 ? ' crianças não pagam' : ' criança não paga') : '';
+        el.innerHTML = manual > 0
+          ? '<span>Valor combinado' + nota + '</span><b>' + B12.brl(manual) + '</b>'
+          : (pr ? '<span>Pela tabela' + nota + '</span><b>' + B12.brl(pr.travessia) + '</b>'
+                : '<span>Fora da tabela</span><b>informe o valor</b>');
       }
-      form.querySelectorAll('[name=pax],[name=criancas],[name=produto],[name=faixa],[name=pg]')
+      form.querySelectorAll('[name=pax],[name=idades],[name=produto],[name=faixa],[name=pg],[name=valorManual]')
         .forEach(function (c) { c.oninput = calcular; c.onchange = calcular; });
       calcular();
     },
     aoSalvar: function (d) {
-      d.pax = +d.pax || 1; d.criancas = +d.criancas || 0;
+      d.pax = +d.pax || 1;
+      d.idades = String(d.idades || '').trim();
+      d.criancas = B12.contarCortesia(d.idades);
+      if (!d.faixa) d.faixa = B12.faixaHora(d.hora);
+      if (d.placa && !d.saidaPrevista) d.saidaPrevista = d.volta || '';
       return B12.atenderBalcao(d);
     },
     depois: depois
   });
 };
 
-/* depois do balcão: entrega o código no WhatsApp da pessoa, já com o link do app */
+/* o orçamento, escrito para o WhatsApp da própria B12: é o recado da
+   funcionária para o Dhalsin, com tudo que ela combinou no balcão. */
+B12.orcamentoTexto = function (r) {
+  var l = ['📋 *Atendimento no balcão — Estação B12*', '',
+    '*' + r.nome + '* · código *' + r.cod + '*',
+    'Pessoas: ' + r.pax + (r.idades ? ' (crianças: ' + r.idades + ')' : ''),
+    'Ida: ' + B12.dataBR(r.ida) + (r.hora ? ' às ' + r.hora : '')];
+  if (r.volta) l.push('Volta: ' + B12.dataBR(r.volta) + (r.horaVolta ? ' às ' + r.horaVolta : ''));
+  l.push('Serviço: ' + r.produto, 'Destino: ' + r.destino);
+  if (r.pousada) l.push('Pousada: ' + r.pousada);
+  if (r.placa) l.push('Carro: ' + r.placa + (r.estacionamento ? ' · ' + r.estacionamento + ' diária(s)' : ''));
+  if (r.zap) l.push('Celular: ' + r.zap);
+  l.push('Pagamento: ' + r.pg, '*Total combinado: ' + (r.total != null ? B12.brl(r.total) : 'a combinar') + '*',
+    '', 'Cliente paga na saída.');
+  return l.join('\n');
+};
+B12.mandarOrcamento = function (r) {
+  window.open('https://wa.me/' + B12.EMPRESA.whats + '?text=' +
+    encodeURIComponent(B12.orcamentoTexto(r)), '_blank');
+};
+
 B12.aposBalcao = function (res) {
   if (!res || !res.reserva) return;
   var r = res.reserva;
-  B12.folhaMensagem('confirmacao', { nome: r.nome, whats: r.zap, cod: r.cod, ida: r.ida,
-    volta: r.volta, hora: res.saida ? res.saida.hora : '', pax: r.pax, total: r.total });
+  B12.folha({
+    titulo: 'Atendimento registrado',
+    sub: r.nome + ' · código ' + r.cod,
+    corpo:
+      '<div class="ticket-grande"><span class="ticket-marca">' + (B12.LOGO || '') + '</span>' +
+      '<small>CÓDIGO DA VIAGEM</small><b>' + r.cod + '</b></div>' +
+      '<table class="tabela" style="margin-top:14px">' +
+      '<tr><td>Pessoas</td><td class="n">' + r.pax + (r.idades ? ' · crianças ' + r.idades : '') + '</td></tr>' +
+      '<tr><td>Ida</td><td class="n">' + B12.dataBR(r.ida) + (r.hora ? ' às ' + r.hora : '') + '</td></tr>' +
+      (r.volta ? '<tr><td>Volta</td><td class="n">' + B12.dataBR(r.volta) +
+        (r.horaVolta ? ' às ' + r.horaVolta : '') + '</td></tr>' : '') +
+      (r.placa ? '<tr><td>Carro</td><td class="n">' + r.placa + '</td></tr>' : '') +
+      '<tr><td>Total combinado</td><td class="n">' +
+        (r.total != null ? B12.brl(r.total) : 'a combinar') + '</td></tr></table>' +
+      '<div class="ajuda" style="margin-top:12px">O cliente paga na saída. ' +
+      'Mande o código para ele e o orçamento para o Dhalsin.</div>' +
+      '<button type="button" class="btn zap" id="b-orc-cliente">Mandar o código ao cliente</button>' +
+      '<button type="button" class="btn sec" id="b-orc-dono">Mandar o orçamento ao Dhalsin</button>',
+    acao: 'Fechar',
+    aoAbrir: function (form) {
+      form.querySelector('#b-orc-cliente').onclick = function () {
+        B12.folhaMensagem('confirmacao', { nome: r.nome, whats: r.zap, cod: r.cod, ida: r.ida,
+          volta: r.volta, hora: res.saida ? res.saida.hora : '', pax: r.pax, total: r.total });
+      };
+      form.querySelector('#b-orc-dono').onclick = function () { B12.mandarOrcamento(r); };
+    },
+    aoSalvar: function () { return { ok: true }; }
+  });
 };
 
 /* ============================================== botão flutuante de ações */

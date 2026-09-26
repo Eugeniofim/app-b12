@@ -1106,7 +1106,9 @@ B12.atenderBalcao = function (a) {
   var p = B12.preco({ produto: a.produto || 'regular', pax: a.pax || 1,
     criancas: a.criancas || 0, faixa: a.faixa || B12.faixaHora(a.hora),
     diarias: 0, pg: a.pg });
-  var valor = p ? p.travessia : Number(a.valorManual) || 0;
+  /* quem atende manda: valor digitado ganha da tabela. É assim no papel. */
+  var combinado = Number(a.valorManual) || 0;
+  var valor = combinado > 0 ? combinado : (p ? p.travessia : 0);
   if (valor <= 0) return { erro: 'Horário fora da tabela: informe o valor combinado.' };
 
   var lan = B12.salvarLancamento({
@@ -1133,10 +1135,11 @@ B12.atenderBalcao = function (a) {
   var r = B12.novaReserva({
     nome: cli.nome, zap: cli.whats, email: cli.email, pax: a.pax || 1, criancas: a.criancas || 0,
     ida: dia, volta: a.volta || a.saidaPrevista || '', destino: a.destino || 'Brasília',
-    pousada: a.pousada || '', produto: a.produto === 'nautico' ? 'Serviço Náutico Premium' : 'Travessia regular',
+    pousada: a.pousada || '', produto: a.produto === 'nautico' ? 'Serviço Náutico Premium' : 'Táxi Náutico',
     faixa: t ? t.de + ' às ' + t.ate : 'sob consulta',
     estacionamento: a.placa && (a.volta || a.saidaPrevista) ? B12.diarias(dia, a.volta || a.saidaPrevista) : 0,
-    placa: a.placa || '', pg: a.pg || 'pix', total: valor, clienteId: cli.id, instagram: a.instagram
+    placa: a.placa || '', pg: a.pg || 'pix', total: valor, clienteId: cli.id, instagram: a.instagram,
+    idades: a.idades || '', hora: a.hora || '', horaVolta: a.horaVolta || ''
   });
   r.origem = 'balcao';                         /* feita pela B12, não pelo celular do turista */
   r.lancamentoId = lan.ok ? lan.lancamento.id : null;
@@ -1415,6 +1418,16 @@ B12.salvarTaxas = function (d) {
 /* --------------------------------------------- as mensagens dele
    Os modelos de fábrica ficam no mensagens.js e não se apagam. Estas são as
    que ele escreve, e podem usar as marcas {nome}, {codigo}, {data} e {hora}. */
+/* "3, 7, 11" -> quantas crianças não pagam pela idade de cortesia */
+B12.contarCortesia = function (texto) {
+  var lim = Number(B12.DB.ajustes.idadeCortesia) || 0;
+  return String(texto || '').split(/[^0-9]+/).filter(function (x) { return x !== ''; })
+    .map(Number).filter(function (i) { return i <= lim; }).length;
+};
+B12.idadesLista = function (texto) {
+  return String(texto || '').split(/[^0-9]+/).filter(function (x) { return x !== ''; }).map(Number);
+};
+
 B12.minhasMensagens = function () { return (B12.DB.ajustes.mensagens || []).slice(); };
 B12.salvarMinhaMensagem = function (m) {
   var nome = String(m.nome || '').trim(), texto = String(m.texto || '').trim();
