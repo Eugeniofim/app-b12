@@ -18,8 +18,20 @@ var B12 = window.B12;
 /* ------------------------------------------------------------------ preço
    claude-haiku-4-5: US$ 1 por milhão de palavras que entram, US$ 5 por milhão
    que saem. Convertido a R$ 5,40. Serve para mostrar o gasto, não para cobrar. */
-var CUSTO_ENTRADA = 5.40 / 1000000;
-var CUSTO_SAIDA   = 27.00 / 1000000;
+B12.MOTORES = [
+  ['claude-haiku-4-5', 'Rápido e barato — cerca de R$ 0,02 por pergunta', 5.40, 27.00],
+  ['claude-sonnet-5',  'Mais caprichado — cerca de R$ 0,07 por pergunta', 16.20, 81.00],
+];
+B12.iaMotor = function () {
+  var m = (ia().motor || '');
+  return B12.MOTORES.some(function (x) { return x[0] === m; }) ? m : B12.MOTORES[0][0];
+};
+B12.iaTrocarMotor = function (m) { ia().motor = m; B12.salvar(); return { ok: true }; };
+function precos() {
+  var m = B12.iaMotor();
+  var x = B12.MOTORES.filter(function (y) { return y[0] === m; })[0] || B12.MOTORES[0];
+  return { entrada: x[2] / 1000000, saida: x[3] / 1000000 };
+}
 var MAX_VOLTAS = 5;
 
 function ia() {
@@ -31,7 +43,8 @@ function ia() {
 B12.iaSaldo = function () { var x = ia(); return Math.max(0, x.saldo - x.gasto); };
 B12.iaCusto = function (uso) {
   if (!uso) return 0;
-  return (uso.input_tokens || 0) * CUSTO_ENTRADA + (uso.output_tokens || 0) * CUSTO_SAIDA;
+  var p = precos();
+  return (uso.input_tokens || 0) * p.entrada + (uso.output_tokens || 0) * p.saida;
 };
 function cobrar(uso) {
   var x = ia();
@@ -313,7 +326,7 @@ B12.iaChamar = function (mensagens) {
     ? { 'content-type': 'application/json', 'x-api-key': chave,
         'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' }
     : { 'content-type': 'application/json' };
-  if (direto) corpo.model = (B12.IA && B12.IA.modelo) || 'claude-haiku-4-5';
+  if (direto) corpo.model = B12.iaMotor();   /* pelo cofre o motor é fixo */
   return fetch(destino, { method: 'POST', headers: cabecas, signal: ctrl.signal, body: JSON.stringify(corpo) })
     .then(function (r) {
       return r.json().then(function (j) {
@@ -475,7 +488,14 @@ B12.iaPararDeOuvir = function () { if (ouvindo) { try { ouvindo.stop(); } catch 
    'aparelho'   — a voz que o próprio celular tem, de graça
    'elevenlabs' — voz profissional, com a chave do dono, guardada só aqui */
 var CHAVE_11 = 'b12_chave_11', VOZ_11 = 'b12_voz_11';
-var VOZ_PADRAO = 'EXAVITQu4vr4xnSDxMaL';           /* Sarah, fala português */
+/* vozes brasileiras, escolhidas na biblioteca da ElevenLabs em 26/09/2026 */
+B12.VOZES_11 = [
+  ['ORgG8rwdAiMYRug8RJwR', 'Ana Alice — feminina, clara e simpática'],
+  ['liAlPCvGDJ0qsfPupueo', 'Paulo Becker — masculina, firme e grave'],
+  ['wXwzHFLHnXex5h3JPBXA', 'Katiuscia — feminina, suave'],
+  ['zNEsdgTUa3ndwKry8Xcq', 'Elvis — masculina, de locutor'],
+];
+var VOZ_PADRAO = 'ORgG8rwdAiMYRug8RJwR';
 B12.iaVozModo = function () {
   var x = ia();
   if (!x.voz) x.voz = 'aparelho';

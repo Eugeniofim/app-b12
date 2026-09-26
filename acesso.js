@@ -170,8 +170,13 @@ B12.formAjustes = function (depois) {
         ['nao','Desligada — só texto']], B12.iaVozModo ? B12.iaVozModo() : 'aparelho') +
       B12.f_campo('Chave da ElevenLabs', 'chave11', { tipo:'password', valor: B12.iaChave11 ? B12.iaChave11() : '',
         dica:'sk_…', ajuda:'Opcional. Também fica só neste aparelho. Sem ela, o app usa a voz do celular.' }) +
-      B12.f_campo('Voz escolhida (ID)', 'voz11', { valor: B12.iaVoz11 ? B12.iaVoz11() : '',
-        ajuda:'O identificador da voz no painel da ElevenLabs. O padrão já fala português.' }) +
+      B12.f_lista('Qual voz', 'voz11', (B12.VOZES_11 || []).map(function (v) { return [v[0], v[1]]; }),
+        B12.iaVoz11 ? B12.iaVoz11() : '') +
+      '<div class="ajuda">Todas falam português do Brasil. Só valem com a chave acima preenchida.</div>' +
+      '<div class="grupo">Motor do assistente</div>' +
+      B12.f_lista('Qual motor', 'motor', (B12.MOTORES || []).map(function (m) { return [m[0], m[1]]; }),
+        B12.iaMotor ? B12.iaMotor() : '') +
+      '<div class="ajuda">Vale quando você usa a sua chave da Anthropic. Pelo cofre da Ti Artes o motor é o rápido.</div>' +
       '<div class="grupo">Versão</div>' +
       '<div class="ajuda">Este aparelho está na <b>' + (B12.VERSAO || '?') + '</b>. O app confere sozinho ' +
       'se existe versão nova toda vez que você volta para ele, quando a internet volta e a cada 10 minutos. ' +
@@ -210,6 +215,7 @@ B12.formAjustes = function (depois) {
                   cobranca: d.patioCobranca === 'chegada' ? 'chegada' : 'saida' };
       if (B12.iaGuardarChave11 && d.chave11 !== undefined) B12.iaGuardarChave11(d.chave11, d.voz11);
       if (B12.iaTrocarVoz && d.vozModo) B12.iaTrocarVoz(d.vozModo);
+      if (B12.iaTrocarMotor && d.motor) B12.iaTrocarMotor(d.motor);
       if (B12.iaGuardarChave && d.chaveIA !== undefined) {
         var ck = B12.iaGuardarChave(d.chaveIA);
         if (ck.erro) return { erro: ck.erro };
