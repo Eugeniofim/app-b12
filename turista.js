@@ -172,29 +172,59 @@ B12.pintarPasseio = function (id) {
 };
 
 /* ------------------------------------------------------------- a Ilha */
+var IG_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">' +
+  '<rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="3.6"/>' +
+  '<circle cx="17.2" cy="6.8" r="1.1" fill="currentColor" stroke="none"/></svg>';
+
+/* ícones desenhados: nada de emoji, e cada um diz do que a linha trata */
+var ICO_FAZER = {
+  trilha:'<path d="M4 20h16"/><path d="M12 20 8 6l4 3 4-3-4 14z"/>',
+  forte: '<path d="M4 20h16V10l-3 2V9l-2 2-3-3-3 3-2-2v3L4 10z"/><path d="M10 20v-4h4v4"/>',
+  onda:  '<path d="M3 14c2.5 0 2.5 2 5 2s2.5-2 5-2 2.5 2 5 2 2.5-2 3-2"/><path d="M3 9c2.5 0 2.5 2 5 2s2.5-2 5-2 2.5 2 5 2 2.5-2 3-2"/>',
+  peixe: '<path d="M3 12c4-5 10-5 13 0-3 5-9 5-13 0z"/><path d="M16 12c2-2 4-3 5-3-1 2-1 4 0 6-1 0-3-1-5-3z"/><circle cx="8" cy="11.4" r=".9" fill="currentColor" stroke="none"/>',
+  barco: '<path d="M4 17h16l-2.5 4h-11z"/><path d="M7 16V9h6l4 7"/><path d="M10 9V5h2"/>',
+  gruta: '<path d="M4 20V13a8 8 0 0 1 16 0v7"/><path d="M10 20v-4a2 2 0 0 1 4 0v4"/>',
+  sol:   '<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/>',
+  estrela:'<path d="m12 4 2.2 5.3 5.8.5-4.4 3.8 1.3 5.6L12 16.3 7.1 19.2l1.3-5.6L4 9.8l5.8-.5z"/>'
+};
+function icoFazer(k) {
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" ' +
+    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICO_FAZER[k] || '') + '</svg>';
+}
+
 B12.pintarIlha = function () {
   var tela = document.getElementById('t-ilha');
   if (!tela || tela.dataset.pronta) return;
   tela.dataset.pronta = '1';
 
-  var lugares = B12.LUGARES.map(function (l, i) {
-    return '<button class="lugar entra entra-' + Math.min(i+1,6) + '" data-lugar="' + l.id + '">' +
-      '<div class="lugar-foto" style="background-image:url(' + l.foto + ')"><span class="vila">' + l.vila + '</span></div>' +
-      '<div class="lugar-in"><b>' + l.nome + '</b><small>' + l.resumo + '</small></div></button>';
-  }).join('');
+  function cartoesLugar(tipo) {
+    return B12.LUGARES.filter(function (l) { return l.tipo === tipo; }).map(function (l, i) {
+      return '<button class="lugar entra entra-' + Math.min(i+1,6) + '" data-lugar="' + l.id + '">' +
+        '<div class="lugar-foto" style="background-image:url(' + l.foto + ')"><span class="vila">' + l.vila + '</span></div>' +
+        '<div class="lugar-in"><b>' + l.nome + '</b><small>' + l.resumo + '</small></div></button>';
+    }).join('');
+  }
+  function sec(titulo, extra) {
+    return '<div class="faixa-sec"><div class="tit"><h2>' + titulo + '</h2>' +
+      (extra ? '<span style="font-size:12px;color:var(--tinta-3)">' + extra + '</span>' : '') +
+      '</div></div>';
+  }
+  /* o cartão com foto: serve para comer e para ficar, com @ quando houver */
   function faixa(itens) {
     return '<div class="faixa-fotos">' + itens.map(function (c) {
-      return '<div class="fcard"><div class="fcard-foto" style="background-image:url(' + c.foto + ')"></div>' +
-        '<div class="fcard-in"><b>' + c.nome + '</b>' + (c.vila ? '<span class="vila-txt">' + c.vila + '</span>' : '') +
-        '<small>' + c.txt + '</small></div></div>';
+      var miolo = '<div class="fcard-in"><b>' + c.nome + '</b>' +
+        (c.vila ? '<span class="vila-txt">' + c.vila + '</span>' : '') +
+        '<small>' + c.txt + '</small>' +
+        (c.insta ? '<span class="parc-ig">' + IG_SVG + '@' + c.insta + '</span>' : '') + '</div>';
+      var corpo = '<div class="fcard-foto" style="background-image:url(' + c.foto + ')"></div>' + miolo;
+      return c.insta
+        ? '<a class="fcard" href="https://instagram.com/' + c.insta + '" target="_blank" rel="noopener">' + corpo + '</a>'
+        : '<div class="fcard">' + corpo + '</div>';
     }).join('') + '</div>';
   }
   var parceiros = B12.PARCEIROS.map(function (p) {
     var miolo = p.nome + '<small>' + p.tipo + '</small>' +
-      (p.insta ? '<span class="parc-ig">' +
-        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">' +
-        '<rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="3.6"/>' +
-        '<circle cx="17.2" cy="6.8" r="1.1" fill="currentColor" stroke="none"/></svg>@' + p.insta + '</span>' : '');
+      (p.insta ? '<span class="parc-ig">' + IG_SVG + '@' + p.insta + '</span>' : '');
     /* com @ o cartão vira link e abre o perfil; sem @, continua só um cartão */
     return p.insta
       ? '<a class="parc" href="https://instagram.com/' + p.insta + '" target="_blank" rel="noopener">' +
@@ -203,27 +233,60 @@ B12.pintarIlha = function () {
   }).join('');
 
   tela.innerHTML =
-    fotoTopo('fotos/ilha-heroi.jpg', 'Litoral do Paraná', 'Ilha do Mel', 'Praias, atrações, onde comer e onde ficar', 'inicio', true) +
+    fotoTopo('fotos/ilha-heroi.jpg', 'Litoral do Paraná', 'Ilha do Mel',
+      'O que fazer, praias, gastronomia, hospedagem e pontos turísticos', 'inicio', true) +
+
     '<div class="chips-info entra entra-1">' +
       '<div class="chip-info"><small>Vilas</small><b>2</b><small class="sub">Brasília e Encantadas</small></div>' +
       '<div class="chip-info"><small>Carros</small><b>0</b><small class="sub">só a pé ou de barco</small></div>' +
       '<div class="chip-info"><small>Visitantes</small><b>5 mil</b><small class="sub">limite por dia</small></div>' +
     '</div>' +
-    '<div class="faixa-sec"><div class="tit"><h2>A travessia com a B12</h2></div></div>' +
-    '<div class="cx foto-cx entra entra-2" style="margin-top:0">' +
+
+    '<div class="cx entra entra-1"><p class="lead">Dois morros de mata atlântica costurados por ' +
+    'uma faixa de areia, no meio da baía de Paranaguá. Não entram carros, o número de visitantes ' +
+    'é limitado por dia, e é exatamente por isso que ela continua assim. A B12 leva e traz você.</p></div>' +
+
+    sec('O que fazer na Ilha') +
+    '<div class="fazer">' + B12.FAZER.map(function (f, i) {
+      return '<div class="fz entra entra-' + Math.min(i+1,6) + '">' +
+        '<span class="fz-ico">' + icoFazer(f.ico) + '</span>' +
+        '<div><b>' + f.nome + '</b><small>' + f.txt + '</small></div></div>';
+    }).join('') + '</div>' +
+    '<div style="padding:0 12px;margin-top:10px">' +
+      '<button type="button" class="btn sec" style="margin-top:0" data-ir="passeios">' +
+      'Ver os passeios de barco da B12</button></div>' +
+
+    sec('Praias', 'toque para ver mais') +
+    '<div class="lugares">' + cartoesLugar('praia') + '</div>' +
+
+    sec('Pontos turísticos', 'toque para ver a história') +
+    '<div class="lugares">' + cartoesLugar('atracao') + '</div>' +
+
+    sec('As duas vilas') +
+    '<div class="lugares">' + cartoesLugar('vila') + '</div>' +
+
+    sec('Gastronomia') +
+    faixa(B12.COMER) +
+    '<div class="cx nota" style="margin-top:10px"><p>Casas de família, peixe do dia e mesa na areia. ' +
+    'Fora da alta temporada, confirme o horário antes de subir a trilha.</p></div>' +
+
+    sec('Onde ficar') + faixa(B12.FICAR) +
+    '<div class="faixa-sec" style="padding-top:12px"><div class="parceiros">' + parceiros + '</div></div>' +
+
+    sec('A travessia com a B12') +
+    '<div class="cx foto-cx entra" style="margin-top:0">' +
       '<div class="foto-cx-foto" style="background-image:url(fotos/travessia.jpg)"></div>' +
       '<div class="foto-cx-in"><h3>Conheça nossas embarcações</h3>' +
       '<p>Embarcação nova, equipe experiente e atendimento personalizado. Segurança e pontualidade ' +
       'garantidas, com roteiros sob medida pela baía de Paranaguá.</p>' +
-      '<p class="nota-peq">Aqui entram as fotos e os vídeos das lanchas da B12, para o passageiro se sentir seguro antes de embarcar.</p>' +
       '<button type="button" class="btn pri" data-ir="travessias">Reservar a travessia</button></div></div>' +
-    '<div class="faixa-sec"><div class="tit"><h2>Praias e atrações</h2>' +
-      '<span style="font-size:12px;color:var(--tinta-3)">toque para ver a história</span></div></div>' +
-    '<div class="lugares">' + lugares + '</div>' +
-    '<div class="faixa-sec"><div class="tit"><h2>Onde comer</h2></div></div>' + faixa(B12.COMER) +
-    '<div class="faixa-sec"><div class="tit"><h2>Onde ficar</h2></div></div>' + faixa(B12.FICAR) +
-    '<div class="faixa-sec" style="padding-top:12px"><div class="parceiros">' + parceiros + '</div></div>' +
-    '<div class="faixa-sec"><div class="tit"><h2>Como chegar</h2></div></div>' +
+
+    sec('Antes de ir') +
+    '<div class="dicas">' + B12.DICAS.map(function (d) {
+      return '<details class="dica"><summary>' + d.q + '</summary><p>' + d.a + '</p></details>';
+    }).join('') + '</div>' +
+
+    sec('Como chegar') +
     '<div class="cx" style="margin-top:0"><p style="color:var(--tinta)">' + B12.EMPRESA.endereco + '</p>' +
       '<p style="font-size:12.5px;color:var(--tinta-3);margin-top:4px">Estacionamento na própria B12. A travessia sai do trapiche.</p>' +
       '<a class="btn sec" href="https://www.google.com/maps/search/?api=1&query=' + B12.EMPRESA.lat + '%2C' + B12.EMPRESA.lon + '" target="_blank" rel="noopener">Traçar rota</a></div>' +
@@ -680,11 +743,32 @@ B12.pintarPontos = function () {
   if (!tela) return;
   var d = B12.meusPontos(), E = B12.EMPRESA;
 
-  if (!d.ligada) {
-    tela.innerHTML = fotoTopo('fotos/ilha-heroi.jpg', 'Clube B12', 'Clube B12',
-      'Em breve', 'inicio') +
-      '<div class="cx"><h3>O clube está em preparação</h3>' +
-      '<p>Fale com a B12 no WhatsApp para saber quando começa.</p></div>';
+  /* enquanto o Dhalsin não abrir o clube, o cliente vê a promessa, não o saldo */
+  if (!d.ligada || !d.publico) {
+    var jaEstou = !!(B12.meuCadastro && B12.meuCadastro());
+    tela.innerHTML =
+      fotoTopo('fotos/ilha-heroi.jpg', 'Clube B12', 'Em breve',
+        'O clube de fidelidade da Estação B12 está chegando', 'inicio') +
+      '<div class="cx entra"><h3>Quanto mais você navega, mais volta para você</h3>' +
+      '<p class="lead" style="margin-top:8px">Estamos preparando o clube de fidelidade da B12: ' +
+      'cada travessia, cada passeio e cada diária vão virar pontos, e os pontos viram ' +
+      'desconto e brinde.</p>' +
+      '<p style="margin-top:10px">Quem já está cadastrado entra na primeira turma, ' +
+      'e a B12 avisa por aqui quando começar.</p></div>' +
+      (jaEstou
+        ? '<div class="cx aviso entra entra-1"><h3>Você já está na lista</h3>' +
+          '<p>Seu cadastro está feito. É só continuar viajando com a gente.</p>' +
+          '<button class="btn pri" data-ir="travessias">Reservar uma travessia</button></div>'
+        : '<div class="cx aviso entra entra-1"><h3>Garanta seu lugar</h3>' +
+          '<p>Faça seu cadastro agora, em quinze segundos, e entre na lista do clube.</p>' +
+          '<button class="btn pri" id="b-clube-cadastro">Cadastre-se</button></div>') +
+      '<div class="cx nota"><h3>Enquanto isso</h3><p>Dúvida sobre horário, valor ou ' +
+      'estacionamento? Fale com a B12 no WhatsApp — a gente responde rápido.</p>' +
+      '<a class="btn sec" style="margin-top:12px" target="_blank" rel="noopener" href="https://wa.me/' +
+      B12.EMPRESA.whats + '?text=' + encodeURIComponent('Olá! Quero saber do Clube B12.') +
+      '">Falar com a B12</a></div>';
+    var bc = tela.querySelector('#b-clube-cadastro');
+    if (bc) bc.onclick = function () { B12.formCadastro(); };
     return;
   }
 

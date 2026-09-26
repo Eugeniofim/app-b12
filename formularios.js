@@ -858,6 +858,9 @@ B12.formFidelidade = function (depois) {
     corpo:
       marca('Contar pontos dos clientes', 'ligada', f.ligada !== false,
         'Desligando, a ficha para de mostrar pontos e faixa. O gasto continua aparecendo.') +
+      marca('Mostrar o clube para os clientes', 'publico', !!f.publico,
+        'Desligado, o cliente vê "Clube de fidelidade em breve" e pode se cadastrar. ' +
+        'Ligue quando os brindes estiverem combinados — a partir daí ele vê o saldo dele.') +
       campo('Quantos reais valem 1 ponto', 'rpp', { tipo:'number', modo:'decimal', passo:'1',
         valor: f.reaisPorPonto, ajuda:'Com 10, quem gasta R$ 300 fica com 30 pontos.' }) +
       campo('Pontos de boas-vindas', 'bonus', { tipo:'number', modo:'numeric',
@@ -871,7 +874,7 @@ B12.formFidelidade = function (depois) {
       var faixas = f.faixas.map(function (x, i) {
         return { nome: d['n' + i], de: d['p' + i], mimo: d['m' + i] };
       });
-      return B12.salvarFidelidade({ ligada: d.ligada, reaisPorPonto: d.rpp,
+      return B12.salvarFidelidade({ ligada: d.ligada, publico: d.publico, reaisPorPonto: d.rpp,
         pontosInstalacao: d.bonus, faixas: faixas });
     },
     depois: function (r) {
@@ -886,18 +889,20 @@ B12.formFidelidade = function (depois) {
    fica depois. Quem chega aqui está com o dedo no ar, não quer formulário. */
 B12.formCadastro = function (depois) {
   var f = B12.fidelidade(), eu = B12.meuCadastro();
-  var bonus = f.ligada !== false ? (Number(f.pontosInstalacao) || 0) : 0;
+  var clube = f.ligada !== false && !!f.publico;   /* só promete ponto quando o clube está no ar */
 
   B12.folha({
     titulo: eu ? 'Seu cadastro' : 'Cadastre-se na B12',
     sub: eu ? 'Altere o que quiser' : 'Leva quinze segundos',
     corpo:
-      (bonus
+      (clube
         ? '<div class="fid" style="margin-bottom:14px"><div class="fid-topo">' +
-          '<span class="fid-faixa">Clube B12</span><b>' + bonus + '<small> pontos</small></b></div>' +
-          '<small>De boas-vindas, por instalar o app e se cadastrar. Depois é só viajar: ' +
-          'cada ' + B12.brl(f.reaisPorPonto) + ' vale mais 1 ponto.</small></div>'
-        : '') +
+          '<span class="fid-faixa">Clube B12</span><b>' + (Number(f.pontosInstalacao) || 0) +
+          '<small> pontos</small></b></div>' +
+          '<small>De boas-vindas, por se cadastrar. Depois é só viajar: cada ' +
+          B12.brl(f.reaisPorPonto) + ' vale mais 1 ponto.</small></div>'
+        : '<div class="cx aviso" style="margin:0 0 14px"><h3>Clube de fidelidade em breve</h3>' +
+          '<p>Quem se cadastra agora entra na primeira turma. A B12 avisa pelo app quando começar.</p></div>') +
       campo('Seu nome', 'nome', { valor: (eu && eu.nome) || '', obrig:true, max:60,
         dica:'como podemos te chamar' }) +
       campo('WhatsApp', 'whats', { tipo:'tel', modo:'tel', valor: (eu && eu.whats) || '',
@@ -914,12 +919,132 @@ B12.formCadastro = function (depois) {
     acao: eu ? 'Salvar' : 'Criar meu cadastro',
     aoSalvar: function (d) { return B12.salvarMeuCadastro(d); },
     depois: function (r) {
+      if (r && r.ok && r.novo) return B12.bemVindo(r.cliente, depois);
+      if (r && r.ok) B12.aviso('Cadastro atualizado.', 'bom');
+      if (depois) depois(r);
+    }
+  });
+};
+
+/* ------------------------------------------------------------- bem-vindo
+   A pessoa acabou de se cadastrar. Uma tela curta que agradece, diz o que
+   acontece agora, e devolve ela para o app — não para um formulário. */
+B12.bemVindo = function (c, depois) {
+  var f = B12.fidelidade(), clube = f.ligada !== false && !!f.publico;
+  var primeiro = String((c && c.nome) || '').split(' ')[0];
+
+  var form = B12.folha({
+    titulo: 'Bem-vindo' + (primeiro ? ', ' + primeiro : '') + '!',
+    sub: 'Seu cadastro está feito',
+    corpo:
+      '<div class="bv"><span class="bv-ico">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" ' +
+        'stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>' +
+      '</span><p>Agora é só reservar sua travessia. A confirmação e o código chegam ' +
+      'no seu WhatsApp.</p></div>' +
+
+      '<div class="grupo">O que você ganha</div>' +
+      '<div class="ganha"><b>Reserva</b><span>faça pelo app e receba o voucher no celular</span></div>' +
+      '<div class="ganha"><b>Avisos</b><span>horário, maré e promoção da B12 direto para você</span></div>' +
+      '<div class="ganha"><b>' + (clube ? 'Pontos' : 'Em breve') + '</b><span>' +
+        (clube
+          ? 'cada ' + B12.brl(f.reaisPorPonto) + ' gastos vira 1 ponto para desconto e brinde'
+          : 'clube de fidelidade: você já está na primeira turma') +
+      '</span></div>' +
+
+      '<div class="ajuda" style="margin-top:14px">Quer mudar alguma coisa? É só tocar de novo ' +
+      'em Cadastre-se, na entrada do app.</div>',
+    extra: '<button type="button" class="btn sec" id="bv-reservar" style="margin-top:0">' +
+      'Reservar travessia agora</button>',
+    acao: 'Voltar ao app',
+    aoSalvar: function () { return { ok: true }; },
+    depois: function () { B12.ir('inicio'); if (depois) depois({ ok: true, novo: true }); }
+  });
+  form.querySelector('#bv-reservar').onclick = function () {
+    B12.fecharFolha();
+    B12.ir('travessias');
+    if (depois) depois({ ok: true, novo: true });
+  };
+};
+
+/* ------------------------------------------------- as buscas na Ilha (véspera)
+   O Dhalsin monta na véspera os horários em que a lancha vai buscar quem está
+   na Ilha. Até ele montar, o app diz ao passageiro que os horários ainda não
+   abriram — em vez de inventar um horário que pode não existir. */
+B12.formVoltas = function (iso, depois) {
+  var jaTem = B12.voltasDoDia(iso);
+  var sugeridas = B12.voltasSugeridas();
+  var naIlha = (B12.naIlha(iso) || {});
+  var quantos = (naIlha.voltam || []).reduce(function (t, p) { return t + (p.pessoas || 1); }, 0);
+  var atuais = jaTem.map(function (s) { return s.hora; });
+  var presas = jaTem.filter(function (s) {
+    return B12.DB.reservas.some(function (r) { return r.saidaVoltaId === s.id; });
+  }).map(function (s) { return s.hora; });
+
+  var todas = sugeridas.concat(atuais).filter(function (h, i, a) { return a.indexOf(h) === i; }).sort();
+
+  var form = B12.folha({
+    titulo: 'Buscas de ' + B12.dataBR(iso),
+    sub: quantos ? quantos + (quantos > 1 ? ' pessoas voltam nesse dia' : ' pessoa volta nesse dia')
+                 : 'Ninguém marcou volta ainda',
+    corpo:
+      '<p style="font-size:13px;color:var(--gelo-3);margin-bottom:12px">Toque nos horários em que ' +
+      'a lancha vai buscar na Ilha. Só o que estiver marcado aqui aparece para o passageiro.</p>' +
+      '<div class="horas" id="hx">' + todas.map(function (h) {
+        var presa = presas.indexOf(h) >= 0;
+        return '<button type="button" class="hchip' + (atuais.indexOf(h) >= 0 ? ' on' : '') +
+          (presa ? ' presa' : '') + '" data-h="' + h + '"' + (presa ? ' disabled' : '') + '>' + h +
+          (presa ? ' ·com gente' : '') + '</button>';
+      }).join('') + '</div>' +
+      (presas.length
+        ? '<div class="ajuda" style="margin-top:10px">' + presas.join(', ') +
+          ' não pode' + (presas.length > 1 ? 'm' : '') + ' ser tirado' + (presas.length > 1 ? 's' : '') +
+          ': já tem passageiro marcado. Para mudar, fale com a pessoa antes.</div>'
+        : '') +
+      campo('Acrescentar um horário', 'extra', { tipo:'time', ajuda:'Use para um horário fora da lista.' }) +
+      campo('Vagas por lancha', 'vagas', { tipo:'number', modo:'numeric', valor: 12,
+        ajuda:'Quantas pessoas cabem em cada busca.' }) +
+      '<input type="hidden" name="horas" value="' + atuais.join(',') + '">',
+    acao: 'Abrir as buscas',
+    aoAbrir: function (f) {
+      var guardadas = f.querySelector('[name=horas]');
+      function sincronizar() {
+        var marcadas = [];
+        f.querySelectorAll('.hchip.on').forEach(function (b) { marcadas.push(b.dataset.h); });
+        guardadas.value = marcadas.join(',');
+      }
+      f.querySelectorAll('.hchip').forEach(function (b) {
+        b.onclick = function () { b.classList.toggle('on'); sincronizar(); };
+      });
+      var extra = f.querySelector('[name=extra]');
+      extra.onchange = function () {
+        var h = extra.value;
+        if (!h) return;
+        if (f.querySelector('.hchip[data-h="' + h + '"]')) {
+          f.querySelector('.hchip[data-h="' + h + '"]').classList.add('on');
+        } else {
+          var b = document.createElement('button');
+          b.type = 'button'; b.className = 'hchip on'; b.dataset.h = h; b.textContent = h;
+          b.onclick = function () { b.classList.toggle('on'); sincronizar(); };
+          f.querySelector('#hx').appendChild(b);
+        }
+        extra.value = '';
+        sincronizar();
+      };
+    },
+    aoSalvar: function (d) {
+      var horas = String(d.horas || '').split(',').filter(Boolean);
+      return B12.abrirVoltas(iso, horas, { vagas: d.vagas });
+    },
+    depois: function (r) {
       if (r && r.ok) {
-        B12.aviso(r.novo ? 'Cadastro feito! Bem-vindo ao Clube B12.' : 'Cadastro atualizado.', 'bom');
+        B12.aviso('Buscas de ' + B12.dataBR(iso) + ' abertas: ' + r.total +
+          (r.total === 1 ? ' horário.' : ' horários.'), 'bom');
       }
       if (depois) depois(r);
     }
   });
+  return form;
 };
 
 })();

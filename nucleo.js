@@ -252,6 +252,7 @@ function semearTurista(D, hoje) {
   var depois = B12.diaMais(hoje, 2);
   var ida10 = D.saidas.filter(function (x) { return x.data === hoje && x.sentido === 'ida' && x.hora === '10:00'; })[0];
   B12.materializarDia(depois);
+  B12.abrirVoltas(depois, B12.voltasSugeridas());
   var volta16 = D.saidas.filter(function (x) { return x.data === depois && x.sentido === 'volta' && x.hora === '16:00'; })[0];
   D.reservas.unshift({ id: 'rs-app-demo-2', cod: 'B12-5809', origem: 'app', demo: true,
     nome: 'Fernanda Klein', zap: '41998765432', email: 'fe.klein@exemplo.com', instagram: 'fe.klein',
@@ -328,6 +329,11 @@ function semearOperacao(D, hoje) {
 
   /* passageiros distribuídos nas saídas de hoje */
   var idas = D.saidas.filter(function (s) { return s.data === hoje && s.sentido === 'ida'; });
+  /* na demonstração as buscas de hoje já estão abertas, como estariam se o
+     Dhalsin tivesse montado ontem */
+  if (!D.saidas.some(function (s) { return s.data === hoje && s.sentido === 'volta'; })) {
+    B12.abrirVoltas(hoje, B12.voltasSugeridas());
+  }
   var voltas = D.saidas.filter(function (s) { return s.data === hoje && s.sentido === 'volta'; });
   idas.forEach(function (s, i) {
     var quantos = 1 + r(3);
@@ -782,18 +788,60 @@ B12.situacaoTxt = function (r) {
 /* ------------------------------------------------------------------- saídas */
 /* A grade padrão: o que a lancha faz todo dia quando ninguém mudou nada.
    Um dia sem escala própria ganha a grade na hora em que alguém olha para ele. */
+/* A ida sai em horário de tabela. A VOLTA não: o Dhalsin monta as buscas da
+   Ilha na véspera, olhando quem está lá e como está o mar. Por isso o dia
+   nasce com as idas prontas e as voltas em aberto — e o app diz isso ao
+   passageiro em vez de inventar horário que pode não existir. */
 B12.GRADE_PADRAO = { ida: ['08:30','10:00','11:30','13:00','15:00','17:00'],
-                     volta: ['09:30','12:00','16:00','18:00'], vagas: 12 };
+                     voltaSugerida: ['09:30','12:00','16:00','18:00'], vagas: 12 };
 B12.materializarDia = function (iso) {
   if (iso < B12.hoje()) return false;                       /* passado não ganha grade */
   if (B12.DB.saidas.some(function (s) { return s.data === iso; })) return false;
   var g = B12.DB.ajustes.grade || B12.GRADE_PADRAO;
   g.ida.forEach(function (h) { B12.DB.saidas.push({ id: novoId('sd'), data: iso, hora: h, sentido: 'ida',
     destino: 'Brasília', embarcacao: 'l01', marinheiro: '', vagas: g.vagas || 12, ocupadas: 0, grade: true }); });
-  g.volta.forEach(function (h) { B12.DB.saidas.push({ id: novoId('sd'), data: iso, hora: h, sentido: 'volta',
-    destino: 'Pontal do Sul', embarcacao: 'l01', marinheiro: '', vagas: g.vagas || 12, ocupadas: 0, grade: true }); });
   B12.salvar();
   return true;
+};
+/* os horários sugeridos, para o Dhalsin tocar em vez de digitar */
+B12.voltasSugeridas = function () {
+  var g = B12.DB.ajustes.grade || {};
+  return g.voltaSugerida || g.volta || B12.GRADE_PADRAO.voltaSugerida;
+};
+/* quem já está marcado em algum horário daquele dia */
+B12.voltasDoDia = function (iso) { return B12.saidasDoDia(iso, 'volta'); };
+/* Abre (ou refaz) as buscas de um dia. Horário com gente marcada nunca some:
+   apagar por engano o horário de quem já confirmou seria o pior estrago. */
+B12.abrirVoltas = function (iso, horas, opc) {
+  opc = opc || {};
+  var limpas = (horas || []).map(function (h) { return String(h || '').trim(); })
+    .filter(function (h) { return /^\d{1,2}:\d{2}$/.test(h); })
+    .map(function (h) { return h.length === 4 ? '0' + h : h; });
+  limpas = limpas.filter(function (h, i) { return limpas.indexOf(h) === i; }).sort();
+  if (!limpas.length) return { erro: 'Informe pelo menos um horário, no formato 16:00.' };
+
+  var g = B12.DB.ajustes.grade || B12.GRADE_PADRAO;
+  var jaTem = B12.DB.saidas.filter(function (s) { return s.data === iso && s.sentido === 'volta'; });
+  var comGente = [], removidas = 0;
+  jaTem.forEach(function (s) {
+    var gente = B12.DB.reservas.some(function (r) { return r.saidaVoltaId === s.id; });
+    if (gente) { comGente.push(s.hora); return; }
+    if (limpas.indexOf(s.hora) < 0) {
+      B12.DB.saidas = B12.DB.saidas.filter(function (x) { return x.id !== s.id; });
+      removidas++;
+    }
+  });
+  var criadas = 0;
+  limpas.forEach(function (h) {
+    if (B12.DB.saidas.some(function (s) { return s.data === iso && s.sentido === 'volta' && s.hora === h; })) return;
+    B12.DB.saidas.push({ id: novoId('sd'), data: iso, hora: h, sentido: 'volta',
+      destino: 'Pontal do Sul', embarcacao: opc.embarcacao || 'l01', marinheiro: opc.marinheiro || '',
+      vagas: Number(opc.vagas) || g.vagas || 12, ocupadas: 0, grade: false });
+    criadas++;
+  });
+  B12.salvar();
+  return { ok: true, criadas: criadas, removidas: removidas, mantidas: comGente,
+           total: B12.voltasDoDia(iso).length };
 };
 B12.saidasDoDia = function (iso, sentido) {
   B12.materializarDia(iso);
@@ -918,6 +966,7 @@ B12.fidelidade = function () {
   if (!f) return JSON.parse(JSON.stringify(B12.FIDELIDADE));
   /* quem salvou as regras antes do bônus existir não perde o presente */
   if (f.pontosInstalacao == null) f.pontosInstalacao = B12.FIDELIDADE.pontosInstalacao;
+  if (f.publico == null) f.publico = B12.FIDELIDADE.publico;
   return f;
 };
 B12.salvarFidelidade = function (v) {
@@ -936,8 +985,8 @@ B12.salvarFidelidade = function (v) {
     }
   }
   var bon = Math.max(0, Math.round(Number(v.pontosInstalacao) || 0));
-  B12.DB.ajustes.fidelidade = { ligada: v.ligada !== false, reaisPorPonto: rpp,
-    pontosInstalacao: bon, validadeMeses: 0, faixas: faixas };
+  B12.DB.ajustes.fidelidade = { ligada: v.ligada !== false, publico: !!v.publico,
+    reaisPorPonto: rpp, pontosInstalacao: bon, validadeMeses: 0, faixas: faixas };
   B12.salvar();
   return { ok: true };
 };
@@ -1011,7 +1060,7 @@ B12.meusPontos = function () {
   linhas.sort(function (a, b) { return String(b.quando).localeCompare(String(a.quando)); });
 
   var ff = B12.faixaDe(total);
-  return { ligada: f.ligada !== false, pontos: total, linhas: linhas,
+  return { ligada: f.ligada !== false, publico: !!f.publico, pontos: total, linhas: linhas,
            faixa: ff.faixa, proxima: ff.proxima, faltam: ff.faltam, andado: ff.andado,
            faixas: f.faixas, reaisPorPonto: f.reaisPorPonto,
            bonusInstalacao: Math.max(0, Number(f.pontosInstalacao) || 0),

@@ -15,7 +15,7 @@ var B12 = window.B12 || {};
 /* ---------------------------------------------------------------- identidade */
 /* o cofre: o servidor da Ti Artes que guarda a chave da IA. Vazio = assistente
    desligado (o app continua funcionando igual, só sem o chat). */
-B12.VERSAO = 'b12-v1.49.0';   /* tem que bater com o CACHE do sw.js */
+B12.VERSAO = 'b12-v1.52.0';   /* tem que bater com o CACHE do sw.js */
 
 B12.IA = { cofre: 'https://uopfqlogjzuqpabptxkb.supabase.co/functions/v1/cofre',
            modelo: 'claude-haiku-4-5' };
@@ -151,7 +151,8 @@ B12.DESTINOS = ['Brasília', 'Encantadas'];
    manda é o Dhalsin, que muda na aba Clientes → Regras de fidelidade.
    O 'mimo' é o texto que aparece na ficha quando a pessoa chega na faixa. */
 B12.FIDELIDADE = {
-  ligada: true,
+  ligada: true,               /* o Dhalsin já conta pontos e faixa no painel dele */
+  publico: false,             /* o cliente ainda NÃO vê o clube: a tela dele diz "em breve" */
   reaisPorPonto: 10,          /* cada R$ 10 gastos = 1 ponto */
   pontosInstalacao: 20,       /* o presente de boas-vindas por instalar o app */
   validadeMeses: 0,           /* 0 = os pontos não vencem */
@@ -183,52 +184,52 @@ B12.PARCEIROS = [
    Fotos ilustrativas do Wikimedia Commons (créditos em B12.CREDITOS) até a
    B12 mandar as dela. 'vila' diz de que lado da Ilha o lugar fica. */
 B12.LUGARES = [
-  { id:'farol', nome:'Farol das Conchas', vila:'Brasília', foto:'fotos/ilha-farol.jpg', foto2:'fotos/ilha-trilha.jpg',
+  { id:'farol', tipo:'atracao', nome:'Farol das Conchas', vila:'Brasília', foto:'fotos/ilha-farol.jpg', foto2:'fotos/ilha-trilha.jpg',
     resumo:'O cartão-postal da Ilha, com vista dos dois lados.',
     texto:'No alto do Morro das Conchas, o farol olha ao mesmo tempo para o mar aberto e para a baía. A subida é por uma escadaria entre a mata, e lá de cima se vê a Praia de Fora, a Praia do Farol e, nos dias limpos, a serra no continente.',
     hist:'Aceso pela primeira vez em 1872, no Segundo Reinado, o farol foi montado com uma torre de ferro fundida na Escócia e trazida de navio. Até hoje orienta quem entra na baía de Paranaguá.',
     como:'Trilha de uns 15 minutos a partir da Praia do Farol, em Brasília. Melhor no fim da tarde.' },
-  { id:'forte', nome:'Fortaleza N. Sra. dos Prazeres', vila:'Brasília', foto:'fotos/ilha-forte.jpg',
+  { id:'forte', tipo:'atracao', nome:'Fortaleza N. Sra. dos Prazeres', vila:'Brasília', foto:'fotos/ilha-forte.jpg',
     resumo:'Forte do século XVIII, tombado.',
     texto:'Muralhas brancas de pedra e cal na beira da praia, canhões apontados para a entrada da baía e um morro de mata fechada atrás. Dá para andar pelas muralhas e ver a serra do outro lado da água.',
     hist:'Construída entre 1767 e 1769 por ordem da Coroa portuguesa, para defender Paranaguá de invasões. Em 1850 seus canhões dispararam contra a corveta inglesa Cormorant, que perseguia navios negreiros: foi o único combate da fortaleza. É tombada pelo Iphan desde 1938.',
     como:'Caminhada de 40 minutos desde Brasília pela Praia da Fortaleza, ou de barco.' },
-  { id:'gruta', nome:'Gruta das Encantadas', vila:'Encantadas', foto:'fotos/ilha-gruta.jpg', foto2:'fotos/ilha-gruta-2.jpg',
+  { id:'gruta', tipo:'atracao', nome:'Gruta das Encantadas', vila:'Encantadas', foto:'fotos/ilha-gruta.jpg', foto2:'fotos/ilha-gruta-2.jpg',
     resumo:'A lenda das sereias, na ponta sul.',
     texto:'Uma gruta aberta pelo mar na pedra, na ponta sul da Ilha. Uma passarela de madeira leva até a entrada; o mar bate lá dentro e o eco faz o resto.',
     hist:'A lenda diz que sereias cantam na gruta nas noites de lua e encantam os pescadores, que nunca mais voltam. Foi essa história que deu nome à vila das Encantadas.',
     como:'Trilha curta a partir da vila das Encantadas, 10 minutos. Não se entra na gruta: o mar é traiçoeiro.' },
-  { id:'praiadefora', nome:'Praia de Fora', vila:'Brasília', foto:'fotos/ilha-praiadefora.jpg',
+  { id:'praiadefora', tipo:'praia', nome:'Praia de Fora', vila:'Brasília', foto:'fotos/ilha-praiadefora.jpg',
     resumo:'A praia aberta, boa para surfe.',
     texto:'Do lado do oceano, logo depois do farol: areia larga, ondas e quase ninguém. É a praia dos surfistas e de quem quer caminhar sem encontrar gente.',
     hist:'',
     como:'10 minutos a pé da Praia do Farol, contornando o morro. Cuidado com a correnteza.' },
-  { id:'praiagrande', nome:'Praia Grande', vila:'as duas vilas', foto:'fotos/ilha-praiagrande.jpg',
+  { id:'praiagrande', tipo:'praia', nome:'Praia Grande', vila:'as duas vilas', foto:'fotos/ilha-praiagrande.jpg',
     resumo:'A praia que liga Brasília às Encantadas.',
     texto:'A maior praia da Ilha, de mar aberto, ligando as duas vilas. Na maré baixa a caminhada de uma vila à outra leva cerca de uma hora, com o pé na água.',
     hist:'',
     como:'A pé, na maré baixa. Na maré alta, alguns trechos ficam sem areia: consulte a tábua de marés no app.' },
-  { id:'limoeiro', nome:'Praia do Limoeiro', vila:'Brasília', foto:'fotos/ilha-limoeiro.jpg',
+  { id:'limoeiro', tipo:'praia', nome:'Praia do Limoeiro', vila:'Brasília', foto:'fotos/ilha-limoeiro.jpg',
     resumo:'Água calma, de frente para o pôr do sol.',
     texto:'Virada para a baía, sem ondas, com água morna e rasa. É a praia das famílias com crianças e a melhor da Ilha para ver o sol se pôr atrás da serra.',
     hist:'',
     como:'5 minutos a pé do trapiche de Brasília.' },
-  { id:'istmo', nome:'Istmo', vila:'Brasília', foto:'fotos/ilha-istmo.jpg',
+  { id:'istmo', tipo:'atracao', nome:'Istmo', vila:'Brasília', foto:'fotos/ilha-istmo.jpg',
     resumo:'O pedaço mais estreito da Ilha.',
     texto:'A faixa de areia que liga as duas metades da Ilha: mar dos dois lados, dunas e restinga no meio. Na maré baixa a água fica transparente e parada.',
     hist:'A Ilha do Mel são, na verdade, dois morros de pedra unidos por areia. O istmo é essa costura, e é por ele que se anda de uma metade à outra.',
     como:'Caminhada a partir da Praia do Limoeiro.' },
-  { id:'galheta', nome:'Ilha da Galheta', vila:'de barco', foto:'fotos/ilha-galheta.jpg',
+  { id:'galheta', tipo:'atracao', nome:'Ilha da Galheta', vila:'de barco', foto:'fotos/ilha-galheta.jpg',
     resumo:'Piscina natural, só se chega pelo mar.',
     texto:'Ilhota de pedra e mata na ponta sul, sem moradores. Entre as pedras o mar forma uma piscina de água clara e sem onda, ótima para ver peixes de máscara.',
     hist:'',
     como:'Só de barco. A B12 faz o passeio de 3 horas, com horário pela maré.', passeio:'galheta' },
-  { id:'encantadas', nome:'Vila das Encantadas', vila:'Encantadas', foto:'fotos/ilha-encantadas.jpg',
+  { id:'encantadas', tipo:'vila', nome:'Vila das Encantadas', vila:'Encantadas', foto:'fotos/ilha-encantadas.jpg',
     resumo:'Trapiche, bares na areia e praia calma.',
     texto:'A vila do sul: menor e mais tranquila, com casas coloridas entre a mata, bares com mesa na areia e a praia de água calma de frente para o trapiche.',
     hist:'',
     como:'É um dos dois destinos da travessia da B12.' },
-  { id:'brasilia', nome:'Vila de Brasília', vila:'Brasília', foto:'fotos/ilha-brasilia.jpg',
+  { id:'brasilia', tipo:'vila', nome:'Vila de Brasília', vila:'Brasília', foto:'fotos/ilha-brasilia.jpg',
     resumo:'A vila maior, com o trapiche principal.',
     texto:'Onde a maioria chega: pousadas, restaurantes, o posto de saúde e o começo das trilhas para o Farol e para a Fortaleza. Os barcos de pesca ficam na areia, em frente ao trapiche.',
     hist:'Não entram carros na Ilha, e o número de visitantes por dia é limitado. É por isso que ela continua assim.',
@@ -237,11 +238,51 @@ B12.LUGARES = [
 
 /* onde comer e onde ficar: textos de exemplo, editáveis pela B12 no painel */
 B12.COMER = [
-  { nome:'Bares na areia', vila:'Encantadas', foto:'fotos/ilha-comer-1.jpg',
+  { nome:'Fim da Trilha', vila:'Encantadas', insta:'fimdatrilha', foto:'fotos/ilha-comer-1.jpg',
+    txt:'Peixe, moqueca, ceviche e a lasanha de camarão da casa. A dois minutos do trapiche.' },
+  { nome:'Astral da Ilha', vila:'Brasília', insta:'pousadaastraldailha', foto:'fotos/ilha-comer-2.jpg',
+    txt:'Cozinha de pousada, cerveja artesanal e vista do Farol das Conchas.' },
+  { nome:'Villa Verde', vila:'Brasília', insta:'villaverderestaurante', foto:'fotos/ilha-comer-1.jpg',
+    txt:'Na Praia do Farol, aberto todo dia das 11h às 22h.' },
+  { nome:'Bares na areia', vila:'Encantadas', insta:'', foto:'fotos/ilha-comer-2.jpg',
     txt:'Mesa com o pé na areia, peixe do dia e o pôr do sol de graça.' },
-  { nome:'Restaurantes das vilas', vila:'Brasília e Encantadas', foto:'fotos/ilha-comer-2.jpg',
-    txt:'Casas de família com moqueca, camarão e a tainha da época. A B12 indica os parceiros.' },
 ];
+
+/* ------------------------------------------------------- o que fazer na Ilha
+   Sem foto de propósito: é lista de ideia, não de cartão-postal. O ícone é
+   desenhado no próprio app. */
+B12.FAZER = [
+  { ico:'trilha', nome:'Subir até o Farol das Conchas',
+    txt:'Quinze minutos de escadaria na mata e a Ilha inteira aos seus pés. Melhor no fim da tarde.' },
+  { ico:'forte', nome:'Caminhar até a Fortaleza',
+    txt:'Quarenta minutos pela praia até as muralhas de 1769, com os canhões virados para a baía.' },
+  { ico:'onda', nome:'Surfar na Praia Grande e na Praia de Fora',
+    txt:'Mar aberto, ondas boas e pouca gente. Tem escola de surfe nas duas vilas.' },
+  { ico:'peixe', nome:'Mergulhar de máscara na Galheta',
+    txt:'Piscina natural entre as pedras, água clara e peixe à vista. Só se chega de barco.' },
+  { ico:'barco', nome:'Passear de barco pela baía',
+    txt:'Baía dos Golfinhos, Ilha das Peças, tour 360° e pôr do sol. A B12 leva.' },
+  { ico:'gruta', nome:'Conhecer a Gruta das Encantadas',
+    txt:'Dez minutos de trilha da vila. A lenda das sereias nasceu ali.' },
+  { ico:'sol', nome:'Ver o sol se pôr no Limoeiro',
+    txt:'Água morna, sem onda, e o sol descendo atrás da serra do continente.' },
+  { ico:'estrela', nome:'Olhar o céu à noite',
+    txt:'Quase não há iluminação pública na Ilha. Em noite limpa dá para ver a Via Láctea.' },
+];
+
+/* ------------------------------------------------------------ dicas práticas
+   O que ninguém conta e todo mundo descobre tarde. */
+B12.DICAS = [
+  { q:'Não entram carros na Ilha', a:'Tudo se faz a pé, de bicicleta ou de barco. Deixe o carro no estacionamento da B12, no continente, e leve só o necessário.' },
+  { q:'Leve dinheiro', a:'O sinal de celular oscila e nem todo lugar tem maquininha. Não há caixa eletrônico na Ilha.' },
+  { q:'Há taxa de preservação', a:'O Parque Estadual cobra uma taxa ambiental por visitante. Confirme o valor com a B12 antes de embarcar.' },
+  { q:'O número de visitantes é limitado', a:'A Ilha recebe até cinco mil pessoas por dia. Em feriado e alta temporada, reserve com antecedência.' },
+  { q:'Leve mochila, não mala de rodinha', a:'As ruas são de areia e trilha. Mala de rodinha não anda na Ilha.' },
+  { q:'O que levar', a:'Protetor solar, repelente, lanterna para a noite, calçado que pode molhar e uma garrafa de água.' },
+  { q:'A maré manda', a:'Algumas caminhadas e alguns passeios só acontecem na maré certa. A B12 confirma o horário no dia.' },
+  { q:'Leve seu lixo de volta', a:'A coleta na Ilha é limitada. O que entra com você sai com você.' },
+];
+
 B12.FICAR = [
   { nome:'Pousadas entre a mata', foto:'fotos/ilha-ficar-1.jpg',
     txt:'Casas de madeira colorida, a poucos passos da praia. Reserve antes: nos feriados a Ilha lota.' },
