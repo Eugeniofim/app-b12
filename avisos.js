@@ -154,6 +154,41 @@ function apelidoDoAparelho() {
   return qual + (B12.avInstalado() ? ' (app)' : ' (navegador)');
 }
 
+/* --------------------------------------------------- chamar o carteiro
+   Quem manda é a função no servidor, e ela só obedece ao dono — confere no
+   banco, não na palavra. Daqui só sai o pedido. */
+async function chamarCarteiro(corpo) {
+  if (!nuvem()) return { erro: 'A nuvem não está ligada.' };
+  if (!B12.nuvLogado()) return { erro: 'Faça o login da nuvem primeiro.' };
+  var ctrl = new AbortController();
+  var corta = setTimeout(function () { ctrl.abort(); }, 20000);
+  try {
+    var r = await fetch(B12.NUVEM.url + '/functions/v1/avisar', {
+      method: 'POST', signal: ctrl.signal,
+      headers: B12.nuvCabecalho(),
+      body: JSON.stringify(corpo)
+    });
+    var d = await r.json().catch(function () { return {}; });
+    if (!r.ok) return { erro: d.erro || ('O servidor recusou (' + r.status + ').') };
+    return d;
+  } catch (e) {
+    return { erro: 'Não consegui falar com o servidor. Tente de novo.' };
+  } finally { clearTimeout(corta); }
+}
+
+/* um aviso de teste, para ele ver o celular apitar */
+B12.avTestar = function () {
+  return chamarCarteiro({
+    papel: 'dono', tag: 'teste',
+    titulo: 'Estação B12', ir: '/#/adm',
+    texto: 'Funcionou. É assim que os avisos vão chegar para você.'
+  });
+};
+/* a varredura: o servidor olha o dia e manda só o que precisa */
+B12.avVarrer = function () { return chamarCarteiro({ varrer: true }); };
+/* um aviso escrito por ele */
+B12.avMandar = function (o) { return chamarCarteiro(o || {}); };
+
 /* o service worker pede para reinscrever quando o navegador troca a assinatura */
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('message', function (ev) {

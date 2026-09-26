@@ -1318,8 +1318,36 @@ function blocoAvisos(raiz) {
     b = bloco(cartao('nota', 'Avisos no celular',
       'Este aparelho recebe aviso da B12 mesmo com o app fechado: horário que falta montar, ' +
       'gente na Ilha sem volta, pedido novo.',
-      '<button type="button" class="btn sec" id="b-av-off" style="margin-top:12px">' +
+      '<div class="grade2" style="margin:12px 0 0">' +
+      '<button type="button" class="btn pri" id="b-av-teste" style="margin:0">Mandar um teste</button>' +
+      '<button type="button" class="btn sec" id="b-av-ver" style="margin:0">Ver o que falta agora</button>' +
+      '</div>' +
+      '<button type="button" class="btn sec" id="b-av-off" style="margin-top:9px">' +
       'Parar de receber neste aparelho</button>'));
+    b.querySelector('#b-av-teste').onclick = function () {
+      var bt = b.querySelector('#b-av-teste');
+      var solta = B12.ocupar(bt, 'Mandando…');
+      B12.avTestar().then(function (r) {
+        solta();
+        if (r.erro) return B12.aviso(r.erro, 'ruim');
+        B12.aviso(r.mandados
+          ? 'Mandei para ' + r.mandados + (r.mandados > 1 ? ' aparelhos' : ' aparelho') +
+            '. Se o app estiver aberto, minimize para ver o aviso chegar.'
+          : 'Nenhum aparelho inscrito ainda.', r.mandados ? 'bom' : 'ruim');
+      });
+    };
+    b.querySelector('#b-av-ver').onclick = function () {
+      var bt = b.querySelector('#b-av-ver');
+      var solta = B12.ocupar(bt, 'Olhando o dia…');
+      B12.avVarrer().then(function (r) {
+        solta();
+        if (r.erro) return B12.aviso(r.erro, 'ruim');
+        B12.aviso(r.nada || !r.avisos
+          ? 'Nada pendente. Nenhum aviso precisou sair.'
+          : r.avisos + (r.avisos > 1 ? ' avisos mandados' : ' aviso mandado') +
+            ' para ' + r.mandados + (r.mandados > 1 ? ' aparelhos' : ' aparelho') + '.', 'bom');
+      });
+    };
     b.querySelector('#b-av-off').onclick = function () {
       B12.ocupar(b.querySelector('#b-av-off'), 'Desligando…');
       B12.avDesligar().then(function () {
