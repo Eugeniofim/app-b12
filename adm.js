@@ -184,7 +184,7 @@ function grafRosca(alvo, fatias) {
 
 /* ============================================================== os painéis */
 var ABAS = [
-  ['hoje','Hoje'], ['ia','Assistente'], ['escala','Escala'], ['painel','Painel'], ['precos','Preços'], ['gestao','Gestão'],
+  ['hoje','Hoje'], ['ia','Assistente'], ['ilha','Na Ilha'], ['escala','Escala'], ['painel','Painel'], ['precos','Preços'], ['gestao','Gestão'],
   ['caixa','Caixa'], ['lanc','Lançamentos'],
   ['clientes','Clientes'], ['patio','Pátio'], ['manut','Manutenção'],
   ['contas','Contas'], ['relat','Relatórios'], ['dados','Dados'], ['oper','Operação'],
@@ -212,7 +212,7 @@ B12.admDesenhar = function (aba) {
   ({ hoje:pHoje, painel:pPainel, caixa:pCaixa, lanc:pLanc, contas:pContas,
      relat:pRelat, oper:pOper, prosp:pProsp, intel:pIntel,
      clientes:pClientes, patio:pPatio, manut:pManut, gestao:pGestao,
-     escala:pEscala, msgs:pMsgs, dados:pDados, precos:pPrecos, ia:pIA }[abaAtual] || pHoje)(raiz);
+     escala:pEscala, msgs:pMsgs, dados:pDados, precos:pPrecos, ia:pIA, ilha:pNaIlha }[abaAtual] || pHoje)(raiz);
   B12.animarPlacar(raiz);
   raiz.scrollIntoView({ block:'nearest' });
 };
@@ -1579,5 +1579,77 @@ function pIA(raiz) {
 }
 
 
+
+
+/* ------------------------------------------------------------- NA ILHA
+   Quem está lá agora, quando volta, e como falar com cada um num toque.
+   É a tela da segurança: no fim do dia, ninguém fica esquecido na Ilha. */
+var esc = iaEscapa;
+function pNaIlha(raiz) {
+  var d = B12.naIlha(), E = B12.EMPRESA;
+
+  function contatos(p) {
+    var c = p.contato, b = [];
+    if (c.whats) b.push('<button type="button" class="con zap" data-zap="' + c.whats +
+      '" data-nome="' + esc(p.nome) + '" data-cod="' + p.cod + '" aria-label="WhatsApp de ' + esc(p.nome) + '">' +
+      '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2zm0 18a8 8 0 0 1-4.1-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8 8 0 1 1 12 20zm4.4-6c-.2-.1-1.4-.7-1.6-.8s-.4-.1-.5.1-.6.8-.8.9-.3.2-.5.1a6.6 6.6 0 0 1-3.3-2.9c-.2-.4.3-.4.7-1.3.1-.2 0-.3 0-.4l-.7-1.8c-.2-.5-.4-.4-.5-.4h-.5a1 1 0 0 0-.7.3 2.9 2.9 0 0 0-.9 2.2 5 5 0 0 0 1.1 2.7 11.5 11.5 0 0 0 4.4 3.9c1.6.7 2.3.7 3.1.6a2.6 2.6 0 0 0 1.7-1.2 2.1 2.1 0 0 0 .2-1.2c-.1-.2-.3-.2-.5-.3z"/></svg></button>');
+    if (c.instagram) b.push('<a class="con insta" href="https://instagram.com/' + c.instagram +
+      '" target="_blank" rel="noopener" aria-label="Instagram de ' + esc(p.nome) + '">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="3.6"/><circle cx="17.2" cy="6.8" r="1.1" fill="currentColor" stroke="none"/></svg></a>');
+    if (c.email) b.push('<a class="con mail" href="mailto:' + c.email + '?subject=' +
+      encodeURIComponent('Estação B12 · reserva ' + p.cod) + '" aria-label="E-mail de ' + esc(p.nome) + '">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M4 7l8 6 8-6" stroke-linecap="round" stroke-linejoin="round"/></svg></a>');
+    return '<div class="cons">' + b.join('') + '</div>';
+  }
+
+  function linha(p, marca) {
+    var alerta = !p.horaVolta && (p.volta === d.dia || !p.volta);
+    return '<div class="pes' + (alerta ? ' alerta' : '') + '">' +
+      '<div class="pes-cima"><div><b>' + esc(p.nome) + '</b>' +
+        '<span class="pes-cod">' + p.cod + '</span></div>' + contatos(p) + '</div>' +
+      '<div class="pes-baixo">' +
+        '<span>' + p.pessoas + (p.pessoas > 1 ? ' pessoas' : ' pessoa') +
+          (p.criancas ? ' · ' + p.criancas + ' criança' + (p.criancas > 1 ? 's' : '') : '') + '</span>' +
+        (marca === 'chegam' ? '<span>chega hoje</span>'
+          : '<span>foi ' + B12.dataBR(p.ida) + (p.diasNaIlha ? ' · ' + p.diasNaIlha + (p.diasNaIlha > 1 ? ' dias' : ' dia') + ' na Ilha' : '') + '</span>') +
+        (p.volta ? '<span>volta ' + B12.dataBR(p.volta) + (p.horaVolta ? ' às ' + p.horaVolta : '') + '</span>'
+                 : '<span class="pend">sem data de volta</span>') +
+        (p.pousada ? '<span>' + esc(p.pousada) + '</span>' : '') +
+        (p.placa ? '<span>' + p.placa + (p.carroNoPatio ? ' no pátio' : '') + '</span>' : '') +
+      '</div>' +
+      (alerta ? '<div class="pes-alerta">Ainda não marcou o horário de volta</div>' : '') +
+    '</div>';
+  }
+
+  function grupo(titulo, lista, marca, vazio) {
+    return '<div class="faixa-sec"><div class="tit"><h2>' + titulo + '</h2>' +
+      '<span style="font-size:12px;color:var(--gelo-3)">' + lista.length + '</span></div></div>' +
+      (lista.length ? '<div class="pessoas">' + lista.map(function (p) { return linha(p, marca); }).join('') + '</div>'
+                    : '<div class="cx" style="margin-top:0"><p>' + vazio + '</p></div>');
+  }
+
+  raiz.appendChild(bloco(
+    '<div class="placar entra">' +
+      tile(d.agora.reduce(function (s, p) { return s + p.pessoas; }, 0), 'Na Ilha agora', 'n', 'destaque') +
+      tile(d.voltam.reduce(function (s, p) { return s + p.pessoas; }, 0), 'Voltam hoje', 'n') +
+      tile(d.chegam.reduce(function (s, p) { return s + p.pessoas; }, 0), 'Chegam hoje', 'n') +
+      tile(d.semVolta.length, 'Sem volta marcada', 'n', d.semVolta.length ? 'alerta' : '') +
+    '</div>' +
+    (d.semVolta.length ? '<div class="cx aviso entra entra-1"><h3>' + d.semVolta.length + ' pessoa' +
+      (d.semVolta.length > 1 ? 's ainda não marcaram' : ' ainda não marcou') + ' a volta</h3>' +
+      '<p>Toque no WhatsApp de cada uma para perguntar o horário. Ninguém fica na Ilha sem a B12 saber.</p></div>' : '') +
+    grupo('Na Ilha agora', d.agora, 'agora', 'Ninguém na Ilha neste momento.') +
+    grupo('Voltam hoje', d.voltam, 'volta', 'Nenhum retorno marcado para hoje.') +
+    grupo('Chegam hoje', d.chegam, 'chegam', 'Nenhuma chegada hoje.')
+  ));
+
+  raiz.querySelectorAll('[data-zap]').forEach(function (b) {
+    b.onclick = function () {
+      var txt = 'Olá, ' + b.dataset.nome.split(' ')[0] + '! Aqui é a Estação B12. ' +
+        'Sobre a sua reserva ' + b.dataset.cod + ': qual horário você pretende voltar da Ilha hoje?';
+      window.open('https://wa.me/' + b.dataset.zap + '?text=' + encodeURIComponent(txt), '_blank');
+    };
+  });
+}
 
 })();

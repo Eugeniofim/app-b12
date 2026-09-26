@@ -554,6 +554,35 @@ B12.abrirTicket = function (id) {
 };
 
 /* ------------------------------------------------------------------ equipe */
+
+/* quem está na Ilha, na tela do marinheiro. Sem número de dinheiro: só nome,
+   quantos, quando volta e o botão do WhatsApp. É o que ele precisa no trapiche. */
+function naIlhaEquipe() {
+  var d = B12.naIlha();
+  if (!d.agora.length && !d.semVolta.length) return '';
+  function cartao(p) {
+    var falta = !p.horaVolta;
+    return '<div class="pes-eq' + (falta ? ' alerta' : '') + '">' +
+      '<div class="pes-eq-cima"><div><b>' + p.nome + '</b>' +
+      '<small>' + p.cod + ' · ' + p.pessoas + (p.pessoas > 1 ? ' pessoas' : ' pessoa') +
+      (p.pousada ? ' · ' + p.pousada : '') + '</small></div>' +
+      (p.contato.whats ? '<button type="button" class="con zap" data-eqzap="' + p.contato.whats +
+        '" data-nome="' + p.nome.split(' ')[0] + '" data-cod="' + p.cod + '" aria-label="WhatsApp de ' + p.nome + '">' +
+        '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2zm0 18a8 8 0 0 1-4.1-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8 8 0 1 1 12 20zm4.4-6c-.2-.1-1.4-.7-1.6-.8s-.4-.1-.5.1-.6.8-.8.9-.3.2-.5.1a6.6 6.6 0 0 1-3.3-2.9c-.2-.4.3-.4.7-1.3.1-.2 0-.3 0-.4l-.7-1.8c-.2-.5-.4-.4-.5-.4h-.5a1 1 0 0 0-.7.3 2.9 2.9 0 0 0-.9 2.2 5 5 0 0 0 1.1 2.7 11.5 11.5 0 0 0 4.4 3.9c1.6.7 2.3.7 3.1.6a2.6 2.6 0 0 0 1.7-1.2 2.1 2.1 0 0 0 .2-1.2c-.1-.2-.3-.2-.5-.3z"/></svg></button>' : '') +
+      '</div>' +
+      '<div class="pes-eq-baixo">' + (p.horaVolta
+        ? '<span class="vai">volta às ' + p.horaVolta + '</span>'
+        : '<span class="pend">precisa marcar a volta</span>') +
+        (p.placa ? '<span>' + p.placa + '</span>' : '') + '</div></div>';
+  }
+  return '<div class="faixa-sec"><div class="tit"><h2>Quem está na Ilha</h2>' +
+    '<span style="font-size:12px;color:var(--tinta-3)">' +
+    d.agora.reduce(function (s, p) { return s + p.pessoas; }, 0) + ' pessoas</span></div></div>' +
+    (d.semVolta.length ? '<div class="cx aviso" style="margin-top:0"><h3>' + d.semVolta.length +
+      ' sem horário de volta</h3><p>Toque no WhatsApp e pergunte. No fim do dia ninguém pode ficar lá.</p></div>' : '') +
+    '<div class="pessoas-eq">' + d.agora.map(cartao).join('') + '</div>';
+}
+
 B12.pintarEquipe = function () {
   var alvo = document.getElementById('area-equipe');
   var hoje = B12.hoje();
@@ -572,6 +601,7 @@ B12.pintarEquipe = function () {
     '<div class="cx" style="margin:0"><div style="font-size:10px;letter-spacing:.08em;' +
     'text-transform:uppercase;color:var(--tinta-3);font-weight:700">Passageiros</div>' +
     '<div style="font-size:24px;font-weight:750;margin-top:4px">' + pax + '</div></div></div>' +
+    naIlhaEquipe() +
     '<div class="faixa-sec"><div class="tit"><h2>Saídas de hoje</h2></div></div>' +
     '<div class="lista">' + idas.map(function (s, i) {
       var c = s.ocupadas / s.vagas;
@@ -591,6 +621,13 @@ B12.pintarEquipe = function () {
     }).join('') + '</div>';
   var b = document.getElementById('b-balcao');
   if (b) b.onclick = function () { B12.formBalcao(function (res) { B12.pintarEquipe(); B12.aposBalcao(res); }); };
+  alvo.querySelectorAll('[data-eqzap]').forEach(function (x) {
+    x.onclick = function () {
+      var txt = 'Olá, ' + x.dataset.nome + '! Aqui é a Estação B12. Sobre a sua reserva ' +
+        x.dataset.cod + ': qual horário você pretende voltar da Ilha hoje?';
+      window.open('https://wa.me/' + x.dataset.eqzap + '?text=' + encodeURIComponent(txt), '_blank');
+    };
+  });
 };
 
 })();

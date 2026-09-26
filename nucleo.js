@@ -706,6 +706,45 @@ B12.marcarVolta = function (reservaId, saidaVoltaId) {
   return { ok: true, reserva: r, saida: s };
 };
 /* carros que devem chegar: reservas com placa, chegando hoje ou antes, ainda fora do pátio */
+/* ============================================== quem está na Ilha agora
+   O Dhalsin precisa saber, a qualquer hora: quem foi, quando volta, e como
+   falar com cada um. Isto é segurança, não relatório. */
+B12.naIlha = function (iso) {
+  var hoje = iso || B12.hoje();
+  function contato(r, c) {
+    return { whats: (r.zap || (c && c.whats) || '').replace(/\D/g, ''),
+             email: r.email || (c && c.email) || '',
+             instagram: (r.instagram || (c && c.instagram) || '').replace(/^@/, '') };
+  }
+  var fora = { dia: hoje, agora: [], chegam: [], voltam: [], semVolta: [] };
+  B12.DB.reservas.forEach(function (r) {
+    if (r.situacao === 'cancelada') return;
+    var c = r.clienteId ? B12.DB.clientes.filter(function (x) { return x.id === r.clienteId; })[0] : null;
+    var carro = B12.DB.patio.filter(function (p) { return !p.saidaReal && r.placa && p.placa === r.placa; })[0];
+    var base = { cod: r.cod, nome: r.nome, pessoas: r.pax, criancas: r.criancas || 0,
+      situacao: r.situacao, ida: r.ida, volta: r.volta || '', produto: r.produto,
+      pousada: r.pousada && r.pousada !== 'Ainda não escolhi' ? r.pousada : '',
+      destino: r.destino, total: r.total, placa: r.placa || '',
+      carroNoPatio: !!carro, contato: contato(r, c),
+      horaVolta: '', diasNaIlha: 0 };
+    if (r.saidaVoltaId) {
+      var sv = B12.DB.saidas.filter(function (s) { return s.id === r.saidaVoltaId; })[0];
+      if (sv) base.horaVolta = sv.hora;
+    }
+    if (r.ida && r.ida <= hoje && (!r.volta || r.volta >= hoje) && r.situacao === 'confirmada') {
+      base.diasNaIlha = Math.max(0, Math.round((new Date(hoje + 'T12:00') - new Date(r.ida + 'T12:00')) / 86400000));
+      fora.agora.push(base);
+      if (r.volta === hoje) fora.voltam.push(base);
+      if (!base.horaVolta && (r.volta === hoje || !r.volta)) fora.semVolta.push(base);
+    } else if (r.ida === hoje) {
+      fora.chegam.push(base);
+    }
+  });
+  function porHora(a, b) { return (a.horaVolta || 'zz') < (b.horaVolta || 'zz') ? -1 : 1; }
+  fora.agora.sort(porHora); fora.voltam.sort(porHora);
+  return fora;
+};
+
 B12.carrosPrevistos = function (iso) {
   iso = iso || B12.hoje();
   var noPatio = {};
