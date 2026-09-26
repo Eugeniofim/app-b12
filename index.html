@@ -25,7 +25,7 @@
 <meta name="twitter:image" content="https://app.estacaob12.com.br/compartilhar.jpg">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="estilo.css?v=1.37.0">
+<link rel="stylesheet" href="estilo.css?v=1.39.0">
 </head>
 <body>
 
@@ -178,12 +178,12 @@
     <div class="contador"><button id="b-pax-menos" aria-label="Menos">−</button>
       <b id="v-pax" class="num">2</b><button id="b-pax-mais" aria-label="Mais">+</button>
       <div style="font-size:12px;color:var(--tinta-3);line-height:1.35">crianças até<br><span id="v-cortesia">5</span> anos não pagam</div></div>
-    <label>Dessas, quantas têm até <span class="v-cortesia">5</span> anos?</label>
-    <div class="contador"><button id="b-cri-menos" aria-label="Menos">−</button>
-      <b id="v-cri" class="num">0</b><button id="b-cri-mais" aria-label="Mais">+</button></div>
+    <label>2 · Vão crianças? Diga as idades</label>
+    <input id="f-idades" inputmode="numeric" maxlength="24" placeholder="3, 7 · deixe vazio se não vão">
+    <div class="ajuda" id="ajuda-idades">Crianças até <span class="v-cortesia">5</span> anos não pagam.</div>
     <div class="par">
-      <div><label>2 · Chegada</label><input type="date" id="f-ida"></div>
-      <div><label>3 · Retorno</label><input type="date" id="f-volta"></div>
+      <div><label>3 · Chegada</label><input type="date" id="f-ida"></div>
+      <div><label>4 · Retorno</label><input type="date" id="f-volta"></div>
     </div>
     <label>5 · Que horário pretendem chegar?</label>
     <select id="f-hora">
@@ -192,9 +192,9 @@
       <option value="noite">Entre 20h00 e 22h00</option>
       <option value="fora">Outro horário (sob consulta)</option>
     </select>
-    <label>4 · Ficarão em qual pousada?</label>
+    <label>6 · Ficarão em qual pousada?</label>
     <select id="f-pousada"></select>
-    <label>Para onde vão?</label>
+    <label>7 · Para onde vão?</label>
     <select id="f-destino"></select>
   </div>
 
@@ -215,16 +215,17 @@
     </div></div>
 
   <div class="conta">
+    <div class="conta-tit" id="c-titulo">Resumo da sua viagem</div>
     <div class="l"><span id="c-desc">Travessia</span><span id="c-trav" class="num">R$ 0</span></div>
     <div class="l" id="c-lin-est" style="display:none"><span id="c-est-desc">Estacionamento</span>
       <span id="c-est" class="num">R$ 0</span></div>
     <div class="l" id="c-lin-desc" style="display:none"><span>Desconto do dinheiro (5%)</span>
       <span id="c-desc-val" class="num">R$ 0</span></div>
-    <div class="l total"><span>Total</span><span id="c-total" class="num">R$ 0</span></div>
+    <div class="l total"><span id="c-total-rot">Total</span><span id="c-total" class="num">R$ 0</span></div>
     <div class="obs" id="c-obs"></div>
   </div>
 
-  <div class="cx">
+  <div class="cx" id="bloco-pagamento" hidden>
     <label>Como prefere pagar?</label>
     <select id="f-pag">
       <option value="pix">Pix</option>
@@ -232,6 +233,10 @@
       <option value="credito">Cartão de crédito</option>
       <option value="debito">Cartão de débito</option>
     </select>
+  </div>
+
+  <div class="cx"><h3>Como falamos com você</h3>
+    <p style="margin-bottom:10px">O código da sua reserva e a confirmação chegam pelo WhatsApp.</p>
     <label>Seu nome</label><input id="f-nome" placeholder="como podemos te chamar">
     <label>WhatsApp</label><input id="f-zap" inputmode="tel" placeholder="(41) 90000-0000">
     <label>E-mail (opcional)</label><input id="f-email" type="email" inputmode="email" placeholder="para receber a confirmação">
@@ -241,7 +246,8 @@
     <div class="folha-erro" id="f-erro" hidden style="margin-top:12px"></div>
     <button class="btn pri" id="b-reservar">Pedir minha reserva</button>
     <p style="font-size:11.5px;color:var(--tinta-3);margin-top:11px;line-height:1.5">
-      A reserva só vira vaga garantida depois que a equipe da B12 confirmar pelo WhatsApp.</p>
+      A reserva só vira vaga garantida depois que a equipe da B12 confirmar pelo WhatsApp.
+      O valor é combinado com a B12 e <b>você paga na saída</b>, não agora.</p>
   </div>
 </section>
 
@@ -346,17 +352,17 @@
     <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></svg><span>Mais</span></button>
 </div></nav>
 
-<script src="marca.js?v=1.37.0"></script>
-<script src="dados.js?v=1.37.0"></script>
-<script src="nucleo.js?v=1.37.0"></script>
-<script src="exportar.js?v=1.37.0"></script>
-<script src="oceano.js?v=1.37.0"></script>
-<script src="formularios.js?v=1.37.0"></script>
-<script src="acesso.js?v=1.37.0"></script>
-<script src="mensagens.js?v=1.37.0"></script>
-<script src="turista.js?v=1.37.0"></script>
-<script src="assistente.js?v=1.37.0"></script>
-<script src="adm.js?v=1.37.0"></script>
-<script src="app.js?v=1.37.0"></script>
+<script src="marca.js?v=1.39.0"></script>
+<script src="dados.js?v=1.39.0"></script>
+<script src="nucleo.js?v=1.39.0"></script>
+<script src="exportar.js?v=1.39.0"></script>
+<script src="oceano.js?v=1.39.0"></script>
+<script src="formularios.js?v=1.39.0"></script>
+<script src="acesso.js?v=1.39.0"></script>
+<script src="mensagens.js?v=1.39.0"></script>
+<script src="turista.js?v=1.39.0"></script>
+<script src="assistente.js?v=1.39.0"></script>
+<script src="adm.js?v=1.39.0"></script>
+<script src="app.js?v=1.39.0"></script>
 </body>
 </html>

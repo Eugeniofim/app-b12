@@ -681,16 +681,12 @@ B12.confirmarReserva = function (reservaId, saidaId) {
   r.saidaId = saidaId; r.situacao = 'confirmada'; r.confirmadaEm = new Date().toISOString();
   s.ocupadas = ocup + (r.pax || 1);
   /* a venda entra no financeiro sozinha, sem digitar de novo */
-  if (r.total && !r.lancamentoId) {
-    var l = B12.salvarLancamento({ data: r.ida, tipo: 'entrada', cat: 'Travessias', centro: 'Lancha',
-      desc: (r.pax || 1) + ' travessias · ' + (r.pax || 1) + ' passageiros · ' + r.nome,
-      valor: r.total, pg: String(r.pg || 'pix').toLowerCase().indexOf('cart') >= 0 ? 'credito'
-        : String(r.pg || 'pix').toLowerCase().indexOf('dinheiro') >= 0 ? 'dinheiro' : 'pix',
-      embarcacao: s.embarcacao, clienteId: r.clienteId || null });
-    if (l.ok) r.lancamentoId = l.lancamento.id;
-    var cli = r.clienteId && B12.DB.clientes.filter(function (x) { return x.id === r.clienteId; })[0];
-    if (cli) { cli.viagens = (cli.viagens || 0) + 1; cli.gasto = (cli.gasto || 0) + r.total; }
-  }
+  /* PAGA NA SAÍDA: confirmar a reserva NÃO é venda. O dinheiro só entra no
+     caixa quando a pessoa paga, no fim, pelo botão Receber. Antes disso a
+     reserva fica como conta aberta, com o valor previsto. */
+  r.aReceber = r.total || 0;
+  r.pago = false;
+
   B12.salvar();
   return { ok: true, reserva: r, saida: s };
 };
@@ -1477,4 +1473,57 @@ B12.salvarDiaria = function (v, especial) {
 B12.primeiraData = function () {
   var h = Math.max(0, Number(B12.DB.ajustes.antecedenciaHoras) || 0);
   return B12.diaMais(B12.hoje(), h >= 24 ? Math.ceil(h / 24) : 0);
+};
+
+
+/* ======================================================= receber, na saída
+   Junta o que a pessoa deve — travessia e estacionamento — e só aí lança no
+   caixa. É a política da casa: ninguém paga antes de viajar. */
+B12.contaDaReserva = function (id) {
+  var r = B12.DB.reservas.filter(function (x) { return x.id === id; })[0];
+  if (!r) return null;
+  var hoje = B12.hoje();
+  var carro = r.placa ? B12.DB.patio.filter(function (p) {
+    return p.placa === r.placa && !p.pago; })[0] : null;
+  var patio = carro ? B12.valorPatio(carro, carro.saidaReal || hoje) : null;
+  var travessia = r.pago ? 0 : (r.aReceber || r.total || 0);
+  var estac = patio ? patio.resta : 0;
+  return { reserva: r, carro: carro, travessia: travessia, estacionamento: estac,
+           diarias: patio ? patio.dias : 0, total: Math.round((travessia + estac) * 100) / 100,
+           jaPago: r.pago };
+};
+B12.receber = function (id, pg) {
+  var c = B12.contaDaReserva(id);
+  if (!c) return { erro: 'Não achei essa reserva.' };
+  if (c.reserva.pago && !c.estacionamento) return { erro: 'Esta conta já foi recebida.' };
+  if (c.total <= 0) return { erro: 'Não há valor a receber. Informe o valor na reserva antes.' };
+  var r = c.reserva;
+  pg = pg || 'pix';
+
+  if (c.travessia > 0) {
+    var l = B12.salvarLancamento({
+      data: B12.hoje(), tipo: 'entrada', cat: 'Travessias', centro: 'Lancha',
+      desc: (r.pax || 1) + ' passageiro(s) · ' + r.nome + ' · ' + r.cod,
+      valor: c.travessia, pg: pg, clienteId: r.clienteId || null
+    });
+    if (l.ok) r.lancamentoId = l.lancamento.id;
+    var cli = r.clienteId && B12.DB.clientes.filter(function (x) { return x.id === r.clienteId; })[0];
+    if (cli) { cli.viagens = (cli.viagens || 0) + 1; cli.gasto = (cli.gasto || 0) + c.travessia; }
+  }
+  if (c.carro && c.estacionamento > 0) B12.saidaPatio(c.carro.id, pg);
+
+  r.pago = true; r.pagoEm = new Date().toISOString(); r.pgUsado = pg;
+  r.situacao = 'concluída';
+  B12.salvar();
+  return { ok: true, recebido: c.total, travessia: c.travessia, estacionamento: c.estacionamento };
+};
+/* o que está aberto: quem viajou e ainda não pagou */
+B12.contasAbertas = function () {
+  return B12.DB.reservas.filter(function (r) {
+    return r.situacao === 'confirmada' && !r.pago && (r.aReceber || r.total); })
+    .map(function (r) {
+      var c = B12.contaDaReserva(r.id);
+      return { id: r.id, cod: r.cod, nome: r.nome, zap: r.zap, ida: r.ida, volta: r.volta,
+               pax: r.pax, placa: r.placa || '', travessia: c.travessia,
+               estacionamento: c.estacionamento, total: c.total }; });
 };

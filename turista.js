@@ -261,7 +261,7 @@ document.addEventListener('click', function (e) {
 });
 
 /* -------------------------------------------------------------- travessia */
-var F = { pax:2, cri:0, produto:'regular', estac:0 };
+var F = { pax:2, cri:0, idades:'', produto:'regular', estac:0 };
 
 /* Lista montada por código não tem opção marcada no HTML, e o app a lia como
    "a pessoa mexeu aqui" — o que impede a troca de versão sozinha. Depois de
@@ -301,8 +301,21 @@ B12.montarFormulario = function () {
   });
   document.getElementById('b-pax-menos').onclick = function () { mexer('pax', -1); };
   document.getElementById('b-pax-mais').onclick  = function () { mexer('pax', 1); };
-  document.getElementById('b-cri-menos').onclick = function () { mexer('cri', -1); };
-  document.getElementById('b-cri-mais').onclick  = function () { mexer('cri', 1); };
+  var idc = document.getElementById('f-idades');
+  if (idc) idc.oninput = function () {
+    F.cri = B12.contarCortesia(idc.value);
+    F.idades = idc.value.trim();
+    var aj = document.getElementById('ajuda-idades');
+    if (aj) {
+      var todas = B12.idadesLista(idc.value);
+      aj.innerHTML = todas.length
+        ? todas.length + (todas.length > 1 ? ' crianças' : ' criança') + ' · ' +
+          (F.cri ? F.cri + (F.cri > 1 ? ' não pagam' : ' não paga') : 'todas pagam') +
+          ' (cortesia até ' + B12.DB.ajustes.idadeCortesia + ' anos)'
+        : 'Crianças até <span class="v-cortesia">' + B12.DB.ajustes.idadeCortesia + '</span> anos não pagam.';
+    }
+    B12.calcular();
+  };
   document.getElementById('est-nao').onclick = function () { F.estac = 0; B12.calcular(); };
   document.getElementById('est-sim').onclick = function () { F.estac = 1; B12.calcular(); };
   document.getElementById('b-reservar').onclick = B12.reservar;
@@ -311,9 +324,9 @@ B12.montarFormulario = function () {
 };
 function mexer(campo, d) {
   if (campo === 'pax') { F.pax = Math.max(1, Math.min(30, F.pax + d)); if (F.cri > F.pax) F.cri = F.pax; }
-  else { F.cri = Math.max(0, Math.min(F.pax, F.cri + d)); }
+  else { F.cri = Math.max(0, Math.min(F.pax, F.cri + d)); }   /* não é mais usado pela tela */
   document.getElementById('v-pax').textContent = F.pax;
-  document.getElementById('v-cri').textContent = F.cri;
+
   B12.calcular();
 }
 
@@ -351,10 +364,16 @@ B12.calcular = function () {
   document.getElementById('est-sim').classList.toggle('on', !!F.estac);
   document.getElementById('est-nao').classList.toggle('on', !F.estac);
   var bp = document.getElementById('bloco-placa'); if (bp) bp.hidden = !F.estac;
+  var bpag = document.getElementById('bloco-pagamento');
+  if (bpag) bpag.hidden = !mostra;          /* sem preço na tela, escolher pagamento não faz sentido */
 
   var nome = F.produto === 'nautico' ? 'Serviço náutico' : 'Táxi náutico';
   document.getElementById('c-desc').textContent = nome + ' · ' + F.pax +
     (F.pax > 1 ? ' pessoas' : ' pessoa') + ' · ida e volta';
+  var tit = document.getElementById('c-titulo');
+  if (tit) tit.textContent = mostra ? 'Sua conta' : 'Resumo da sua viagem';
+  var rot = document.getElementById('c-total-rot');
+  if (rot) rot.textContent = mostra ? 'Total' : 'Valor';
   document.getElementById('c-trav').textContent = (mostra && p) ? B12.brl(p.travessia) : 'sob consulta';
   document.getElementById('c-lin-est').style.display = F.estac ? 'flex' : 'none';
   document.getElementById('c-est-desc').textContent = 'Estacionamento · ' + dd +
@@ -413,7 +432,7 @@ B12.reservar = function () {
 
   var agora = new Date().toISOString();
   var r = B12.novaReserva({
-    nome:nome, zap:zap, pax:F.pax, criancas:F.cri, ida:ida, volta:volta,
+    nome:nome, zap:zap, pax:F.pax, criancas:F.cri, idades:F.idades || '', ida:ida, volta:volta,
     email: document.getElementById('f-email').value.trim(),
     instagram: document.getElementById('f-insta').value.trim(),
     aceitaOfertas: document.getElementById('f-ofertas').checked,
@@ -430,7 +449,7 @@ B12.reservar = function () {
 
   var linhas = ['Olá! Quero reservar uma travessia com a B12.', '',
     'Código: ' + r.cod, 'Nome: ' + r.nome,
-    'Pessoas: ' + r.pax + (r.criancas ? ' (sendo ' + r.criancas + ' até ' + B12.DB.ajustes.idadeCortesia + ' anos)' : ''),
+    'Pessoas: ' + r.pax + (r.idades ? ' (crianças: ' + r.idades + ')' : ''),
     'Chegada: ' + B12.dataBR(r.ida)];
   if (r.volta) linhas.push('Retorno: ' + B12.dataBR(r.volta));
   linhas.push('Horário: ' + r.faixa, 'Destino: ' + r.destino, 'Pousada: ' + r.pousada,

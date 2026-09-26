@@ -93,6 +93,12 @@ B12.varrer = function () {
   if (!A.precosConferidos) achar('atencao', 'os preços ainda não foram conferidos por você',
     'o app mostra um aviso laranja ao cliente enquanto isso', 'precos');
 
+  var ab = B12.contasAbertas ? B12.contasAbertas() : [];
+  if (ab.length) {
+    var soma = ab.reduce(function (s, c) { return s + c.total; }, 0);
+    achar('atencao', B12.brl(soma) + ' a receber na saída',
+      ab.length + ' pessoa(s) já viajaram e pagam quando voltarem', 'ilha');
+  }
   var d = B12.diagnostico ? B12.diagnostico() : null;
   return { dia: hoje, quantos: p.length, pontos: p, saude: d };
 };
@@ -133,6 +139,9 @@ var FERRAMENTAS = [
 
   { name: 'ver_app', description: 'Informações do próprio app e da marca: endereço, QR code, senhas, como instalar no celular, o que cada aba faz, onde baixar o Excel, como a marca é usada.',
     input_schema: { type: 'object', properties: { assunto: { type: 'string', description: 'endereco, senhas, instalar, abas, excel, marca, nuvem, qr' } } } },
+
+  { name: 'ver_a_receber', description: 'O que está para entrar: quem já viajou e ainda não pagou, porque na B12 o cliente paga na saída. Mostra travessia, estacionamento e total de cada um.',
+    input_schema: { type: 'object', properties: {} } },
 
   { name: 'ver_problemas', description: 'A varredura do app: tudo o que precisa da atenção do Dhalsin agora — contas vencidas, reservas esperando confirmação, carros passando da data, gente na Ilha sem volta marcada, meta atrasada, manutenção chegando. Use ao abrir a conversa, quando ele perguntar "e aí?", "tudo certo?", "o que preciso ver hoje?", ou antes de dar qualquer conselho.',
     input_schema: { type: 'object', properties: {} } },
@@ -271,6 +280,14 @@ var LEITURAS = {
                : 'Hoje o cliente NÃO vê valor nenhum no app: aparece "sob consulta" e o preço é combinado pelo WhatsApp. Quem liga isso é o Dhalsin, na aba Preços.' };
   },
   ver_problemas: function () { return B12.varrer(); },
+
+  ver_a_receber: function () {
+    var ab = B12.contasAbertas();
+    return { quantos: ab.length,
+      total: Math.round(ab.reduce(function (s, c) { return s + c.total; }, 0) * 100) / 100,
+      observacao: 'Na B12 o cliente paga na SAÍDA. Isto é dinheiro que ainda não entrou no caixa.',
+      contas: so(ab, 25) };
+  },
 
   ver_cliente: function (a) {
     var q = String(a.quem || '').trim(), qn = q.toLowerCase(), qd = q.replace(/\D/g, '');

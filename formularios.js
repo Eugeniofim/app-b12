@@ -622,4 +622,41 @@ B12.ocupar = function (btn, texto) {
   };
 };
 
+
+/* ------------------------------------------------- receber na saída
+   Mostra a conta inteira da pessoa antes de cobrar: travessia, pátio, e o
+   total. Só depois do toque o dinheiro entra no caixa. */
+B12.formReceber = function (reservaId, depois) {
+  var c = B12.contaDaReserva(reservaId);
+  if (!c) return;
+  var r = c.reserva;
+  B12.folha({
+    titulo: 'Receber de ' + r.nome.split(' ')[0],
+    sub: 'Reserva ' + r.cod + ' · ' + r.pax + (r.pax > 1 ? ' pessoas' : ' pessoa'),
+    corpo:
+      '<table class="tabela">' +
+      '<tr><td>Travessia</td><td class="n">' + B12.brl(c.travessia) + '</td></tr>' +
+      (c.estacionamento
+        ? '<tr><td>Estacionamento · ' + c.diarias + ' diária(s)</td><td class="n">' +
+          B12.brl(c.estacionamento) + '</td></tr>' : '') +
+      '<tr><td><b>Total</b></td><td class="n"><b>' + B12.brl(c.total) + '</b></td></tr></table>' +
+      lista('Como pagou', 'pg', PAGAMENTOS, 'pix') +
+      campo('Valor recebido', 'valor', { tipo:'number', modo:'decimal', passo:'0.01', valor: c.total,
+        ajuda:'Mude só se o valor combinado foi outro.' }) +
+      '<div class="ajuda" style="margin-top:10px">Ao confirmar, o dinheiro entra no caixa de hoje ' +
+      'e o carro sai do pátio, se houver.</div>',
+    acao: 'Confirmar recebimento',
+    aoSalvar: function (d) {
+      var v = Number(String(d.valor).replace(',', '.')) || 0;
+      if (v <= 0) return { erro: 'Informe o valor recebido.' };
+      if (Math.abs(v - c.total) > 0.01) r.aReceber = v;   /* combinou outro valor */
+      return B12.receber(reservaId, d.pg);
+    },
+    depois: function (res) {
+      if (res && res.ok) B12.aviso('Recebido ' + B12.brl(res.recebido) + '. Já está no caixa.', 'bom');
+      if (depois) depois(res);
+    }
+  });
+};
+
 })();

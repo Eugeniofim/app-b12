@@ -232,6 +232,20 @@ function pHoje(raiz) {
     tile(r.combustivel,'Combustível','brl') +
     tile(r.resultado,'Resultado','brl','destaque') +
     '</div>' +
+    (function () {
+      var ab = B12.contasAbertas();
+      if (!ab.length) return '';
+      var soma = ab.reduce(function (s, c) { return s + c.total; }, 0);
+      return '<button type="button" class="ia-atalho entra" data-ir-receber ' +
+        'style="border-color:var(--atencao)">' +
+        '<div class="ia-atalho-ico" style="background:linear-gradient(150deg,#E5A43B,#B87A1C)">' +
+        '<svg viewBox="0 0 24 24"><path d="M3 7h18v10H3z" stroke-linejoin="round"/>' +
+        '<circle cx="12" cy="12" r="2.6"/></svg></div>' +
+        '<div class="ia-atalho-txt"><b>A receber na saída: ' + B12.brl(soma) + '</b>' +
+        '<small>' + ab.length + ' pessoa' + (ab.length > 1 ? 's' : '') + ' já viajaram e pagam quando voltarem</small></div>' +
+        '<svg class="ia-atalho-seta" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+      '</button>';
+    })() +
     '<button type="button" class="ia-atalho entra" data-ia-abrir>' +
       '<div class="ia-atalho-ico"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 0 0-9 9c0 1.6.4 3.1 1.2 4.4L3 21l4.8-1.1A9 9 0 1 0 12 3z" stroke-linejoin="round"/>' +
       '<path d="M8.5 11h.01M12 11h.01M15.5 11h.01" stroke-linecap="round" stroke-width="2.6"/></svg></div>' +
@@ -268,6 +282,8 @@ function pHoje(raiz) {
   grafBarras(g, serie, { altura:150 });
   var atalho = raiz.querySelector('[data-ia-abrir]');
   if (atalho) atalho.onclick = function () { B12.admDesenhar('ia'); };
+  var rec = raiz.querySelector('[data-ir-receber]');
+  if (rec) rec.onclick = function () { B12.admDesenhar('ilha'); };
 }
 
 function tile(v, k, fmt, cls) {
@@ -1686,6 +1702,28 @@ function pIA(raiz) {
    Quem está lá agora, quando volta, e como falar com cada um num toque.
    É a tela da segurança: no fim do dia, ninguém fica esquecido na Ilha. */
 var esc = iaEscapa;
+
+/* quem viajou e ainda não pagou. Na B12 o cliente paga na saída, então esta
+   lista é o caixa do dia esperando para entrar. */
+function contasAbertasBloco() {
+  var ab = B12.contasAbertas();
+  if (!ab.length) return '';
+  var soma = ab.reduce(function (s, c) { return s + c.total; }, 0);
+  return '<div class="faixa-sec"><div class="tit"><h2>A receber na saída</h2>' +
+    '<span style="font-size:12px;color:var(--gelo-3)">' + B12.brl(soma) + '</span></div></div>' +
+    '<div class="pessoas">' + ab.map(function (c) {
+      return '<div class="pes" style="border-left-color:var(--atencao)">' +
+        '<div class="pes-cima"><div><b>' + esc(c.nome) + '</b>' +
+        '<span class="pes-cod">' + c.cod + '</span></div>' +
+        '<b style="font-size:16px;white-space:nowrap">' + B12.brl(c.total) + '</b></div>' +
+        '<div class="pes-baixo">' +
+          '<span>travessia ' + B12.brl(c.travessia) + '</span>' +
+          (c.estacionamento ? '<span>pátio ' + B12.brl(c.estacionamento) + '</span>' : '') +
+          (c.placa ? '<span>' + c.placa + '</span>' : '') + '</div>' +
+        '<button type="button" class="btn pri peq" data-receber="' + c.id + '">Receber ' +
+        B12.brl(c.total) + '</button></div>'; }).join('') + '</div>';
+}
+
 function pNaIlha(raiz) {
   var d = B12.naIlha(), E = B12.EMPRESA;
 
@@ -1739,6 +1777,7 @@ function pNaIlha(raiz) {
     (d.semVolta.length ? '<div class="cx aviso entra entra-1"><h3>' + d.semVolta.length + ' pessoa' +
       (d.semVolta.length > 1 ? 's ainda não marcaram' : ' ainda não marcou') + ' a volta</h3>' +
       '<p>Toque no WhatsApp de cada uma para perguntar o horário. Ninguém fica na Ilha sem a B12 saber.</p></div>' : '') +
+    contasAbertasBloco() +
     grupo('Na Ilha agora', d.agora, 'agora', 'Ninguém na Ilha neste momento.') +
     grupo('Voltam hoje', d.voltam, 'volta', 'Nenhum retorno marcado para hoje.') +
     grupo('Chegam hoje', d.chegam, 'chegam', 'Nenhuma chegada hoje.')
@@ -1750,6 +1789,9 @@ function pNaIlha(raiz) {
         'Sobre a sua reserva ' + b.dataset.cod + ': qual horário você pretende voltar da Ilha hoje?';
       window.open('https://wa.me/' + b.dataset.zap + '?text=' + encodeURIComponent(txt), '_blank');
     };
+  });
+  raiz.querySelectorAll('[data-receber]').forEach(function (b) {
+    b.onclick = function () { B12.formReceber(b.dataset.receber, function () { B12.admDesenhar('ilha'); }); };
   });
 }
 
