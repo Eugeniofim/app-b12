@@ -173,6 +173,8 @@ B12.formAjustes = function (depois) {
       B12.f_lista('Qual voz', 'voz11', (B12.VOZES_11 || []).map(function (v) { return [v[0], v[1]]; }),
         B12.iaVoz11 ? B12.iaVoz11() : '') +
       '<div class="ajuda">Todas falam português do Brasil. Só valem com a chave acima preenchida.</div>' +
+      '<button type="button" class="btn sec" id="b-ouvir-voz" style="margin-top:10px">Ouvir um exemplo</button>' +
+      '<div class="ajuda" id="voz-aviso"></div>' +
       '<div class="grupo">Motor do assistente</div>' +
       B12.f_lista('Qual motor', 'motor', (B12.MOTORES || []).map(function (m) { return [m[0], m[1]]; }),
         B12.iaMotor ? B12.iaMotor() : '') +
@@ -184,6 +186,23 @@ B12.formAjustes = function (depois) {
       '<button type="button" class="btn sec" id="b-forcar-versao" style="margin-top:10px">Procurar versão nova agora</button>',
     acao: 'Salvar ajustes',
     aoAbrir: function (form) {
+      var ouvir = form.querySelector('#b-ouvir-voz');
+      if (ouvir) ouvir.onclick = function () {
+        var aviso = form.querySelector('#voz-aviso');
+        /* guarda o que está digitado antes de tocar, senão testa o que estava antes */
+        var k = form.querySelector('[name=chave11]'), vz = form.querySelector('[name=voz11]'), md = form.querySelector('[name=vozModo]');
+        if (B12.iaGuardarChave11) B12.iaGuardarChave11(k ? k.value : '', vz ? vz.value : '');
+        if (B12.iaTrocarVoz && md) B12.iaTrocarVoz(md.value);
+        ouvir.disabled = true; ouvir.textContent = 'Tocando…';
+        aviso.textContent = ''; aviso.style.color = '';
+        B12.iaTestarVoz().then(function (r) {
+          ouvir.disabled = false; ouvir.textContent = 'Ouvir um exemplo';
+          if (r.erro) { aviso.textContent = r.erro; aviso.style.color = 'var(--ruim)'; }
+          else { aviso.textContent = r.modo === 'elevenlabs'
+            ? 'Tocando pela ElevenLabs, com a voz escolhida.' : 'Tocando com a voz do próprio aparelho.';
+            aviso.style.color = 'var(--bom)'; }
+        });
+      };
       var f = form.querySelector('#b-forcar-versao');
       if (f) f.onclick = function () {
         f.disabled = true; f.textContent = 'Procurando…';

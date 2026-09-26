@@ -211,18 +211,97 @@ var LEITURAS = {
              origem_dos_clientes: B12.HIST_ORIGEM };
   },
   ver_app: function (a) {
+    var A = B12.DB.ajustes, E = B12.EMPRESA;
     var t = {
-      endereco: 'O app abre em https://app.estacaob12.com.br, um endereço dentro do domínio da própria B12. O link antigo do GitHub redireciona sozinho.',
-      qr: 'O QR code dos 5.000 cartões e do banner aponta para esse endereço e nunca precisa ser trocado. O arquivo para a gráfica é qr-app-estacaob12-com-br.svg.',
-      senhas: 'O cliente não tem senha. A área da B12 fica escondida em Mais → Área da B12. Há dois PINs: o do proprietário abre tudo, o da equipe abre só a operação, sem números de dinheiro. Os dois se trocam em Ajustes.',
-      instalar: 'No iPhone: abrir o endereço no Safari, tocar em Compartilhar e escolher "Adicionar à Tela de Início". No Android o próprio app oferece o botão Instalar. Depois disso ele abre como um app, com ícone.',
-      abas: 'O painel tem: Hoje (os seis números do dia), Escala (as saídas e quem confirma as reservas), Painel (o mês), Preços (você manda nos valores), Gestão, Caixa, Lançamentos, Clientes, Pátio, Manutenção, Contas, Relatórios, Dados (baixar Excel e PDF), Operação, Prospecção, Mensagens, Inteligência e o Assistente.',
-      excel: 'Aba Dados: escolhe o período e baixa o Excel completo com 8 abas, o PDF para o contador, o PDF da lista de clientes e a cópia de segurança. Tudo abre no Excel e no Google Planilhas.',
-      marca: 'A marca oficial da B12 é o ESTAÇÃO B12 com o farol, em stencil. Está no topo do app, no painel, no ticket e no PIN. O ícone do app é o farol branco sobre o azul da marca.',
-      nuvem: 'Por enquanto os dados ficam guardados neste aparelho. Quando a nuvem for ligada, o celular e o computador passam a mostrar a mesma coisa na hora, e o backup passa a ser automático no servidor.',
+      empresa: 'Estação B12, em ' + E.endereco + '. Faz três coisas: travessia de lancha de Pontal do Paraná ' +
+        'para a Ilha do Mel (destinos Brasília e Encantadas), passeios de barco pela baía de Paranaguá, e ' +
+        'estacionamento no próprio pátio para quem cruza. O dono é o Dhalsin. O WhatsApp da empresa é ' +
+        E.whats + '. Slogan: "Sua experiência na Ilha do Mel começa por aqui".',
+
+      servicos: 'Travessia regular (lancha compartilhada, preço por pessoa e por trecho) e Serviço Náutico ' +
+        'Premium (lancha exclusiva, valor fixo até 3 pessoas e por pessoa a partir de 4, em três faixas de ' +
+        'horário). Passeios de barco com preço próprio. Estacionamento com diária. Criança não paga até a ' +
+        'idade definida em Preços. Dinheiro tem desconto.',
+
+      endereco: 'O app abre em https://app.estacaob12.com.br, dentro do domínio da própria B12. O link antigo ' +
+        'do GitHub redireciona sozinho. O endereço nunca muda, por isso o QR impresso vale para sempre.',
+
+      qr: 'O QR dos 5.000 cartões e do banner aponta para esse endereço. Foi feito em vetor, tamanho mínimo ' +
+        '2 cm no cartão e 8 cm no banner, com margem branca, escuro sobre claro. Pode levar o logo da B12 no ' +
+        'centro cobrindo até 20%.',
+
+      senhas: 'O turista não tem senha, só usa. A área da B12 fica escondida em Mais → Área da B12, com dois ' +
+        'PINs: o do proprietário abre tudo, o da equipe abre só a operação, sem número de dinheiro. Cinco erros ' +
+        'travam por um minuto. A sessão dura doze horas. Os dois PINs se trocam em Ajustes.',
+
+      instalar: 'No iPhone: abrir no Safari, tocar em Compartilhar e escolher "Adicionar à Tela de Início". ' +
+        'No Android o próprio app oferece o botão Instalar. Depois fica com ícone, como app de loja. O app se ' +
+        'atualiza sozinho: confere quando você volta para ele, quando a internet volta e a cada 10 minutos. ' +
+        'Em Ajustes dá para ver a versão e forçar a procura.',
+
+      abas: 'O painel do dono tem: Hoje (os seis números do dia), Assistente (esta conversa), Escala (as saídas ' +
+        'e a confirmação dos pedidos), Painel (o mês), Preços (ele manda nos valores), Gestão, Caixa, ' +
+        'Lançamentos, Clientes, Pátio, Manutenção, Contas, Relatórios, Dados (Excel e PDF), Operação, ' +
+        'Prospecção, Mensagens e Inteligência. A equipe só vê a operação.',
+
+      reserva: 'Como funciona uma travessia: o turista abre o app pelo QR, responde cinco perguntas (pessoas, ' +
+        'chegada, retorno, pousada, horário), diz se deixa carro e a placa, vê o preço e pede a reserva. ' +
+        'Nasce um código B12-0000 e a situação é "pedida", nunca confirmada. Na aba Escala aparece em "pedidos ' +
+        'esperando você": a B12 escolhe a saída e confirma, e aí a venda entra no caixa e a mensagem de ' +
+        'confirmação sai pronta. No dia da volta o turista escolhe o horário no app, o que ocupa lugar de ' +
+        'verdade no retorno. Quem chega sem reserva é atendido no balcão e ganha código do mesmo jeito.',
+
+      codigo: 'Cada reserva tem um código de quatro dígitos, conferido para não repetir. O código identifica a ' +
+        'VIAGEM; o WhatsApp identifica a PESSOA. A mesma pessoa em três viagens é uma ficha só, unida pelo ' +
+        'WhatsApp. Quem troca de celular recupera em Mais → Já tenho um código, com o código e os quatro ' +
+        'últimos números do WhatsApp.',
+
+      estacionamento: 'O carro nasce dentro da reserva: o turista diz que vai deixar e informa a placa. Na aba ' +
+        'Pátio aparece como "carro anunciado", e a entrada é um toque. Quem chega sem reserva é registrado na ' +
+        'hora com placa, dono, WhatsApp e a hora de entrada. Na saída o app conta as diárias pela regra ' +
+        'escolhida, mostra o que já foi pago e cobra a diferença. Carro que passou da data aparece em vermelho. ' +
+        'Hoje a regra é: ' + ((A.patio || {}).regra === '24h' ? 'a cada 24 horas' : 'por dia de calendário') +
+        ', cobrando na ' + ((A.patio || {}).cobranca === 'chegada' ? 'chegada' : 'saída') + ', diária de ' + B12.brl(A.diaria) + '.',
+
+      excel: 'Aba Dados: escolhe o período e baixa o Excel completo com 8 abas (Resumo, Entradas e saídas, ' +
+        'Clientes, Reservas, Estacionamento, Manutenção, Contas e o Histórico da planilha de 2015 a 2025), o ' +
+        'PDF para o contador, o PDF da lista de clientes e a cópia de segurança. Datas e valores vão como ' +
+        'número, para somar e filtrar.',
+
+      copia: 'A cópia de segurança é o app inteiro num arquivo. Guardar uma por semana no Drive ou no e-mail. ' +
+        'Se o celular quebrar, abre o app noutro aparelho e restaura por esse arquivo. O app também guarda ' +
+        'sozinho até 12 cópias no aparelho, e nunca deixa uma cópia vazia apagar uma cheia.',
+
+      marca: 'A marca é o ESTAÇÃO B12 com o farol, em letra stencil, entregue pelo cliente em setembro de 2026. ' +
+        'É preto e branco, uma cor só. Está no topo do app, no painel, no ticket e na tela do PIN. O ícone do ' +
+        'app é o farol branco sobre o azul da marca.',
+
+      nuvem: 'Hoje os dados ficam guardados neste aparelho. Com a nuvem ligada (Supabase na conta do Dhalsin), ' +
+        'o celular e o computador passam a mostrar a mesma coisa na hora, a cópia de segurança fica automática ' +
+        'no servidor, e o login vira de verdade, com a equipe sem enxergar o dinheiro. É a peça que falta.',
+
+      assistente: 'Eu leio os dados deste app para responder. Não guardo nada fora daqui. Não gravo lançamento, ' +
+        'não mudo preço e não mando mensagem sozinho: monto o pedido e o Dhalsin confirma com o dedo. Falo por ' +
+        'voz se ele quiser, e dá para me calar num toque. Cada pergunta custa alguns centavos, e o saldo ' +
+        'aparece no alto da conversa.',
+
+      historia: 'A planilha da B12 tem 11 anos, de agosto de 2015 a julho de 2025: 12.267 lançamentos, 41.090 ' +
+        'passageiros e R$ 1,74 milhão. O ano de 2023 não foi preenchido. A sazonalidade é forte: janeiro de ' +
+        '2025 fez cerca de R$ 100 mil e junho fez R$ 9,8 mil.',
+
+      ilha: 'A Ilha do Mel tem duas vilas, Brasília e Encantadas, e não entram carros. Os lugares que o app ' +
+        'mostra: Farol das Conchas (de 1872, torre de ferro fundida na Escócia), Fortaleza de Nossa Senhora dos ' +
+        'Prazeres (1767, único combate em 1850 contra uma corveta inglesa), Gruta das Encantadas (a lenda das ' +
+        'sereias), Praia de Fora, Praia Grande, Limoeiro, o Istmo, a Ilha da Galheta e as duas vilas.',
+
+      passeios_info: 'São quatro roteiros no app, cada um com página própria: Baía dos Golfinhos e Ilha das ' +
+        'Peças, Reserva Ecológica do Sebuí, Tour 360° pela Ilha e a Piscina Natural da Ilha da Galheta. Cada ' +
+        'um tem roteiro passo a passo, o que inclui, o que levar e avisos. Os preços estão em Preços.',
     };
-    var k = String(a.assunto || '').toLowerCase();
-    return t[k] ? { assunto: k, resposta: t[k] } : t;
+    var k = String(a.assunto || '').toLowerCase().replace(/[^a-z_]/g, '');
+    if (t[k]) return { assunto: k, resposta: t[k] };
+    /* sem assunto, devolve o índice e o texto todo: o modelo escolhe */
+    return { assuntos: Object.keys(t), tudo: t };
   },
 };
 function limpaConta(c) {
@@ -278,7 +357,10 @@ function sistema() {
     '- Antes de dar qualquer número, BUSQUE com as ferramentas. Nunca invente valor, nome ou data.',
     '- Valores em reais, no formato R$ 1.234. Datas em dia/mês.',
     '- Quando a resposta for uma lista, use no máximo 5 itens e diga o total.',
-    '- Se a pergunta for sobre o próprio app (senha, endereço, como instalar, onde baixar o Excel), use ver_app.',
+    '- A ferramenta ver_app sabe TUDO sobre a empresa e sobre o app: serviços, endereço, QR, senhas, como',
+    '  instalar, o que cada aba faz, como funciona uma reserva do começo ao fim, o código do cliente, as regras',
+    '  do estacionamento, o Excel, a cópia de segurança, a marca, a nuvem, a história de 11 anos e a Ilha do Mel.',
+    '  Use ver_app sempre que a pergunta for sobre como as coisas funcionam, e não sobre números.',
     '',
     'O QUE VOCÊ NÃO FAZ SOZINHO',
     'Não grava lançamento, não muda preço e não manda mensagem por conta própria. Use propor_lancamento, propor_preco ou propor_mensagem: o app mostra um cartão e ele confirma com o dedo. Diga isso com naturalidade ("preparei aqui, é só confirmar").',
@@ -512,10 +594,23 @@ B12.iaVoz11 = function () { try { return localStorage.getItem(VOZ_11) || VOZ_PAD
 B12.iaGuardarChave11 = function (k, vozId) {
   k = String(k || '').trim();
   try {
+    var tinha = !!B12.iaChave11();
     if (!k) localStorage.removeItem(CHAVE_11); else localStorage.setItem(CHAVE_11, k);
     localStorage.setItem(VOZ_11, String(vozId || '').trim() || VOZ_PADRAO);
-    return { ok: true };
+    /* acabou de pôr a chave: já liga a voz profissional, senão ele cola e nada muda */
+    if (k && !tinha && ia().voz !== 'nao') { ia().voz = 'elevenlabs'; B12.salvar(); }
+    if (!k && ia().voz === 'elevenlabs') { ia().voz = 'aparelho'; B12.salvar(); }
+    return { ok: true, ligou: !!k && !tinha };
   } catch (e) { return { erro: 'Não consegui guardar neste aparelho.' }; }
+};
+
+/* prova o som na hora, e diz o que deu errado quando dá */
+B12.iaTestarVoz = function () {
+  var frase = 'Olá, Dhalsin. Sou o assistente da Estação B12. Pode perguntar o que quiser.';
+  if (B12.iaVozModo() === 'nao') return Promise.resolve({ erro: 'A voz está desligada. Escolha uma acima.' });
+  if (B12.iaVozModo() === 'aparelho') { vozDoAparelho(frase); return Promise.resolve({ ok: true, modo: 'aparelho' }); }
+  return B12.iaFalar11(frase).then(function () { return { ok: true, modo: 'elevenlabs' }; })
+    .catch(function (e) { return { erro: e.message || 'A ElevenLabs não respondeu.' }; });
 };
 
 var tocando = null;
@@ -648,7 +743,7 @@ B12.iaAbrirGaveta = function () {
     else if (m.papel === 'proposta') { el.className = 'ia-proposta'; el.innerHTML = B12.iaCartao(m.proposta); }
     else { el.className = 'ia-bolha ia-' + (m.papel === 'user' ? 'eu' : m.papel === 'erro' ? 'erro' : 'ele');
            el.innerHTML = marcar(m.texto);
-           if (m.papel === 'assistant' && porVoz) B12.iaFalar(m.texto); }
+           if (m.papel === 'assistant') B12.iaFalar(m.texto); }
     area.appendChild(el); desce();
     if (m.papel === 'proposta') B12.iaLigarCartao(el, m.proposta);
   }
