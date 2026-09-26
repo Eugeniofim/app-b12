@@ -15,7 +15,7 @@ var B12 = window.B12 || {};
 /* ---------------------------------------------------------------- identidade */
 /* o cofre: o servidor da Ti Artes que guarda a chave da IA. Vazio = assistente
    desligado (o app continua funcionando igual, só sem o chat). */
-B12.VERSAO = 'b12-v1.55.0';   /* tem que bater com o CACHE do sw.js */
+B12.VERSAO = 'b12-v1.56.0';   /* tem que bater com o CACHE do sw.js */
 
 B12.IA = { cofre: 'https://uopfqlogjzuqpabptxkb.supabase.co/functions/v1/cofre',
            modelo: 'claude-haiku-4-5' };
@@ -274,8 +274,6 @@ B12.FAZER = [
    O que ninguém conta e todo mundo descobre tarde. */
 B12.DICAS = [
   { q:'Não entram carros na Ilha', a:'Tudo se faz a pé, de bicicleta ou de barco. Deixe o carro no estacionamento da B12, no continente, e leve só o necessário.' },
-  { q:'Leve dinheiro', a:'O sinal de celular oscila e nem todo lugar tem maquininha. Não há caixa eletrônico na Ilha.' },
-  { q:'Há taxa de preservação', a:'O Parque Estadual cobra uma taxa ambiental por visitante. Confirme o valor com a B12 antes de embarcar.' },
   { q:'O número de visitantes é limitado', a:'A Ilha recebe até cinco mil pessoas por dia. Em feriado e alta temporada, reserve com antecedência.' },
   { q:'Leve mochila, não mala de rodinha', a:'As ruas são de areia e trilha. Mala de rodinha não anda na Ilha.' },
   { q:'O que levar', a:'Protetor solar, repelente, lanterna para a noite, calçado que pode molhar e uma garrafa de água.' },
