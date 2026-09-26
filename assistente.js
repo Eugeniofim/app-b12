@@ -564,11 +564,14 @@ B12.iaGuardarChave = function (k) {
   } catch (e) { return { erro: 'Não consegui guardar a chave neste aparelho.' }; }
 };
 
-B12.iaChamar = function (mensagens) {
+B12.iaChamar = function (mensagens, sistemaProprio) {
   var url = endereco(), chave = B12.iaChave();
   if (!url && !chave) return Promise.reject(new Error('O assistente ainda não foi ligado neste app.'));
   var ctrl = new AbortController(), corta = setTimeout(function () { ctrl.abort(); }, 45000);
-  var corpo = { max_tokens: 1500, system: sistema(), tools: FERRAMENTAS, messages: mensagens };
+  /* as ferramentas seguem junto mesmo quando é só texto: é por elas que o cofre
+     reconhece que o pedido vem deste app, e não de um chat qualquer. */
+  var corpo = { max_tokens: sistemaProprio ? 700 : 1500, system: sistemaProprio || sistema(),
+                tools: FERRAMENTAS, messages: mensagens };
   var direto = !!chave;                       /* com chave própria, fala direto com a Anthropic */
   var destino = direto ? 'https://api.anthropic.com/v1/messages' : url;
   var cabecas = direto
@@ -641,6 +644,37 @@ B12.iaPerguntar = function (texto, aoDesenhar) {
     })
     .catch(function (e) { aoDesenhar({ papel: 'erro', texto: e.message }); })
     .finally(function () { ocupado = false; aoDesenhar({ papel: 'fim' }); });
+};
+
+/* a IA escrevendo uma mensagem de WhatsApp para ele. Sem ferramentas de leitura:
+   é só texto, e por isso sai rápido e barato. */
+B12.iaEscreverMensagem = function (pedido) {
+  if (B12.iaSaldo() <= 0) return Promise.reject(new Error('Os créditos do assistente acabaram.'));
+  var sis = [
+    'Você escreve MODELOS de mensagem de WhatsApp para a Estação B12, que faz travessia de lancha para a',
+    'Ilha do Mel, saindo de Pontal do Paraná.',
+    '',
+    'IMPORTANTE: é um modelo reutilizável, não uma mensagem para uma pessoa específica. Você NUNCA sabe o',
+    'nome, a data nem o horário, e isso é de propósito. NUNCA peça essas informações. NUNCA faça pergunta.',
+    'No lugar delas, escreva as marcas, que o app troca na hora de enviar:',
+    '  {nome} = o primeiro nome da pessoa · {codigo} = o código da reserva',
+    '  {data} = a data da viagem · {hora} = o horário · {empresa} = Estação B12',
+    '',
+    'Regras: português do Brasil, caloroso mas direto, no máximo 6 linhas. Um ou dois emoji, nunca mais.',
+    '*Asteriscos* para negrito, que é como o WhatsApp entende.',
+    'Não invente preço, horário fixo nem promessa que a empresa não fez.',
+    'Responda SÓ com o texto do modelo, sem explicação, sem aspas em volta, sem título.',
+    '',
+    'Exemplo do que se espera, para o pedido "lembrete da véspera":',
+    'Oi, {nome}! 🚤 Passando para lembrar: sua travessia com a *Estação B12* é amanhã, {data}.',
+    'Seu código é *{codigo}*. Chegue 20 minutos antes.',
+    'Qualquer coisa, é só chamar por aqui!'
+  ].join('\n');
+  return B12.iaChamar([{ role: 'user', content: String(pedido) }], sis).then(function (r) {
+    cobrar(r.usage);
+    return (r.content || []).filter(function (b) { return b.type === 'text'; })
+      .map(function (b) { return b.text; }).join('\n').trim();
+  });
 };
 
 B12.iaLimpar = function () { var x = ia(); x.historico = []; B12.salvar(); };

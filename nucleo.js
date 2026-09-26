@@ -76,6 +76,7 @@ function vazio() {
       passeios: {},                      /* preço/duração/ativo por passeio, por cima de B12.PASSEIOS */
       passeiosExtras: [],                /* passeios que o dono criou no painel */
       precosConferidos: false,           /* vira true quando o dono salva os preços uma vez */
+      mensagens: [],                     /* as mensagens que o próprio Dhalsin escreveu */
       mostrarPrecos: false,              /* o cliente vê valores? Começa DESLIGADO: o preço é
                                             combinado no WhatsApp até o Dhalsin liberar */
       pins: null,                 /* null = usa o PIN padrão de demonstração */
@@ -108,6 +109,7 @@ B12.carregar = function () {
   if (A.diaria === 40 && !A.precosConferidos) A.diaria = B12.DIARIA;
   if (A.antecedenciaHoras == null) A.antecedenciaHoras = 24;
   if (A.mostrarPrecos == null) A.mostrarPrecos = false;
+  if (!Array.isArray(A.mensagens)) A.mensagens = [];
   if (A.idadeCortesia == null) A.idadeCortesia = B12.IDADE_CORTESIA;
   if (!A.passeios) A.passeios = {};
   if (!Array.isArray(A.passeiosExtras)) A.passeiosExtras = [];
@@ -1410,6 +1412,39 @@ B12.salvarTaxas = function (d) {
   B12.salvar();
   return { ok: true };
 };
+/* --------------------------------------------- as mensagens dele
+   Os modelos de fábrica ficam no mensagens.js e não se apagam. Estas são as
+   que ele escreve, e podem usar as marcas {nome}, {codigo}, {data} e {hora}. */
+B12.minhasMensagens = function () { return (B12.DB.ajustes.mensagens || []).slice(); };
+B12.salvarMinhaMensagem = function (m) {
+  var nome = String(m.nome || '').trim(), texto = String(m.texto || '').trim();
+  if (!nome) return { erro: 'Dê um nome à mensagem, para achar depois.' };
+  if (!texto) return { erro: 'Escreva o texto da mensagem.' };
+  var lista = B12.DB.ajustes.mensagens;
+  var ja = m.id && lista.filter(function (x) { return x.id === m.id; })[0];
+  var reg = ja || { id: 'm' + Date.now().toString(36), criadaEm: new Date().toISOString() };
+  reg.nome = nome; reg.texto = texto;
+  reg.quando = String(m.quando || '').trim() || 'quando você quiser';
+  if (!ja) lista.unshift(reg);
+  B12.salvar();
+  return { ok: true, mensagem: reg };
+};
+B12.apagarMinhaMensagem = function (id) {
+  B12.DB.ajustes.mensagens = (B12.DB.ajustes.mensagens || []).filter(function (x) { return x.id !== id; });
+  B12.salvar();
+  return { ok: true };
+};
+/* troca as marcas pelo que a pessoa tem */
+B12.preencherMensagem = function (texto, d) {
+  d = d || {};
+  return String(texto)
+    .replace(/\{nome\}/gi, (d.nome || '').split(' ')[0] || 'tudo bem')
+    .replace(/\{codigo\}/gi, d.cod || '')
+    .replace(/\{data\}/gi, d.data ? B12.dataBR(d.data) : B12.dataBR(B12.hoje()))
+    .replace(/\{hora\}/gi, d.hora || '')
+    .replace(/\{empresa\}/gi, B12.EMPRESA.nome);
+};
+
 B12.mostraPrecos = function () { return !!B12.DB.ajustes.mostrarPrecos; };
 B12.trocarMostraPrecos = function (lig) {
   B12.DB.ajustes.mostrarPrecos = !!lig; B12.salvar();

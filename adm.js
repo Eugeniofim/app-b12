@@ -601,6 +601,7 @@ function pOper(raiz) {
       '%;background:' + (cheio>0.85?C.aten:C.turq) + '"></i></div></div></div>';
   }).join('');
   raiz.appendChild(l);
+
   raiz.appendChild(bloco('<div class="faixa-sec"><div class="tit"><h2>Horários de retorno</h2></div>' +
     '<p style="font-size:12.5px;color:var(--gelo-3);padding:0 0 8px">São estes que o turista vê ' +
     'no app dele no dia da volta, para escolher o seu.</p></div>'));
@@ -1278,6 +1279,25 @@ function pMsgs(raiz) {
     'preenchidos. O app monta o texto e abre a conversa. <b>Quem aperta enviar é você.</b> ' +
     'Disparo sozinho de verdade só com a API oficial da Meta, que tem custo por conversa.</p></div>'
   ));
+  /* as dele primeiro: são as que ele escreveu e usa mais */
+  var minhas = B12.minhasMensagens();
+  raiz.appendChild(bloco(
+    '<div class="faixa-sec"><div class="tit"><h2>Minhas mensagens</h2>' +
+    '<span style="font-size:12px;color:var(--gelo-3)">' + minhas.length + '</span></div></div>' +
+    (minhas.length
+      ? '<div class="lista" id="lista-minhas">' + minhas.map(function (m) {
+          return '<div class="linha"><div class="d" data-minha="' + m.id + '" style="cursor:pointer">' +
+            '<b>' + esc(m.nome) + '</b><small>' + esc(m.texto.replace(/\*/g, '').slice(0, 60)) + '…</small></div>' +
+            '<div style="display:flex;gap:6px;flex:none">' +
+            '<button type="button" class="mini-btn" data-edit="' + m.id + '">Editar</button>' +
+            '<button type="button" class="mini-btn" data-apagar="' + m.id + '">Apagar</button></div></div>'; }).join('') + '</div>'
+      : '<div class="cx" style="margin-top:0"><p>Você ainda não escreveu nenhuma. ' +
+        'Crie as suas: aquela do bom dia, a de mau tempo, a de agradecer depois da viagem.</p></div>') +
+    '<div style="padding:0 12px">' +
+    '<button type="button" class="btn pri" id="b-nova-msg">Criar uma mensagem</button></div>' +
+    '<div class="faixa-sec"><div class="tit"><h2>Modelos de fábrica</h2></div></div>'
+  ));
+
   var l = document.createElement('div'); l.className = 'lista';
   l.innerHTML = B12.MODELOS.map(function (m) {
     return '<div class="linha toca" data-modelo="' + m.id + '">' +
@@ -1302,6 +1322,72 @@ function pMsgs(raiz) {
     '<p>Na aba <b>Escala</b>, cada passageiro tem um botão verde do WhatsApp ao lado do nome. ' +
     'Toque nele e escolha o modelo: confirmar, lembrar da véspera, mandar os horários de volta ' +
     'ou avisar que o mar virou. Na aba <b>Clientes</b>, o mesmo vale para quem já viajou.</p></div>'));
+
+  function re() { B12.admDesenhar('msgs'); }
+  function abrirMinha(m) {
+    var texto = B12.preencherMensagem(m.texto, {});
+    B12.folha({ titulo: m.nome, sub: m.quando,
+      corpo: '<div class="balao">' + esc(texto).replace(/\*(.+?)\*/g, '<b>$1</b>').replace(/\n/g, '<br>') + '</div>' +
+        '<div class="ajuda" style="margin-top:12px">As marcas {nome}, {codigo}, {data} e {hora} são trocadas ' +
+        'pelos dados da pessoa quando você manda pela ficha dela.</div>',
+      acao: 'Copiar texto', aoSalvar: function () { B12.copiar(texto); return { ok: true }; },
+      depois: function () { B12.aviso('Copiado. Cole no WhatsApp.', 'bom'); } });
+  }
+  function editor(m) {
+    B12.folha({
+      titulo: m ? 'Editar mensagem' : 'Nova mensagem',
+      sub: 'Ela fica guardada e você usa quando quiser',
+      corpo:
+        '<input type="hidden" name="id" value="' + (m ? m.id : '') + '">' +
+        B12.f_campo('Nome da mensagem', 'nome', { valor: m ? m.nome : '', obrig: true, max: 40,
+          dica: 'Bom dia do embarque' }) +
+        B12.f_campo('Quando usar', 'quando', { valor: m ? m.quando : '', max: 60,
+          dica: 'na véspera da viagem' }) +
+        '<label for="c-texto">Texto</label>' +
+        '<textarea id="c-texto" name="texto" rows="7" placeholder="Oi, {nome}! ...">' +
+        (m ? esc(m.texto) : '') + '</textarea>' +
+        '<div class="ajuda">Use *asteriscos* para negrito. As marcas {nome}, {codigo}, {data} e {hora} ' +
+        'viram os dados da pessoa na hora de enviar.</div>' +
+        '<button type="button" class="btn sec" id="b-ia-escreve" style="margin-top:12px">' +
+        'Pedir para a IA escrever</button>' +
+        '<div class="ajuda" id="ia-msg-aviso"></div>',
+      acao: m ? 'Salvar' : 'Criar mensagem',
+      aoAbrir: function (form) {
+        var b = form.querySelector('#b-ia-escreve'), av = form.querySelector('#ia-msg-aviso');
+        b.onclick = function () {
+          var assunto = form.querySelector('[name=nome]').value.trim() ||
+                        form.querySelector('[name=quando]').value.trim();
+          if (!assunto) { av.textContent = 'Escreva antes o nome ou o "quando usar", para eu saber do que se trata.';
+            av.style.color = 'var(--ruim)'; return; }
+          b.disabled = true; b.textContent = 'Escrevendo…'; av.textContent = ''; av.style.color = '';
+          B12.iaEscreverMensagem('Escreva a mensagem de WhatsApp para: ' + assunto +
+            '. Contexto: ' + (form.querySelector('[name=quando]').value.trim() || 'uso geral') + '.')
+            .then(function (t) {
+              form.querySelector('[name=texto]').value = t;
+              av.textContent = 'Pronto. Leia, ajuste o que quiser e salve.'; av.style.color = 'var(--bom)';
+            })
+            .catch(function (e) { av.textContent = e.message; av.style.color = 'var(--ruim)'; })
+            .finally(function () { b.disabled = false; b.textContent = 'Pedir para a IA escrever'; });
+        };
+      },
+      aoSalvar: function (d) { return B12.salvarMinhaMensagem(d); },
+      depois: function () { re(); B12.aviso('Mensagem guardada.', 'bom'); }
+    });
+  }
+  var bn = raiz.querySelector('#b-nova-msg');
+  if (bn) bn.onclick = function () { editor(null); };
+  raiz.querySelectorAll('[data-minha]').forEach(function (b) {
+    b.onclick = function () { abrirMinha(minhas.filter(function (x) { return x.id === b.dataset.minha; })[0]); };
+  });
+  raiz.querySelectorAll('[data-edit]').forEach(function (b) {
+    b.onclick = function () { editor(minhas.filter(function (x) { return x.id === b.dataset.edit; })[0]); };
+  });
+  raiz.querySelectorAll('[data-apagar]').forEach(function (b) {
+    b.onclick = function () {
+      var m = minhas.filter(function (x) { return x.id === b.dataset.apagar; })[0];
+      if (confirm('Apagar a mensagem "' + m.nome + '"?')) { B12.apagarMinhaMensagem(m.id); re(); }
+    };
+  });
 }
 
 
