@@ -51,6 +51,31 @@ B12.folha = function (opc) {
       dados[c.name] = c.type === 'checkbox' ? c.checked : c.value;
     });
     var r = opc.aoSalvar(dados);
+
+    /* salvar que vai à rede devolve { esperar: promessa }: o botão fica ocupado
+       e a folha só fecha quando a resposta chega. Sem isso a pessoa aperta duas
+       vezes achando que não funcionou. */
+    if (r && r.esperar && typeof r.esperar.then === 'function') {
+      var bt = form.querySelector('button[type=submit]');
+      var solta = B12.ocupar ? B12.ocupar(bt, 'Um instante…') : null;
+      erro.hidden = true;
+      r.esperar.then(function (res) {
+        if (solta) solta();
+        if (res && res.erro) {
+          erro.textContent = res.erro; erro.hidden = false;
+          erro.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          return;
+        }
+        fechar();
+        if (opc.depois) opc.depois(res);
+      })['catch'](function () {
+        if (solta) solta();
+        erro.textContent = 'Não consegui falar com a nuvem. Tente de novo.';
+        erro.hidden = false;
+      });
+      return;
+    }
+
     if (r && r.erro) {
       erro.textContent = r.erro; erro.hidden = false;
       erro.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -1073,5 +1098,57 @@ B12.formHorariosDia = function (iso, depois) {
 };
 /* o nome antigo continua valendo */
 B12.formVoltas = function (iso, depois) { return B12.formHorariosDia(iso, depois); };
+
+/* ----------------------------------------------------- o login da nuvem
+   O PIN é a porta do balcão; este é o que o banco entende. A folha diz a
+   diferença em uma frase, porque ele vai perguntar. */
+B12.formNuvemEntrar = function (depois) {
+  var eu = B12.nuvQuem && B12.nuvQuem();
+  if (eu) {
+    return B12.folha({
+      titulo: 'Nuvem ligada',
+      sub: eu.email + ' · ' + eu.papel,
+      corpo:
+        '<div class="bv"><span class="bv-ico">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" ' +
+          'stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>' +
+        '</span><p>Este aparelho está ligado no banco da B12 como <b>' + esc(eu.papel) + '</b>.</p></div>' +
+        '<div class="ajuda" style="margin-top:14px">Saindo daqui, o app volta a guardar só ' +
+        'neste aparelho e os avisos no celular param. Seus dados não se perdem.</div>',
+      extra: '<button type="button" class="btn sec" id="nv-sair" style="margin-top:0">' +
+        'Sair da nuvem neste aparelho</button>',
+      acao: 'Fechar',
+      aoSalvar: function () { return { ok: true }; },
+      depois: function () { if (depois) depois(); },
+      aoAbrir: function (f) {
+        f.querySelector('#nv-sair').onclick = function () {
+          B12.nuvSair();
+          B12.fecharFolha();
+          B12.aviso('Saiu da nuvem neste aparelho.', 'bom');
+          if (depois) depois();
+        };
+      }
+    });
+  }
+
+  B12.folha({
+    titulo: 'Ligar a nuvem',
+    sub: 'O login que o banco da B12 entende',
+    corpo:
+      '<p style="font-size:13px;color:var(--gelo-3);margin-bottom:14px">O PIN continua ' +
+      'sendo a sua entrada rápida no balcão. Este login é outra coisa: é ele que faz o ' +
+      'celular e o computador mostrarem a mesma coisa, e é ele que libera o aviso no celular.</p>' +
+      campo('E-mail', 'email', { tipo:'email', modo:'email', obrig:true, dica:'o e-mail da conta da B12' }) +
+      campo('Senha', 'senha', { tipo:'password', obrig:true }) +
+      '<div class="ajuda" style="margin-top:12px">Quem não tem conta não entra aqui — e o ' +
+      'banco recusa, não é só a tela.</div>',
+    acao: 'Entrar',
+    aoSalvar: function (d) {
+      if (!d.email || !d.senha) return { erro: 'Preencha o e-mail e a senha.' };
+      return { esperar: B12.nuvEntrar(d.email, d.senha) };
+    },
+    depois: depois
+  });
+};
 
 })();

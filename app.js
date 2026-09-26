@@ -260,6 +260,7 @@ function ligarAtualizacao() {
 /* ---------------------------------------------------------------- partida */
 function comecar() {
   B12.carregar();
+  if (B12.nuvAcordar) B12.nuvAcordar();   /* a sessão da nuvem volta sozinha ao abrir */
 
   /* conteúdo que depende de dados */
   B12.pintarPasseios();

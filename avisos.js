@@ -15,8 +15,8 @@ var B12 = window.B12 || {};
 (function () {
 
 function nuvem() { return B12.NUVEM && B12.NUVEM.url && B12.NUVEM.chave ? B12.NUVEM : null; }
-/* portão único: há sessão de verdade na nuvem? Hoje ainda não há login nenhum. */
-B12.nuvLogado = function () { return !!(B12.NUVEM && B12.NUVEM.sessao); };
+/* o portão mora no nuvemlogin.js; aqui só garanto que existe */
+if (!B12.nuvLogado) B12.nuvLogado = function () { return false; };
 
 /* o app está instalado na tela de início? */
 B12.avInstalado = function () {
@@ -117,11 +117,15 @@ B12.avLigar = async function (opc) {
     cliente_id: (B12.meuCadastro && B12.meuCadastro() || {}).id || null,
     ativo: true, erros: 0
   };
+  /* com sessão o cabeçalho leva o token; sem sessão, a chave pública — e aí o
+     banco só aceita turista, que é exatamente o desenho */
+  if (B12.nuvLogado()) corpo.pessoa_id = (B12.nuvQuem() || {}).id || null;
+  var cab = B12.nuvCabecalho ? B12.nuvCabecalho()
+          : { apikey: B12.NUVEM.chave, Authorization: 'Bearer ' + B12.NUVEM.chave,
+              'Content-Type': 'application/json' };
+  cab.Prefer = 'resolution=merge-duplicates,return=minimal';
   var r = await fetch(B12.NUVEM.url + '/rest/v1/b12_avisos?on_conflict=endpoint', {
-    method: 'POST',
-    headers: { apikey: B12.NUVEM.chave, Authorization: 'Bearer ' + B12.NUVEM.chave,
-               'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' },
-    body: JSON.stringify(corpo)
+    method: 'POST', headers: cab, body: JSON.stringify(corpo)
   });
   if (!r.ok) {
     var txt = await r.text();

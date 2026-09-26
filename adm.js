@@ -347,6 +347,7 @@ function pHoje(raiz) {
     raiz.appendChild(blocoHorarios(manha));
   }
 
+  blocoNuvem(raiz);
   blocoAvisos(raiz);
 
   var g = document.createElement('div'); g.className = 'cx entra entra-4';
@@ -1273,6 +1274,34 @@ function blocoBuscas(dia) { return blocoHorarios(dia); }
 /* --------------------------------------------------- AVISOS NO CELULAR
    O cartão que liga o empurrão. Diz a verdade sobre o que falta em vez de
    mostrar um botão que não funciona. */
+/* ------------------------------------------------------------ A NUVEM
+   O cartão que liga o banco. É o que destrava sincronia e aviso no celular. */
+function blocoNuvem(raiz) {
+  if (!B12.nuvLogado) return;
+  var eu = B12.nuvQuem && B12.nuvQuem();
+  var b;
+  if (eu) {
+    b = bloco('<div class="cx nota entra entra-2">' +
+      '<div class="cx-topo"><h3>Nuvem</h3>' +
+      '<button class="mini-btn" id="b-nv">Gerenciar</button></div>' +
+      '<p>Ligado como <b>' + esc(eu.email) + '</b> · ' + esc(eu.papel) + '. ' +
+      'O que você mexer aqui aparece no outro aparelho.</p></div>');
+  } else {
+    b = bloco('<div class="cx aviso entra entra-2">' +
+      '<div class="cx-topo"><h3>Ligue a nuvem</h3>' +
+      '<button class="mini-btn" id="b-nv">Entrar</button></div>' +
+      '<p>Sem ela, o celular e o computador são cadernos separados, e o aviso no ' +
+      'celular não chega. O banco da B12 já está pronto esperando.</p></div>');
+  }
+  b.querySelector('#b-nv').onclick = function () {
+    B12.formNuvemEntrar(function (r) {
+      if (r && r.ok) B12.aviso('Nuvem ligada como ' + r.papel + '.', 'bom');
+      B12.admDesenhar();
+    });
+  };
+  raiz.appendChild(b);
+}
+
 function blocoAvisos(raiz) {
   if (!B12.avEstado) return;
   var e = B12.avEstado();
