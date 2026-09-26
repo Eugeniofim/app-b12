@@ -104,10 +104,6 @@ function abrirMais() {
     '<div style="width:38px;height:4px;border-radius:99px;background:var(--risco);margin:0 auto 16px"></div>' +
     '<h3 style="font-size:17px;margin-bottom:3px">Mais</h3>' +
     '<p style="font-size:13px;color:var(--tinta-2);margin-bottom:14px">Estação B12 · Pontal do Paraná</p>' +
-    item('pontos','Clube B12','Seus pontos, faixa e benefícios') +
-    item('previsao','Previsão da Ilha','Os próximos sete dias, ao vivo') +
-    item('ilha','Ilha do Mel','Praias, parceiros e como chegar') +
-    '<div style="height:1px;background:var(--risco);margin:6px 0 12px"></div>' +
     item('b12','Área da B12','Equipe e proprietário · acesso com PIN') +
     '<button class="btn sec" id="b-fechar-mais">Fechar</button></div>';
   document.body.appendChild(q);
