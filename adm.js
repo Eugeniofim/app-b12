@@ -214,8 +214,74 @@ B12.admDesenhar = function (aba) {
      clientes:pClientes, patio:pPatio, manut:pManut, gestao:pGestao,
      escala:pEscala, msgs:pMsgs, dados:pDados, precos:pPrecos, ia:pIA, ilha:pNaIlha, balcao:pBalcao }[abaAtual] || pHoje)(raiz);
   B12.animarPlacar(raiz);
+  B12.ligarLupa('');
   raiz.scrollIntoView({ block:'nearest' });
 };
+
+/* ------------------------------------------------------------------- LUPA
+   Uma caixa só, no topo, que vale em qualquer aba. O balcão digita o código
+   do voucher e a pessoa aparece. Também acha por nome, WhatsApp e placa.
+   A mesma caixa serve o painel do dono e a tela da equipe — muda só o sufixo
+   dos ids, porque as duas telas existem ao mesmo tempo no HTML. */
+var lupasLigadas = {};
+B12.ligarLupa = function (suf) {
+  suf = suf || '';
+  var cx = document.getElementById('q-reserva' + suf);
+  var res = document.getElementById('q-res' + suf);
+  var lim = document.getElementById('q-limpa' + suf);
+  if (!cx || !res) return;
+  if (lupasLigadas[suf]) { pintarLupa(suf, cx.value); return; }
+  lupasLigadas[suf] = true;
+
+  cx.oninput = function () { pintarLupa(suf, cx.value); };
+  cx.onkeydown = function (ev) {
+    if (ev.key === 'Escape') { cx.value = ''; pintarLupa(suf, ''); cx.blur(); }
+    if (ev.key === 'Enter') {
+      ev.preventDefault();
+      var um = res.querySelector('[data-res]');
+      if (um) um.click();
+    }
+  };
+  if (lim) lim.onclick = function () { cx.value = ''; pintarLupa(suf, ''); cx.focus(); };
+};
+
+function pintarLupa(suf, termo) {
+  var res = document.getElementById('q-res' + suf);
+  var lim = document.getElementById('q-limpa' + suf);
+  if (!res) return;
+  var t = String(termo || '').trim();
+  if (lim) lim.hidden = !t;
+  if (t.length < 2) { res.hidden = true; res.innerHTML = ''; return; }
+
+  var achados = B12.buscarReservas(t);
+  res.hidden = false;
+  if (!achados.length) {
+    res.innerHTML = '<div class="lr-vazio">Nada com &ldquo;' + esc(t) + '&rdquo;. ' +
+      'Tente só os quatro números do código.</div>';
+    return;
+  }
+  var hoje = B12.hoje(), dono = B12.pode('dono');
+  res.innerHTML = achados.map(function (r) {
+    var conta = dono ? B12.contaDaReserva(r.id) : null;
+    var aberta = conta && !(conta.jaPago && !conta.estacionamento) && conta.total > 0;
+    var quando = r.ida === hoje ? 'hoje' : B12.dataBR(r.ida);
+    return '<button type="button" data-res="' + r.id + '">' +
+      '<span><span class="lr-cod">' + esc(r.cod) + '</span>' +
+      '<span class="lr-nome">' + esc(r.nome) + '</span>' +
+      '<span class="lr-sub">' + r.pax + (r.pax > 1 ? ' pessoas' : ' pessoa') +
+        ' · ida ' + quando + (r.placa ? ' · ' + esc(r.placa) : '') + '</span></span>' +
+      (aberta ? '<span class="lr-cod" style="color:var(--ouro)">a receber</span>' : '') +
+      '</button>';
+  }).join('');
+  res.querySelectorAll('[data-res]').forEach(function (b) {
+    b.onclick = function () {
+      B12.fichaReserva(b.dataset.res, function () {
+        if (suf) { if (B12.pintarEquipe) B12.pintarEquipe(); }
+        else B12.admDesenhar();
+      });
+    };
+  });
+}
 
 function bloco(html) { var d = document.createElement('div'); d.innerHTML = html; return d; }
 

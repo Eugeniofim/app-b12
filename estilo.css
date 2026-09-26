@@ -1104,3 +1104,56 @@ body:not(.adm) .ia-sug{background:var(--carta);border-color:var(--risco);color:v
   .zapzinho{width:44px;height:44px;min-height:44px}
   .instalar-x{width:34px;height:34px;min-height:34px}
 }
+
+/* ------------------------------------------------ a lupa do painel (reserva)
+   Fica no topo do ADM, visível em qualquer aba: no balcão a pessoa tem o
+   voucher na mão e o caminho mais curto é digitar o código. */
+.lupa{display:flex;align-items:center;gap:9px;margin-top:12px;
+  background:rgba(255,255,255,.14);border:1.5px solid rgba(255,255,255,.22);
+  border-radius:var(--r-m);padding:0 12px;transition:border-color .18s,background .18s}
+.lupa:focus-within{border-color:var(--turq-300);background:rgba(255,255,255,.2)}
+.lupa svg{width:18px;height:18px;flex:none;opacity:.82}
+.lupa input{flex:1;min-width:0;background:none;border:0;color:#fff;font-size:15px;
+  padding:11px 0;min-height:44px;outline:none}
+.lupa input::placeholder{color:rgba(255,255,255,.62)}
+.lupa input::-webkit-search-cancel-button{display:none}
+.lupa button{background:none;border:0;color:#fff;opacity:.75;font-size:22px;line-height:1;
+  padding:0 2px;min-height:44px;min-width:32px}
+
+.lupa-res{margin-top:8px;background:var(--carta);border-radius:var(--r-m);
+  overflow:hidden;box-shadow:0 10px 28px rgba(6,23,38,.28);max-height:330px;overflow-y:auto}
+body.adm .lupa-res{background:var(--noite-2)}
+.lupa-res button{display:flex;width:100%;text-align:left;gap:10px;align-items:center;
+  justify-content:space-between;padding:12px 14px;background:none;border:0;
+  border-bottom:1px solid var(--risco);color:var(--tinta);min-height:56px}
+body.adm .lupa-res button{border-bottom-color:var(--noite-risco);color:var(--gelo)}
+.lupa-res button:last-child{border-bottom:0}
+.lupa-res button:active{background:#F1F6F9}
+body.adm .lupa-res button:active{background:var(--noite-3)}
+.lupa-res .lr-cod{font-weight:800;font-size:13px;letter-spacing:.04em;color:var(--turq-600)}
+body.adm .lupa-res .lr-cod{color:var(--turq-300)}
+.lupa-res .lr-nome{display:block;font-size:14px;font-weight:700;margin-top:2px}
+.lupa-res .lr-sub{display:block;font-size:11.5px;color:var(--tinta-3);margin-top:2px}
+body.adm .lupa-res .lr-sub{color:var(--gelo-3)}
+.lupa-res .lr-vazio{padding:16px 14px;font-size:13px;color:var(--tinta-3)}
+body.adm .lupa-res .lr-vazio{color:var(--gelo-3)}
+
+/* na tela da equipe o fundo é claro: a mesma caixa, em tinta escura */
+.lupa-clara{margin:12px 12px 0;background:var(--carta);border-color:var(--risco)}
+.lupa-clara:focus-within{background:var(--carta);border-color:var(--turq-500)}
+.lupa-clara input,.lupa-clara button{color:var(--tinta)}
+.lupa-clara input::placeholder{color:var(--tinta-3)}
+.lupa-clara svg{opacity:.55}
+#q-res-eq{margin:8px 12px 0}
+
+.ficha-cod{font-size:22px;font-weight:800;letter-spacing:.06em;color:var(--turq-600);
+  text-align:center;padding:10px 0 14px}
+body.adm .ficha-cod{color:var(--turq-300)}
+.ficha-conta{display:flex;justify-content:space-between;align-items:center;gap:10px;
+  margin-top:14px;padding:13px 14px;border-radius:var(--r-m);
+  background:#FFF8E8;border:1.5px solid var(--ouro);font-size:13px;font-weight:600}
+.ficha-conta b{font-size:19px;font-weight:800}
+.ficha-conta.paga{background:#EDFBF9;border-color:var(--turq-500);color:var(--turq-600);
+  justify-content:center}
+body.adm .ficha-conta{background:#3A2E12;color:var(--gelo)}
+body.adm .ficha-conta.paga{background:#0A3B37;color:var(--turq-300)}

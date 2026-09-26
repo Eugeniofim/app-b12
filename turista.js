@@ -613,6 +613,7 @@ function naIlhaEquipe() {
 
 B12.pintarEquipe = function () {
   var alvo = document.getElementById('area-equipe');
+  if (B12.ligarLupa) B12.ligarLupa('-eq');     /* a lupa do balcão, por código */
   var hoje = B12.hoje();
   var idas = B12.saidasDoDia(hoje, 'ida'), voltas = B12.saidasDoDia(hoje, 'volta');
   var pax = idas.reduce(function (s, x) { return s + x.ocupadas; }, 0);

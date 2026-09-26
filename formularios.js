@@ -659,4 +659,70 @@ B12.formReceber = function (reservaId, depois) {
   });
 };
 
+/* ------------------------------------------------- ficha da reserva (a lupa)
+   O balcão tem o voucher na mão e digita o código. Aqui aparece tudo sobre a
+   pessoa e os dois botões que importam: falar no WhatsApp e receber na saída. */
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+B12.fichaReserva = function (id, depois) {
+  var r = B12.reservaPorId(id);
+  if (!r) return B12.aviso('Não achei essa reserva.', 'ruim');
+  var c = B12.contaDaReserva(r.id) || { total: 0, jaPago: true, travessia: 0, estacionamento: 0, diarias: 0 };
+  var sit = B12.situacaoTxt ? B12.situacaoTxt(r) : (r.situacao || '');
+  var zap = String(r.zap || '').replace(/\D/g, '');
+  var mostra = B12.mostraPrecos();
+  var dono = !B12.pode || B12.pode('dono');
+
+  function linha(rot, val) {
+    return val ? '<tr><td>' + rot + '</td><td class="n">' + val + '</td></tr>' : '';
+  }
+  var corpo =
+    '<div class="ficha-cod">' + esc(r.cod) + '</div>' +
+    '<table class="tabela">' +
+      linha('Nome', esc(r.nome)) +
+      linha('Pessoas', r.pax + (r.pax > 1 ? ' pessoas' : ' pessoa') +
+        (r.criancas ? ' · ' + r.criancas + ' criança' + (r.criancas > 1 ? 's' : '') : '')) +
+      linha('Ida', B12.dataBR(r.ida) + (r.faixa ? ' · ' + esc(r.faixa) : '')) +
+      linha('Volta', r.volta ? B12.dataBR(r.volta) : '<span class="pend">sem data</span>') +
+      linha('Destino', esc(r.destino)) +
+      linha('Pousada', esc(r.pousada)) +
+      linha('Carro', r.placa ? esc(r.placa) + (c.carro ? ' · no pátio' : '') : '') +
+      linha('WhatsApp', esc(r.zap)) +
+      linha('Situação', esc(sit)) +
+    '</table>' +
+    (!dono ? ''                                    /* a equipe não vê dinheiro */
+      : c.jaPago && !c.estacionamento
+      ? '<div class="ficha-conta paga">Conta já recebida</div>'
+      : '<div class="ficha-conta">A receber na saída<b>' +
+        (mostra ? B12.brl(c.total) : 'a combinar') + '</b></div>');
+
+  var form = B12.folha({
+    titulo: 'Reserva de ' + String(r.nome || '').split(' ')[0],
+    sub: r.pax + (r.pax > 1 ? ' pessoas' : ' pessoa') + ' · ida ' + B12.dataBR(r.ida),
+    corpo: corpo,
+    extra:
+      (zap ? '<button type="button" class="btn sec" id="fc-zap" style="margin-top:0">' +
+        'Falar no WhatsApp</button>' : '') +
+      ((!dono || (c.jaPago && !c.estacionamento)) ? '' :
+        '<button type="button" class="btn sec" id="fc-receber" style="margin-top:8px">' +
+        'Receber agora</button>'),
+    acao: 'Fechar',
+    aoSalvar: function () { return { ok: true }; },
+    depois: function () { if (depois) depois(); }
+  });
+  var bz = form.querySelector('#fc-zap');
+  if (bz) bz.onclick = function () {
+    var txt = 'Olá, ' + String(r.nome || '').split(' ')[0] + '! Aqui é a Estação B12, ' +
+      'sobre a sua reserva ' + r.cod + '.';
+    window.open('https://wa.me/' + zap + '?text=' + encodeURIComponent(txt), '_blank');
+  };
+  var br = form.querySelector('#fc-receber');
+  if (br) br.onclick = function () {
+    B12.fecharFolha();
+    B12.formReceber(r.id, function () { if (depois) depois(); });
+  };
+};
+
 })();

@@ -812,6 +812,37 @@ B12.acharReserva = function (cod, zap4) {
   return r || null;
 };
 
+/* A lupa do painel: acha pelo código (com ou sem o "B12-"), pelo nome,
+   pelo WhatsApp ou pela placa. O código é o caminho curto do balcão. */
+B12.buscarReservas = function (termo) {
+  var t = String(termo || '').trim();
+  if (t.length < 2) return [];
+  var alvo = t.toUpperCase().replace(/\s+/g, ' ');
+  var so = alvo.replace(/[^A-Z0-9]/g, '');          /* "b12 3172" e "B12-3172" viram o mesmo */
+  var dig = t.replace(/\D/g, '');
+  var achados = B12.DB.reservas.filter(function (r) {
+    var cod = String(r.cod || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (so && cod.indexOf(so) >= 0) return true;
+    if (dig.length >= 3 && cod.indexOf(dig) >= 0) return true;
+    if (String(r.nome || '').toUpperCase().indexOf(alvo) >= 0) return true;
+    if (dig.length >= 4 && String(r.zap || '').replace(/\D/g, '').indexOf(dig) >= 0) return true;
+    if (so.length >= 3 && String(r.placa || '').toUpperCase().replace(/[^A-Z0-9]/g, '').indexOf(so) >= 0) return true;
+    return false;
+  });
+  /* código exato primeiro, depois a viagem mais próxima de hoje */
+  var hoje = B12.hoje();
+  return achados.sort(function (a, b) {
+    var ea = String(a.cod||'').toUpperCase().replace(/[^A-Z0-9]/g,'') === so ? 0 : 1;
+    var eb = String(b.cod||'').toUpperCase().replace(/[^A-Z0-9]/g,'') === so ? 0 : 1;
+    if (ea !== eb) return ea - eb;
+    function longe(d) {
+      if (!d) return 9e9;
+      return Math.abs(new Date(d + 'T12:00') - new Date(hoje + 'T12:00'));
+    }
+    return longe(a.ida) - longe(b.ida);
+  }).slice(0, 12);
+};
+
 
 /* ============================================================================
    ENTRADA DE DADOS — tudo o que o Dhalsin e a equipe digitam
