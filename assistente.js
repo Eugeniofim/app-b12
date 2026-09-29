@@ -563,9 +563,28 @@ B12.iaFerramenta = function (nome, entrada) {
 };
 
 /* ==================================================== a conversa em si */
+/* v-data: a data no TOPO das instrucoes, com dia da semana, calculada a cada
+   resposta; e o turno de outro dia vai carimbado — senao o historico de ontem
+   diz "hoje e 28" e o assistente acredita. */
+function linhaHoje() {
+  var d = new Date(), DS = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'], iso = B12.hoje();
+  return 'HOJE É ' + DS[d.getDay()] + ', ' + B12.dataBR(iso) + ' (' + iso + '). Use esta data para "hoje", "amanhã", "sexta que vem" e prazos. Mensagens marcadas com [dito em DD/MM] são de OUTRO dia: o "hoje" delas não vale mais.';
+}
+function mensagensParaEnvio(ms) {
+  var hoje = B12.hoje();
+  return ms.map(function (m) {
+    var r = {}; Object.keys(m).forEach(function (k) { if (k !== 'dia') r[k] = m[k]; });
+    if (m.role !== 'user' || !m.dia || m.dia === hoje) return r;
+    var c = '[dito em ' + m.dia.slice(8, 10) + '/' + m.dia.slice(5, 7) + '] ';
+    r.content = typeof m.content === 'string' ? c + m.content : m.content.map(function (b) { return b.type === 'text' ? Object.assign({}, b, { text: c + b.text }) : b; });
+    return r;
+  });
+}
 function sistema() {
   var e = B12.EMPRESA, a = B12.DB.ajustes;
   return [
+    linhaHoje(),
+    '',
     'Você é o assistente da Estação B12, dentro do app da empresa. Fala com o Dhalsin, o dono.',
     'A B12 faz travessias de lancha de Pontal do Paraná para a Ilha do Mel, passeios de barco pela baía de Paranaguá e tem estacionamento no próprio pátio. Endereço: ' + e.endereco + '.',
     '',
@@ -614,7 +633,7 @@ function sistema() {
     'Categorias que existem — entradas: ' + B12.ENTRADAS.join(', ') + '. Saídas: ' + B12.SAIDAS.join(', ') + '.',
     '',
     'CONTEXTO DE HOJE',
-    'Hoje é ' + B12.dataBR(B12.hoje()) + '. A meta do mês é ' + B12.brl(a.metaMensal) + '.',
+    linhaHoje() + ' A meta do mês é ' + B12.brl(a.metaMensal) + '.',
     (a.precosConferidos ? '' : 'ATENÇÃO: os preços ainda não foram conferidos por ele. Se falar de preço, lembre de conferir na aba Preços.'),
     'Os números do mês corrente são de demonstração, gerados a partir da sazonalidade real da planilha dele. O histórico de 2015 a 2025 é real.',
   ].filter(Boolean).join('\n');
@@ -645,7 +664,7 @@ B12.iaChamar = function (mensagens, sistemaProprio) {
   /* as ferramentas seguem junto mesmo quando é só texto: é por elas que o cofre
      reconhece que o pedido vem deste app, e não de um chat qualquer. */
   var corpo = { max_tokens: sistemaProprio ? 700 : 1500, system: sistemaProprio || sistema(),
-                tools: FERRAMENTAS, messages: mensagens };
+                tools: FERRAMENTAS, messages: mensagensParaEnvio(mensagens) };
   var direto = !!chave;                       /* com chave própria, fala direto com a Anthropic */
   var destino = direto ? 'https://api.anthropic.com/v1/messages' : url;
   var cabecas = direto
@@ -687,7 +706,7 @@ B12.iaPerguntar = function (texto, aoDesenhar) {
   ocupado = true;
   var x = ia();
   var hist = apara(x.historico.slice());
-  hist.push({ role: 'user', content: String(texto).trim() });
+  hist.push({ role: 'user', dia: B12.hoje(), content: String(texto).trim() });
   aoDesenhar({ papel: 'user', texto: String(texto).trim() });
   aoDesenhar({ papel: 'pensa' });
 
