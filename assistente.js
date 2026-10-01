@@ -697,7 +697,36 @@ function apara(h) {
 }
 
 var ocupado = false;
-B12.iaPerguntar = function (texto, aoDesenhar) {
+/* a foto que ele mandou vai no pedido como bloco image; no histórico guardado fica só "[foto enviada]"
+   (base64 no localStorage encheria o aparelho) */
+function semFotos(h) {
+  return h.map(function (m) {
+    if (m.role !== 'user' || !Array.isArray(m.content)) return m;
+    var txt = m.content.filter(function (b) { return b.type === 'text'; }).map(function (b) { return b.text; }).join(' ').trim();
+    var n = m.content.filter(function (b) { return b.type === 'image'; }).length;
+    return Object.assign({}, m, { content: (txt || 'O que você vê nesta foto?') + (n ? ' [' + n + ' foto' + (n > 1 ? 's' : '') + ' enviada' + (n > 1 ? 's' : '') + ']' : '') });
+  });
+}
+B12.iaReduzFoto = function (file) {
+  return new Promise(function (ok, nao) {
+    var im = new Image(); var url = URL.createObjectURL(file);
+    im.onload = function () { try {
+      var k = Math.min(1, 1280 / Math.max(im.naturalWidth, im.naturalHeight));
+      var cv = document.createElement('canvas'); cv.width = Math.round(im.naturalWidth * k); cv.height = Math.round(im.naturalHeight * k);
+      cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height);
+      var dataUrl = cv.toDataURL('image/jpeg', 0.85);
+      var pv = document.createElement('canvas'); var kp = Math.min(1, 160 / Math.max(cv.width, cv.height)); pv.width = Math.round(cv.width * kp); pv.height = Math.round(cv.height * kp);
+      pv.getContext('2d').drawImage(cv, 0, 0, pv.width, pv.height);
+      URL.revokeObjectURL(url);
+      ok({ mime: 'image/jpeg', data: dataUrl.split(',')[1], prev: pv.toDataURL('image/jpeg', 0.7) });
+    } catch (e) { nao(e); } };
+    im.onerror = function () { URL.revokeObjectURL(url); nao(new Error('Não consegui ler a foto.')); };
+    im.src = url;
+  });
+};
+B12.iaPerguntar = function (texto, aoDesenhar, fotos) {
+  fotos = Array.isArray(fotos) ? fotos : [];
+  if (!String(texto || '').trim() && fotos.length) texto = 'O que você vê nesta foto?';
   if (ocupado || !String(texto || '').trim()) return Promise.resolve();
   if (B12.iaSaldo() <= 0) {
     aoDesenhar({ papel: 'erro', texto: 'Os créditos do assistente acabaram. Fale com o Eugênio para recarregar.' });
@@ -706,8 +735,10 @@ B12.iaPerguntar = function (texto, aoDesenhar) {
   ocupado = true;
   var x = ia();
   var hist = apara(x.historico.slice());
-  hist.push({ role: 'user', dia: B12.hoje(), content: String(texto).trim() });
-  aoDesenhar({ papel: 'user', texto: String(texto).trim() });
+  hist.push({ role: 'user', dia: B12.hoje(), content: fotos.length
+    ? fotos.map(function (f) { return { type: 'image', source: { type: 'base64', media_type: f.mime, data: f.data } }; }).concat([{ type: 'text', text: String(texto).trim() }])
+    : String(texto).trim() });
+  aoDesenhar({ papel: 'user', texto: String(texto).trim(), fotos: fotos.length });
   aoDesenhar({ papel: 'pensa' });
 
   function volta(n) {
@@ -733,7 +764,7 @@ B12.iaPerguntar = function (texto, aoDesenhar) {
   return volta(0)
     .then(function () {
       if (hist.length && hist[hist.length - 1].role === 'user') { hist.pop(); hist.pop(); }
-      x.historico = apara(hist); B12.salvar();
+      x.historico = apara(semFotos(hist)); B12.salvar();
     })
     .catch(function (e) { aoDesenhar({ papel: 'erro', texto: e.message }); })
     .finally(function () { ocupado = false; aoDesenhar({ papel: 'fim' }); });
@@ -1040,7 +1071,11 @@ B12.iaAbrirGaveta = function () {
       '<div class="ia-g-conversa" id="ia-g-conversa" aria-live="polite"></div>' +
       '<div class="ia-sugestoes" id="ia-g-sug">' + SUGESTOES.map(function (s) {
         return '<button type="button" class="ia-sug" data-gsug="' + esc(s) + '">' + esc(s) + '</button>'; }).join('') + '</div>' +
+      '<div class="ia-anexos" id="ia-g-anexos"></div>' +
       '<form class="ia-barra" id="ia-g-barra">' +
+        '<button type="button" class="ia-clipe" id="ia-g-clipe" aria-label="Mandar uma foto">' +
+          '<svg viewBox="0 0 24 24"><path d="M21 12.5l-8.5 8.5a5 5 0 0 1-7-7L14 5.5a3.5 3.5 0 0 1 5 5L10.5 19a2 2 0 0 1-3-3L15 8.5" stroke-linecap="round"/></svg></button>' +
+        '<input type="file" id="ia-g-arq" accept="image/*" multiple hidden>' +
         (B12.iaTemVoz() ? '<button type="button" class="ia-microfone" id="ia-g-voz" aria-label="Falar em vez de digitar">' +
           '<svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/>' +
           '<path d="M5 11a7 7 0 0 0 14 0M12 18v3" stroke-linecap="round"/></svg></button>' : '') +
@@ -1063,7 +1098,7 @@ B12.iaAbrirGaveta = function () {
     if (m.papel === 'pensa') { el.className = 'ia-bolha ia-pensa'; el.innerHTML = '<span></span><span></span><span></span>'; }
     else if (m.papel === 'proposta') { el.className = 'ia-proposta'; el.innerHTML = B12.iaCartao(m.proposta); }
     else { el.className = 'ia-bolha ia-' + (m.papel === 'user' ? 'eu' : m.papel === 'erro' ? 'erro' : 'ele');
-           el.innerHTML = marcar(m.texto);
+           el.innerHTML = marcar(m.texto) + (m.fotos ? '<span class="ia-foto-tag">' + m.fotos + ' foto' + (m.fotos > 1 ? 's' : '') + ' enviada' + (m.fotos > 1 ? 's' : '') + '</span>' : '');
            if (m.papel === 'assistant') B12.iaFalar(m.texto); }
     area.appendChild(el); desce();
     if (m.papel === 'proposta') B12.iaLigarCartao(el, m.proposta);
@@ -1077,10 +1112,29 @@ B12.iaAbrirGaveta = function () {
 
   }
   var porVoz = false;
+  /* fotos esperando pra ir junto com a próxima pergunta (clipe, arrastar/soltar ou Cmd+V) */
+  var fotosPend = [];
+  function mostrarAnexos() {
+    var cx = g.querySelector('#ia-g-anexos'); if (!cx) return;
+    cx.innerHTML = fotosPend.map(function (f, i) {
+      return '<span class="ia-anexo"><img src="' + f.prev + '" alt="foto"><button type="button" data-tira="' + i + '" aria-label="Tirar esta foto">×</button></span>'; }).join('');
+    cx.querySelectorAll('[data-tira]').forEach(function (b) { b.onclick = function () { fotosPend.splice(+b.dataset.tira, 1); mostrarAnexos(); }; });
+  }
+  function pegarFotos(lista) {
+    var files = Array.prototype.filter.call(lista || [], function (f) { return /^image\//.test(f.type); }).slice(0, 4 - fotosPend.length);
+    if (!files.length) return;
+    var fila = Promise.resolve();
+    files.forEach(function (file) { fila = fila.then(function () { return B12.iaReduzFoto(file).then(function (f) { fotosPend.push(f); mostrarAnexos(); }, function () {}); }); });
+    fila.then(function () { var c = g.querySelector('#ia-g-campo'); if (c) { c.focus(); if (!c.value) c.placeholder = 'Diz o que fazer com a foto…'; } });
+  }
+  B12.__iaRecebeFotos = pegarFotos;
+  g.querySelector('#ia-g-clipe').onclick = function () { g.querySelector('#ia-g-arq').click(); };
+  g.querySelector('#ia-g-arq').onchange = function () { var a = g.querySelector('#ia-g-arq'); pegarFotos(a.files); a.value = ''; };
   function perguntar(t, deVoz) {
     porVoz = !!deVoz;
     var c = g.querySelector('#ia-g-campo'); c.value = ''; c.blur();
-    B12.iaPerguntar(t, bolha);
+    var fotos = fotosPend; fotosPend = []; mostrarAnexos();
+    B12.iaPerguntar(t, bolha, fotos);
   }
   g.querySelector('#ia-g-barra').onsubmit = function (e) { e.preventDefault(); perguntar(g.querySelector('#ia-g-campo').value); };
   g.querySelectorAll('[data-gsug]').forEach(function (b) { b.onclick = function () { perguntar(b.dataset.gsug); }; });
@@ -1151,6 +1205,18 @@ B12.iaAbrirGaveta = function () {
   });
 };
 document.addEventListener('keydown', function (e) { if (e.key === 'Escape') B12.iaFecharGaveta(); });
+/* arrastar foto de qualquer lugar e soltar, ou Cmd+V de print: cai no assistente (abre a gaveta se precisar) */
+(function () {
+  var tt = null;
+  function temArq(e) { var t = e.dataTransfer && e.dataTransfer.types; return !!(t && Array.prototype.indexOf.call(t, 'Files') >= 0); }
+  function entrega(files) {
+    if (!document.getElementById('ia-gaveta')) B12.iaAbrirGaveta();
+    setTimeout(function () { if (B12.__iaRecebeFotos) B12.__iaRecebeFotos(files); }, 60);
+  }
+  document.addEventListener('dragover', function (e) { if (!temArq(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; document.body.classList.add('ia-solta'); clearTimeout(tt); tt = setTimeout(function () { document.body.classList.remove('ia-solta'); }, 400); });
+  document.addEventListener('drop', function (e) { if (!temArq(e)) return; e.preventDefault(); clearTimeout(tt); document.body.classList.remove('ia-solta'); if (e.dataTransfer.files && e.dataTransfer.files.length) entrega(e.dataTransfer.files); });
+  document.addEventListener('paste', function (e) { var its = (e.clipboardData && e.clipboardData.items) || []; var fs = []; for (var i = 0; i < its.length; i++) if (its[i].kind === 'file') { var f = its[i].getAsFile(); if (f) fs.push(f); } if (fs.length) { e.preventDefault(); entrega(fs); } });
+})();
 
 B12.iaCartao = function (p) {
   var d = p.dados;
