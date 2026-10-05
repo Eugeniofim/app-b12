@@ -1154,3 +1154,47 @@ B12.formNuvemEntrar = function (depois) {
 };
 
 })();
+
+/* ------------------------------------------------------- ficha do marinheiro
+   Curta de propósito: o marinheiro não entra no app, ele recebe a escala pelo
+   WhatsApp. Só o nome chega ao turista. */
+B12.fichaMarinheiro = function (id, depois) {
+  var m = (B12.DB.marinheiros || []).filter(function (x) { return x.id === id; })[0] ||
+          { id:null, nome:'', whats:'', doc:'', venceEm:'', ativo:true, obs:'' };
+  var novo = !m.id;
+  B12.folha({
+    titulo: novo ? 'Novo marinheiro' : m.nome,
+    sub: 'A escala vai pelo WhatsApp — ele não precisa entrar no app',
+    corpo:
+      B12.f_campo('Nome', 'nome', { valor:m.nome, obrig:true, max:40,
+        ajuda:'é este nome que aparece na saída, para a equipe e para o turista' }) +
+      B12.f_campo('WhatsApp', 'whats', { valor:m.whats, tipo:'tel', modo:'tel',
+        dica:'(41) 90000-0000', ajuda:'para onde a escala do dia é enviada' }) +
+      '<div class="grade2">' +
+        '<div>' + B12.f_campo('Habilitação (Arrais)', 'doc', { valor:m.doc, max:24 }) + '</div>' +
+        '<div>' + B12.f_campo('Vence em', 'venceEm', { valor:m.venceEm, tipo:'date',
+          ajuda:'o painel avisa 30 dias antes' }) + '</div></div>' +
+      B12.f_campo('Observação', 'obs', { valor:m.obs, max:200 }) +
+      B12.f_marca('Está na ativa', 'ativo', m.ativo),
+    extra: novo ? '' : '<button type="button" class="btn sec" id="b-mar-apagar">Apagar</button>',
+    aoSalvar: function (d) {
+      var nome = String(d.nome || '').trim();
+      if (!nome) return { erro:'O nome é obrigatório.', campo:'nome' };
+      if (novo) {
+        m.id = 'mar' + Date.now().toString(36);
+        B12.DB.marinheiros.push(m);
+      }
+      m.nome = nome; m.whats = d.whats || ''; m.doc = d.doc || '';
+      m.venceEm = d.venceEm || ''; m.obs = d.obs || ''; m.ativo = !!d.ativo;
+      B12.salvar();
+      if (depois) depois(m);
+      return { ok:true };
+    }
+  });
+  var ap = document.getElementById('b-mar-apagar');
+  if (ap) ap.onclick = function () {
+    if (!confirm('Apagar a ficha de ' + m.nome + '? As saídas já feitas continuam com o nome dele.')) return;
+    B12.DB.marinheiros = B12.DB.marinheiros.filter(function (x) { return x.id !== m.id; });
+    B12.salvar(); B12.fecharFolha(); if (depois) depois(null);
+  };
+};

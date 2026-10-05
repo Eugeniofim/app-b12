@@ -185,36 +185,102 @@ function grafRosca(alvo, fatias) {
 }
 
 /* ============================================================== os painéis */
-var ABAS = [
-  ['hoje','Hoje'], ['ia','Assistente'], ['balcao','Balcão'], ['ilha','Na Ilha'], ['escala','Horários'], ['painel','Painel'], ['precos','Preços'], ['gestao','Gestão'],
-  ['caixa','Caixa'], ['lanc','Lançamentos'],
-  ['clientes','Clientes'], ['patio','Pátio'], ['manut','Manutenção'],
-  ['contas','Contas'], ['relat','Relatórios'], ['dados','Dados'], ['oper','Operação'],
-  ['prosp','Prospecção'], ['msgs','Mensagens'], ['intel','Inteligência']
+/* Seis grupos em vez de vinte abas soltas. A primeira tira é o assunto; a
+   segunda é o que existe dentro dele. Nada foi removido — o que saiu de cima
+   virou sub-aba. `so:'dono'` é cadeado de verdade: a funcionária não vê o
+   grupo, e pedir a página pelo nome também não entra. */
+var GRUPOS = [
+  { id:'hoje',      nome:'Hoje',      sub:[['hoje','O dia'], ['volta','Quem volta']] },
+  { id:'balcao',    nome:'Balcão',    sub:[['balcao','Atender']] },
+  { id:'travessia', nome:'Travessia', sub:[['escala','Horários'], ['ilha','Na Ilha'],
+                                           ['marinheiros','Marinheiros'], ['patio','Pátio']] },
+  { id:'clientes',  nome:'Clientes',  sub:[['clientes','Fichas'], ['msgs','Mensagens'],
+                                           ['prosp','Prospecção', 'dono']] },
+  { id:'dinheiro',  nome:'Dinheiro',  so:'dono',
+    sub:[['painel','Painel'], ['caixa','Caixa'], ['lanc','Lançamentos'],
+         ['contas','Contas'], ['relat','Relatórios'], ['precos','Preços']] },
+  { id:'estacao',   nome:'Estação',   so:'dono',
+    sub:[['gestao','Gestão'], ['manut','Manutenção'], ['oper','Operação'],
+         ['dados','Dados'], ['intel','Inteligência']] },
+  { id:'ia',        nome:'Assistente', sub:[['ia','Assistente']] }
 ];
+
+var PAGINAS = { hoje:pHoje, volta:pVolta, painel:pPainel, caixa:pCaixa, lanc:pLanc,
+  contas:pContas, relat:pRelat, oper:pOper, prosp:pProsp, intel:pIntel,
+  clientes:pClientes, patio:pPatio, manut:pManut, gestao:pGestao, escala:pEscala,
+  msgs:pMsgs, dados:pDados, precos:pPrecos, ia:pIA, ilha:pNaIlha, balcao:pBalcao,
+  marinheiros:pMarinheiros };
+
+/* Grupos e sub-abas que este papel pode ver. Nunca confie na tela: quem pedir
+   uma página fechada cai no primeiro grupo que ele pode abrir. */
+function gruposVisiveis() {
+  return GRUPOS.filter(function (g) { return !g.so || B12.pode(g.so); });
+}
+function subsVisiveis(g) {
+  return g.sub.filter(function (s) { return !s[2] || B12.pode(s[2]); });
+}
+function grupoDe(pag) {
+  var achou = null;
+  GRUPOS.forEach(function (g) {
+    g.sub.forEach(function (s) { if (s[0] === pag) achou = g; });
+  });
+  return achou;
+}
+
 var abaAtual = 'hoje';
 
 B12.admDesenhar = function (aba) {
-  abaAtual = aba || abaAtual;
+  /* aceita o id de um grupo ('dinheiro') ou de uma página ('caixa') */
+  var g = null;
+  if (aba) {
+    var porGrupo = GRUPOS.filter(function (x) { return x.id === aba; })[0];
+    if (porGrupo && !PAGINAS[aba]) { g = porGrupo; abaAtual = subsVisiveis(g)[0][0]; }
+    else { abaAtual = aba; g = grupoDe(aba); }
+  } else g = grupoDe(abaAtual);
+
+  /* porta fechada: cai no primeiro grupo que este papel abre */
+  var vis = gruposVisiveis();
+  var sub = g ? subsVisiveis(g) : [];
+  if (!g || (g.so && !B12.pode(g.so)) || !sub.length ||
+      !sub.some(function (s) { return s[0] === abaAtual; })) {
+    g = vis[0]; sub = subsVisiveis(g); abaAtual = sub[0][0];
+  }
+
   var raiz = document.getElementById('adm-corpo');
   var barra = document.getElementById('adm-abas');
-  barra.innerHTML = ABAS.map(function (a) {
-    return '<button class="aba'+(a[0]===abaAtual?' on':'')+'" data-aba="'+a[0]+'">'+a[1]+'</button>';
+
+  barra.innerHTML = vis.map(function (x) {
+    return '<button class="aba' + (x.id === g.id ? ' on' : '') + '" data-grupo="' + x.id +
+      '"' + (x.id === g.id ? ' aria-current="page"' : '') + '>' + x.nome + '</button>';
   }).join('');
   barra.querySelectorAll('.aba').forEach(function (b) {
-    b.onclick = function () { B12.admDesenhar(b.dataset.aba);
+    b.onclick = function () { B12.admDesenhar(b.dataset.grupo);
       barra.scrollTo({ left: b.offsetLeft - 60, behavior:'smooth' }); };
   });
-  /* leva a aba escolhida para dentro da vista, e tira o esmaecido no fim da tira */
   var ativa = barra.querySelector('.aba.on');
   if (ativa) barra.scrollLeft = Math.max(0, ativa.offsetLeft - 60);
   function fim() { barra.classList.toggle('fim', barra.scrollLeft + barra.clientWidth >= barra.scrollWidth - 4); }
   barra.onscroll = fim; fim();
+
+  /* segunda tira: só aparece quando o grupo tem mais de um lugar dentro */
+  var sb = document.getElementById('adm-subabas');
+  if (sb) {
+    if (sub.length > 1) {
+      sb.hidden = false;
+      sb.innerHTML = sub.map(function (s) {
+        return '<button class="subaba' + (s[0] === abaAtual ? ' on' : '') + '" data-aba="' + s[0] +
+          '"' + (s[0] === abaAtual ? ' aria-current="page"' : '') + '>' + s[1] + '</button>';
+      }).join('');
+      sb.querySelectorAll('.subaba').forEach(function (b) {
+        b.onclick = function () { B12.admDesenhar(b.dataset.aba); };
+      });
+      var sa = sb.querySelector('.subaba.on');
+      if (sa) sb.scrollLeft = Math.max(0, sa.offsetLeft - 50);
+    } else { sb.hidden = true; sb.innerHTML = ''; }
+  }
+
   raiz.innerHTML = '';
-  ({ hoje:pHoje, painel:pPainel, caixa:pCaixa, lanc:pLanc, contas:pContas,
-     relat:pRelat, oper:pOper, prosp:pProsp, intel:pIntel,
-     clientes:pClientes, patio:pPatio, manut:pManut, gestao:pGestao,
-     escala:pEscala, msgs:pMsgs, dados:pDados, precos:pPrecos, ia:pIA, ilha:pNaIlha, balcao:pBalcao }[abaAtual] || pHoje)(raiz);
+  (PAGINAS[abaAtual] || pHoje)(raiz);
   B12.animarPlacar(raiz);
   B12.ligarLupa('');
   raiz.scrollIntoView({ block:'nearest' });
@@ -2222,6 +2288,188 @@ function pBalcao(raiz) {
       var txt = 'Olá, ' + b.dataset.nome.split(' ')[0] + '! Aqui é a Estação B12. ' +
         'Sua reserva é a ' + b.dataset.cod + '. Guarde este código.';
       window.open('https://wa.me/' + b.dataset.bzap + '?text=' + encodeURIComponent(txt), '_blank');
+    };
+  });
+}
+
+
+/* ================================================== QUEM VOLTA (aba Hoje)
+   A pergunta que o Dhalsin faz todo fim de tarde: quem está na Ilha e volta
+   nos próximos dias? Daqui ele monta os horários e manda o WhatsApp. */
+function pVolta(raiz) {
+  var hoje = B12.hoje(), DIAS = 10, dias = [];
+  for (var i = 0; i < DIAS; i++) {
+    var d = B12.diaMais(hoje, i), n = B12.naIlha(d) || {};
+    var volta = (n.voltam || []);
+    if (volta.length) dias.push({ dia:d, gente:volta,
+      pessoas: volta.reduce(function (t, p) { return t + (p.pessoas || 1); }, 0),
+      temHorario: B12.saidasDoDia(d, 'volta').length > 0 });
+  }
+  var totalPessoas = dias.reduce(function (t, x) { return t + x.pessoas; }, 0);
+  var semHorario = dias.filter(function (x) { return !x.temHorario; }).length;
+
+  function quando(d) {
+    return d === hoje ? 'Hoje' : d === B12.diaMais(hoje, 1) ? 'Amanhã' : B12.dataBR(d);
+  }
+
+  raiz.appendChild(bloco(
+    '<div class="placar entra">' +
+      tile(totalPessoas, 'Voltam em 10 dias', 'n', 'destaque') +
+      tile(dias.length, 'Dias com volta', 'n') +
+      tile(semHorario, 'Dias sem horário', 'n', semHorario ? 'alerta' : '') +
+    '</div>' +
+    (semHorario
+      ? '<div class="cx aviso entra entra-1"><h3>Falta montar horário</h3>' +
+        '<p>Tem gente com volta marcada em <b>' + semHorario + ' dia' + (semHorario > 1 ? 's' : '') +
+        '</b> sem nenhum horário de retorno aberto. Enquanto não abrir, o app do turista não ' +
+        'mostra a que horas ele volta.</p></div>'
+      : '<div class="cx bom entra entra-1"><h3>Todo mundo com horário</h3>' +
+        '<p>Cada dia com volta marcada já tem horário aberto. O turista vê no app dele.</p></div>') +
+
+    (dias.length
+      ? dias.map(function (x, i) {
+          var zaps = x.gente.map(function (p) { return p.contato && p.contato.whats; })
+                            .filter(Boolean);
+          return '<div class="cx entra entra-' + Math.min(i + 2, 6) + '">' +
+            '<div class="cx-topo"><h3>' + quando(x.dia) + ' · ' + x.pessoas + ' pessoa' +
+            (x.pessoas > 1 ? 's' : '') + '</h3>' +
+            '<button class="mini-btn" data-horarios="' + x.dia + '">' +
+            (x.temHorario ? 'Mudar horários' : 'Montar horários') + '</button></div>' +
+            (x.temHorario
+              ? '<div class="horas" style="margin:8px 0 2px">' +
+                B12.saidasDoDia(x.dia, 'volta').map(function (sa) {
+                  return '<span class="hchip on">' + sa.hora + '</span>'; }).join('') + '</div>'
+              : '<div class="ajuda" style="margin:6px 0 2px">nenhum horário de retorno aberto</div>') +
+            '<div class="pessoas" style="margin-top:8px">' + x.gente.map(function (p) {
+              var z = (p.contato && p.contato.whats) || '';
+              return '<div class="pes"><div class="pes-cima"><div><b>' + esc(p.nome) + '</b>' +
+                '<span class="pes-cod">' + p.cod + '</span></div>' +
+                (z ? '<div class="cons"><button type="button" class="con zap" data-vzap="' + z +
+                  '" data-nome="' + esc(p.nome) + '" data-dia="' + x.dia + '" ' +
+                  'aria-label="Avisar ' + esc(p.nome) + ' no WhatsApp">WhatsApp</button></div>' : '') +
+                '</div><div class="pes-baixo">' +
+                '<span>' + (p.pessoas || 1) + (p.pessoas > 1 ? ' pessoas' : ' pessoa') + '</span>' +
+                (p.pousada ? '<span>' + esc(p.pousada) + '</span>' : '') +
+                (p.placa ? '<span>' + esc(p.placa) + '</span>' : '') +
+                (p.horaVolta ? '<span>volta ' + p.horaVolta + '</span>' : '') +
+                '</div></div>'; }).join('') + '</div>' +
+            (zaps.length && x.temHorario
+              ? '<button type="button" class="btn sec peq" data-avisar="' + x.dia + '" ' +
+                'style="margin-top:10px">Avisar os ' + zaps.length + ' por WhatsApp</button>'
+              : '') +
+            '</div>'; }).join('')
+      : '<div class="cx entra entra-2"><h3>Ninguém volta nos próximos 10 dias</h3>' +
+        '<p>Quando alguém viajar com data de volta marcada, o dia aparece aqui sozinho.</p></div>')
+  ));
+
+  raiz.querySelectorAll('[data-horarios]').forEach(function (b) {
+    b.onclick = function () {
+      B12.formHorariosDia(b.dataset.horarios, function () { B12.admDesenhar('volta'); });
+    };
+  });
+  raiz.querySelectorAll('[data-vzap]').forEach(function (b) {
+    b.onclick = function () {
+      B12.abrirWhats(b.dataset.vzap, textoVolta(b.dataset.nome, b.dataset.dia));
+    };
+  });
+  raiz.querySelectorAll('[data-avisar]').forEach(function (b) {
+    b.onclick = function () {
+      var dia = b.dataset.avisar;
+      var gente = (B12.naIlha(dia) || {}).voltam || [];
+      /* um a um: o navegador bloqueia abrir vinte abas de uma vez, e cada
+         mensagem leva o nome da pessoa */
+      B12.filaWhats(gente.filter(function (p) { return p.contato && p.contato.whats; })
+        .map(function (p) {
+          return { zap: p.contato.whats, nome: p.nome, texto: textoVolta(p.nome, dia) };
+        }));
+    };
+  });
+}
+
+function textoVolta(nome, dia) {
+  var horas = B12.saidasDoDia(dia, 'volta').map(function (s) { return s.hora; });
+  var qd = dia === B12.hoje() ? 'hoje' : dia === B12.diaMais(B12.hoje(), 1) ? 'amanhã' : 'dia ' + B12.dataBR(dia);
+  return 'Oi, ' + String(nome || '').split(' ')[0] + '! Aqui é da Estação B12.\n\n' +
+    'Os horários de retorno ' + qd + ' são: ' + (horas.length ? horas.join(' · ') : 'a confirmar') + '.\n\n' +
+    'Esteja no trapiche uns 10 minutos antes. Qualquer coisa, é só responder por aqui.';
+}
+
+/* Abrir vinte conversas de uma vez não funciona: o navegador bloqueia. Uma de
+   cada vez, com o Dhalsin apertando — é mais lento e é o que de fato envia. */
+B12.filaWhats = function (lista) {
+  if (!lista || !lista.length) return;
+  var i = 0;
+  function proximo() {
+    if (i >= lista.length) return;
+    var p = lista[i++];
+    B12.abrirWhats(p.zap, p.texto);
+    if (i < lista.length) {
+      setTimeout(function () {
+        if (confirm('Enviado para ' + p.nome + '.\n\nAbrir o próximo (' + lista[i].nome + ')?')) proximo();
+      }, 700);
+    }
+  }
+  proximo();
+};
+
+/* ===================================================== MARINHEIROS
+   Ficha curta. Ele não entra no app: recebe a escala pelo WhatsApp. */
+function pMarinheiros(raiz) {
+  var lista = B12.DB.marinheiros || [];
+  var ativos = lista.filter(function (m) { return m.ativo !== false; });
+  var hoje = B12.hoje(), em30 = B12.diaMais(hoje, 30);
+  var vencendo = lista.filter(function (m) { return m.venceEm && m.venceEm <= em30; });
+
+  raiz.appendChild(bloco(
+    '<div class="cx entra"><h3>Quem pilota</h3>' +
+    '<p>O marinheiro não entra no app. A ficha fica aqui e a escala do dia vai para o ' +
+    'WhatsApp dele com um toque. Para o turista, só o nome aparece.</p>' +
+    '<button type="button" class="btn pri" id="b-mar-novo">+ Novo marinheiro</button></div>' +
+
+    (vencendo.length
+      ? '<div class="cx aviso entra entra-1"><h3>Habilitação vencendo</h3><p>' +
+        vencendo.map(function (m) {
+          return esc(m.nome) + ' — ' + (m.venceEm < hoje ? 'venceu' : 'vence') + ' em ' + B12.dataBR(m.venceEm);
+        }).join('<br>') + '</p></div>'
+      : '') +
+
+    '<div class="faixa-sec"><div class="tit"><h2>Fichas</h2></div></div>' +
+    (lista.length
+      ? '<div class="pessoas">' + lista.map(function (m) {
+          var z = (m.whats || '').replace(/\D/g, '');
+          return '<div class="pes" data-mar="' + m.id + '"><div class="pes-cima">' +
+            '<div><b>' + esc(m.nome) + '</b>' +
+            (m.ativo === false ? '<span class="pes-cod">fora da ativa</span>' : '') + '</div>' +
+            (z ? '<div class="cons"><button type="button" class="con zap" data-marzap="' + z +
+              '" data-nome="' + esc(m.nome) + '" aria-label="Mandar a escala para ' + esc(m.nome) + '">Escala</button></div>' : '') +
+            '</div><div class="pes-baixo">' +
+            (m.doc ? '<span>' + esc(m.doc) + '</span>' : '<span>sem habilitação na ficha</span>') +
+            (m.venceEm ? '<span>vence ' + B12.dataBR(m.venceEm) + '</span>' : '') +
+            (m.obs ? '<span>' + esc(m.obs) + '</span>' : '') +
+            '</div></div>'; }).join('') + '</div>'
+      : '<div class="cx" style="margin-top:0"><p>Nenhum marinheiro cadastrado ainda.</p></div>') +
+    '<div class="ajuda" style="margin:10px 12px">' + ativos.length + ' na ativa.</div>'
+  ));
+
+  function re() { B12.admDesenhar('marinheiros'); }
+  raiz.querySelector('#b-mar-novo').onclick = function () { B12.fichaMarinheiro(null, re); };
+  raiz.querySelectorAll('[data-mar]').forEach(function (el) {
+    el.onclick = function (ev) {
+      if (ev.target.closest('[data-marzap]')) return;
+      B12.fichaMarinheiro(el.dataset.mar, re);
+    };
+  });
+  raiz.querySelectorAll('[data-marzap]').forEach(function (b) {
+    b.onclick = function (ev) {
+      ev.stopPropagation();
+      var hj = B12.hoje();
+      var idas = B12.saidasDoDia(hj, 'ida'), voltas = B12.saidasDoDia(hj, 'volta');
+      function tira(l) { return l.length ? l.map(function (s) { return s.hora; }).join(' · ') : '—'; }
+      B12.abrirWhats(b.dataset.marzap,
+        'Escala de hoje · Estação B12\n\n' +
+        'Saídas: ' + tira(idas) + '\n' +
+        'Retornos: ' + tira(voltas) + '\n\n' +
+        'Lotação da lancha: ' + B12.CAPACIDADE + ' passageiros.');
     };
   });
 }

@@ -299,6 +299,19 @@ body.adm .btn.sec{background:var(--noite-3);border-color:var(--noite-risco);colo
 body.adm .linha{background:var(--noite-2);box-shadow:none;border:1px solid var(--noite-risco)}
 .linha .tag{font-size:10.5px;font-weight:800;letter-spacing:.04em;background:var(--carta-2);
   color:var(--azul-700);padding:6px 8px;border-radius:7px;white-space:nowrap;text-align:center}
+
+/* Previsao: hoje e a ancora, o fim de semana e quando a B12 vende. Dois
+   acentos diferentes — turquesa para "voce esta aqui", ouro para "e sabado".
+   Cada um vem com uma palavra junto: cor sozinha nao conta nada. */
+.linha.dia-hoje{border-left:3px solid var(--turq-500);
+  background:linear-gradient(90deg,#F1FBFA,var(--carta) 48%)}
+.linha.dia-hoje .tag{background:var(--turq-600);color:#fff}
+.linha.dia-fds{border-left:3px solid var(--ouro)}
+.linha.dia-fds .tag{background:#FCF2D9;color:#8A6410}
+.linha .selo-fds{margin-left:auto;align-self:flex-start;font-size:9.5px;font-weight:800;
+  letter-spacing:.1em;text-transform:uppercase;color:#8A6410;background:#FCF2D9;
+  border-radius:6px;padding:4px 7px;white-space:nowrap;flex:none}
+@media (max-width:360px){ .linha .selo-fds{display:none} }
 body.adm .linha .tag{background:var(--noite-3);color:var(--turq-300)}
 .linha .d{flex:1;min-width:0}
 .linha .d b{font-size:13.5px;display:block;line-height:1.3}
@@ -336,6 +349,18 @@ body.adm .linha .d small{color:var(--gelo-3)}
   transition:background .18s,color .18s,border-color .18s}
 .aba.on{background:var(--turq-600);border-color:var(--turq-500);color:#fff}
 .aba:active{transform:scale(.96)}
+
+/* segunda tira do painel: onde o assunto se abre. Pesa menos que a de cima,
+   de proposito — e o sublinhado diz 'voce esta aqui' sem virar outro botao. */
+.subabas{display:flex;gap:4px;overflow-x:auto;padding:0 12px 2px;margin:-2px 0 2px;
+  scrollbar-width:none;scroll-snap-type:x proximity}
+.subabas::-webkit-scrollbar{display:none}
+.subaba{scroll-snap-align:start;background:transparent;border:0;border-bottom:2px solid transparent;
+  color:var(--gelo-3);border-radius:0;padding:9px 10px;font-size:12px;font-weight:650;
+  white-space:nowrap;min-height:40px;transition:color .18s,border-color .18s}
+.subaba.on{color:var(--turq-400,var(--turq-500));border-bottom-color:var(--turq-500)}
+.subaba:active{opacity:.6}
+@media (pointer:coarse){ .subaba{min-height:44px;padding:11px 12px} }
 .navb:active svg{transform:scale(.9)}
 
 .placar{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--noite-risco);

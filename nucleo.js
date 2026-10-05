@@ -61,7 +61,9 @@ function vazio() {
     clientes: [],        /* ficha de quem viaja: contato e histórico */
     patio: [],           /* carros no estacionamento: entrada e saída */
     manutencoes: [],     /* o que foi feito na embarcação */
+    marinheiros: [],     /* quem pilota: ficha curta, escala vai por WhatsApp */
     ajustes: {
+      produtos: B12.PRODUTOS,   /* o que o balcão vende enquanto a pessoa espera */
       metaMensal: 60000,
       reservaMinima: 45000,     /* PENDENTE: a regra é do cliente */
       saldoInicial: 38500,
@@ -131,6 +133,10 @@ B12.carregar = function () {
     if (A.grade && A.grade.vagas < B12.CAPACIDADE) A.grade.vagas = B12.CAPACIDADE;
     A.capacidadeConferida = B12.CAPACIDADE;
   }
+  /* 05/10/2026: balcão com consumo e ficha de marinheiro. Quem já tinha o app
+     instalado ganha as duas coisas sem perder nada do que já estava gravado. */
+  if (!Array.isArray(B12.DB.marinheiros)) B12.DB.marinheiros = B12.MARINHEIROS.slice();
+  if (!Array.isArray(A.produtos) || !A.produtos.length) A.produtos = B12.PRODUTOS.slice();
   if (!B12.DB.semeado) { B12.semear(); }
   else if (B12.DB.demoDia !== B12.hoje()) { B12.refrescarDemo(); }
   return B12.DB;
@@ -431,12 +437,17 @@ B12.preco = function (o) {
   var faixa = o.faixa || 'dia';
   if (faixa === 'fora') return null;
   var t = B12.DB.ajustes.tabela[faixa];
-  var pagantes = Math.max(0, (o.pax||0) - (o.criancas||0));
+  /* Pagantes é o que manda no preço do náutico, não quanta gente veio no carro.
+     Se o balcão digitou direto, vale o que ele digitou; senão desconta as crianças. */
+  var pagantes = (o.pagantes != null && o.pagantes !== '')
+    ? Math.max(0, Number(o.pagantes) || 0)
+    : Math.max(0, (o.pax||0) - (o.criancas||0));
   var trecho;
   if (o.produto === 'nautico') {
-    /* até 3 é valor fixo; de 4 em diante é por pessoa, com o fixo servindo de mínimo,
-       senão um grupo de 4 com 2 crianças pagaria menos que um casal */
-    trecho = (o.pax <= 3) ? t.fixo : Math.max(t.fixo, t.pessoa * pagantes);
+    /* de 1 a 3 pagantes é valor fixo; do 4º pagante em diante é por pessoa, com o
+       fixo servindo de mínimo — senão um grupo de 4 com 2 crianças pagaria menos
+       que um casal */
+    trecho = (pagantes <= 3) ? t.fixo : Math.max(t.fixo, t.pessoa * pagantes);
   } else {
     trecho = B12.DB.ajustes.regular * pagantes;
   }

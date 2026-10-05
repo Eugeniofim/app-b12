@@ -15,7 +15,7 @@ var B12 = window.B12 || {};
 /* ---------------------------------------------------------------- identidade */
 /* o cofre: o servidor da Ti Artes que guarda a chave da IA. Vazio = assistente
    desligado (o app continua funcionando igual, só sem o chat). */
-B12.VERSAO = 'b12-v1.64.0';   /* tem que bater com o CACHE do sw.js */
+B12.VERSAO = 'b12-v1.65.0';   /* tem que bater com o CACHE do sw.js */
 
 B12.IA = { cofre: 'https://uopfqlogjzuqpabptxkb.supabase.co/functions/v1/cofre',
            modelo: 'claude-haiku-4-5' };
@@ -135,8 +135,8 @@ B12.PASSEIOS = [
    O valor fixo de até 3 passageiros funciona como mínimo. A CONFIRMAR. */
 B12.TABELA = {
   dia:   { de:'08h30', ate:'18h00', fixo:180, pessoa:50 },
-  tarde: { de:'18h00', ate:'20h00', fixo:260, pessoa:65 },
-  noite: { de:'20h00', ate:'22h00', fixo:310, pessoa:80 },
+  tarde: { de:'18h00', ate:'20h00', fixo:260, pessoa:70 },
+  noite: { de:'20h00', ate:'22h00', fixo:310, pessoa:85 },
 };
 B12.REGULAR = 60;      /* travessia comum, por pessoa — PENDENTE de confirmação */
 B12.DIARIA  = 50;      /* estacionamento por dia — o valor de balcão, o que o cliente vê */
@@ -145,6 +145,27 @@ B12.DESC_DINHEIRO = 0.05;
 B12.IDADE_CORTESIA = 5;
 
 B12.DESTINOS = ['Brasília', 'Encantadas'];
+
+/* ------------------------------------------------- balcão: o que se vende
+   O consumo que entra na ficha de quem está esperando a lancha. Valores de
+   partida — o Dhalsin edita em Preços, e cada linha pode ser desligada. */
+B12.PRODUTOS = [
+  { id:'cerveja',  nome:'Cerveja',    valor:10, ico:'copo' },
+  { id:'refri',    nome:'Refrigerante', valor:7, ico:'copo' },
+  { id:'agua',     nome:'Água',       valor:5,  ico:'copo' },
+  { id:'cafe',     nome:'Café',       valor:5,  ico:'copo' },
+  { id:'empada',   nome:'Empada',     valor:12, ico:'prato' },
+  { id:'sorvete',  nome:'Sorvete',    valor:10, ico:'prato' },
+  { id:'bala',     nome:'Bala e doce', valor:3, ico:'prato' },
+  { id:'camiseta', nome:'Camiseta',   valor:70, ico:'camisa' },
+];
+
+/* --------------------------------------------------------- marinheiros
+   Quem pilota. A ficha é curta de propósito: o marinheiro não entra no app,
+   ele recebe a escala pelo WhatsApp. Só o nome aparece para o turista. */
+B12.MARINHEIROS = [
+  { id:'m1', nome:'Ismael', whats:'', doc:'', venceEm:'', ativo:true, obs:'' },
+];
 
 /* ------------------------------------------------------- fidelidade
    Ponto por real gasto, faixa por ponto. Tudo com valor de partida — quem

@@ -61,17 +61,23 @@ B12.telaPrevisao = function () {
     return;
   }
   var d = CLIMA.daily, dias = ['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
-  var h = '';
+  var h = '', fdsAntes = false;
   for (var i = 0; i < d.time.length; i++) {
     var dt = new Date(d.time[i] + 'T12:00');
     var fds = dt.getDay() === 5 || dt.getDay() === 6 || dt.getDay() === 0;
-    h += '<div class="linha entra entra-' + Math.min(i+1,6) + '">' +
-      '<span class="tag"' + (fds ? ' style="background:#EDFBF9;color:#0B6E66"' : '') + '>' +
+    /* o selo só no primeiro dia da sequência: dizer "fim de semana" três vezes
+       seguidas vira ruído e o olho para de ler */
+    var abreFds = fds && !fdsAntes;
+    fdsAntes = fds;
+    h += '<div class="linha entra entra-' + Math.min(i+1,6) +
+      (i === 0 ? ' dia-hoje' : fds ? ' dia-fds' : '') + '">' +
+      '<span class="tag">' +
       (i === 0 ? 'HOJE' : dias[dt.getDay()].slice(0,3).toUpperCase()) + '</span>' +
       '<div class="d"><b>' + Math.round(d.temperature_2m_max[i]) + '° · ' +
       B12.codTempo(d.weather_code[i]) + '</b>' +
       '<small>mínima ' + Math.round(d.temperature_2m_min[i]) + '° · mar ' +
-      mar(d.wind_speed_10m_max[i]).toLowerCase() + '</small></div></div>';
+      mar(d.wind_speed_10m_max[i]).toLowerCase() + '</small></div>' +
+      (abreFds ? '<span class="selo-fds">fim de semana</span>' : '') + '</div>';
   }
   alvo.innerHTML = h;
 };
