@@ -25,7 +25,7 @@
 <meta name="twitter:image" content="https://app.estacaob12.com.br/compartilhar.jpg">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="estilo.css?v=1.66.3">
+<link rel="stylesheet" href="estilo.css?v=1.66.4">
 </head>
 <body>
 
@@ -157,7 +157,13 @@
     <div class="trilho" id="trilho-passeios"></div>
   </div>
 
-  <div class="cx aviso"><h3>Reserve com 24 horas de antecedência</h3><p>Trabalhamos exclusivamente com reservas antecipadas. É assim que conseguimos preparar cada atendimento com conforto, segurança e pontualidade. Será um prazer receber você. 🙏🏾</p></div>
+  <!-- Dobra nativa (<details>): abre no toque, funciona sem JS, e o leitor de
+       tela ja anuncia "recolhido/expandido" sem precisarmos inventar nada. -->
+  <details class="cx aviso dobra">
+    <summary><h3>Reserve com 24 horas de antecedência</h3>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
+    <p>Trabalhamos exclusivamente com reservas antecipadas. É assim que conseguimos preparar cada atendimento com conforto, segurança e pontualidade. Será um prazer receber você. 🙏🏾</p>
+  </details>
 
   <div class="faixa-sec"><div class="tit"><h2>Onde a gente fica</h2></div></div>
   <div class="cx onde" style="margin-top:0">
@@ -393,21 +399,21 @@
     <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></svg><span>Mais</span></button>
 </div></nav>
 
-<script src="config.js?v=1.66.3"></script>
-<script src="marca.js?v=1.66.3"></script>
-<script src="dados.js?v=1.66.3"></script>
-<script src="nucleo.js?v=1.66.3"></script>
-<script src="exportar.js?v=1.66.3"></script>
-<script src="oceano.js?v=1.66.3"></script>
-<script src="formularios.js?v=1.66.3"></script>
-<script src="acesso.js?v=1.66.3"></script>
-<script src="mensagens.js?v=1.66.3"></script>
-<script src="turista.js?v=1.66.3"></script>
-<script src="assistente.js?v=1.66.3"></script>
-<script src="adm.js?v=1.66.3"></script>
-<script src="nuvemlogin.js?v=1.66.3"></script>
-<script src="avisos.js?v=1.66.3"></script>
-<script src="aparelhos.js?v=1.66.3"></script>
-<script src="app.js?v=1.66.3"></script>
+<script src="config.js?v=1.66.4"></script>
+<script src="marca.js?v=1.66.4"></script>
+<script src="dados.js?v=1.66.4"></script>
+<script src="nucleo.js?v=1.66.4"></script>
+<script src="exportar.js?v=1.66.4"></script>
+<script src="oceano.js?v=1.66.4"></script>
+<script src="formularios.js?v=1.66.4"></script>
+<script src="acesso.js?v=1.66.4"></script>
+<script src="mensagens.js?v=1.66.4"></script>
+<script src="turista.js?v=1.66.4"></script>
+<script src="assistente.js?v=1.66.4"></script>
+<script src="adm.js?v=1.66.4"></script>
+<script src="nuvemlogin.js?v=1.66.4"></script>
+<script src="avisos.js?v=1.66.4"></script>
+<script src="aparelhos.js?v=1.66.4"></script>
+<script src="app.js?v=1.66.4"></script>
 </body>
 </html>

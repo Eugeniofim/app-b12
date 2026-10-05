@@ -1382,3 +1382,19 @@ body.ia-solta .ia-gaveta-cx::after{content:'Solta aqui — vai pro assistente';p
 .onde-fraco{margin-top:9px;font-size:14.5px;padding-block:12px}
 .onde-fraco .onde-sai{width:14px;height:14px;opacity:.55;margin-left:-3px}
 @media (pointer:coarse){ .onde-fraco{min-height:44px} }
+
+/* ------------------------------------------------------- dobra (<details>)
+   O titulo fica, o texto so aparece no toque. Nativo: abre sem JS e o leitor
+   de tela ja anuncia recolhido/expandido sozinho. */
+.dobra{padding-block:0}
+.dobra > summary{display:flex;align-items:center;gap:10px;justify-content:space-between;
+  list-style:none;cursor:pointer;padding-block:14px;min-height:44px}
+.dobra > summary::-webkit-details-marker{display:none}
+.dobra > summary h3{margin:0;flex:1;min-width:0}
+.dobra > summary svg{width:19px;height:19px;flex:none;fill:none;stroke:currentColor;
+  stroke-width:2;stroke-linecap:round;stroke-linejoin:round;opacity:.6;
+  transition:transform .2s var(--curva)}
+.dobra[open] > summary svg{transform:rotate(180deg)}
+.dobra > summary:focus-visible{outline:2px solid var(--turq-500);outline-offset:3px;border-radius:8px}
+.dobra > p{margin:0;padding-bottom:15px}
+@media (prefers-reduced-motion:reduce){ .dobra > summary svg{transition:none} }
