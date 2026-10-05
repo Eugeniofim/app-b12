@@ -1365,3 +1365,20 @@ body.ia-solta .ia-gaveta-cx::after{content:'Solta aqui — vai pro assistente';p
 .chips .chip.on{background:var(--turq-600);border-color:var(--turq-500);color:#fff}
 .chips .chip:active{transform:scale(.96)}
 @media (pointer:coarse){ .chips .chip{min-height:44px} }
+
+/* ---------------- "Onde a gente fica": uma acao principal, nao duas iguais ---
+   Dois botoes vazados lado a lado nao dizem qual importa. Quem esta na estrada
+   quer a ROTA; a avaliacao e curiosidade. Entao: um cheio, um quieto, e a seta
+   avisando que o segundo sai do app. */
+.onde-end{display:flex;gap:11px;align-items:flex-start;padding-bottom:2px}
+.onde-end svg{width:20px;height:20px;flex:none;margin-top:2px;fill:none;
+  stroke:var(--turq-600);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.onde-end p{margin:0;color:var(--tinta);line-height:1.45}
+.onde-end b{display:block;font-size:15px;font-weight:750}
+.onde-end span{display:block;font-size:13.5px;color:var(--tinta-2);margin-top:2px}
+.onde .btn svg{width:19px;height:19px;flex:none;fill:none;stroke:currentColor;
+  stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.onde .btn.pri svg{fill:currentColor;stroke:none}
+.onde-fraco{margin-top:9px;font-size:14.5px;padding-block:12px}
+.onde-fraco .onde-sai{width:14px;height:14px;opacity:.55;margin-left:-3px}
+@media (pointer:coarse){ .onde-fraco{min-height:44px} }
