@@ -298,6 +298,7 @@ function comecar() {
     'Olá! Vi o app da Estação B12 e quero saber sobre a travessia para a Ilha do Mel.');
 
   B12.buscarClima();
+  B12.buscarMar();
   if (B12.iaBolhaFlutuante) B12.iaBolhaFlutuante();
   ligarAtualizacao();
   convite();

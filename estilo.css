@@ -1332,3 +1332,29 @@ body:has(.portao) .ia-bolha-flut{opacity:0;pointer-events:none;transform:transla
 .ia-anexo button{position:absolute;top:-8px;right:-8px;width:22px;height:22px;border-radius:50%;border:0;background:#fff;color:#111;font-weight:800;line-height:1;cursor:pointer}
 .ia-foto-tag{display:inline-block;margin-left:8px;font-size:11px;opacity:.75}
 body.ia-solta .ia-gaveta-cx::after{content:'Solta aqui — vai pro assistente';position:absolute;inset:0;z-index:5;display:grid;place-items:center;border:2px dashed #fff;border-radius:inherit;background:rgba(0,0,0,.4);color:#fff;font-weight:800;pointer-events:none}
+
+/* ---- chave liga/desliga e a linha que a carrega (painel, fundo escuro) ---- */
+.lin-chave{display:flex;gap:12px;align-items:center;justify-content:space-between;
+  padding:11px 0;border-bottom:1px solid var(--noite-risco)}
+.lin-chave:last-child{border-bottom:0}
+.lin-chave b{display:block;font-size:13.5px;font-weight:650}
+.lin-chave small{display:block;font-size:11.5px;color:var(--gelo-3);margin-top:2px}
+.chave{display:inline-flex;align-items:center;gap:7px;background:var(--noite-2);
+  border:1px solid var(--noite-risco);color:var(--gelo-3);border-radius:99px;
+  padding:6px 11px 6px 7px;font-size:11.5px;font-weight:700;white-space:nowrap;flex:none;
+  min-height:36px;transition:background .18s,color .18s,border-color .18s}
+.chave i{width:9px;height:9px;border-radius:50%;background:var(--gelo-3);flex:none;
+  transition:background .18s}
+.chave.on{background:rgba(20,169,154,.16);border-color:var(--turq-500);color:var(--turq-400)}
+.chave.on i{background:var(--turq-400)}
+.chave:active{transform:scale(.96)}
+@media (pointer:coarse){ .chave{min-height:44px} }
+
+/* ---- fileira de motivos do aviso ---- */
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.chips .chip{background:var(--noite-2);border:1px solid var(--noite-risco);color:var(--gelo-2);
+  border-radius:99px;padding:8px 13px;font-size:12px;font-weight:650;white-space:nowrap;
+  min-height:38px;transition:background .18s,color .18s,border-color .18s}
+.chips .chip.on{background:var(--turq-600);border-color:var(--turq-500);color:#fff}
+.chips .chip:active{transform:scale(.96)}
+@media (pointer:coarse){ .chips .chip{min-height:44px} }

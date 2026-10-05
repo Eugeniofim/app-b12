@@ -189,6 +189,22 @@ B12.avVarrer = function () { return chamarCarteiro({ varrer: true }); };
 /* um aviso escrito por ele */
 B12.avMandar = function (o) { return chamarCarteiro(o || {}); };
 
+/* O aviso do painel: para todos os clientes, ou só para o celular do dono.
+   'turista' alcança quem instalou e aceitou; 'dono' é o teste dele mesmo. */
+B12.avEnviar = function (o) {
+  o = o || {};
+  return chamarCarteiro({
+    papel: o.para === 'eu' ? 'dono' : 'turista',
+    tag: 'b12-' + (o.para === 'eu' ? 'teste' : 'cliente'),
+    titulo: String(o.titulo || 'Estação B12').slice(0, 48),
+    texto: String(o.texto || '').slice(0, 180),
+    ir: o.ir || '/'
+  }).then(function (r) {
+    if (r && r.ok) return { ok: true, enviados: r.mandados || 0, falhas: r.falhas || 0 };
+    return { erro: (r && (r.erro || r.mensagem)) || 'o carteiro não respondeu' };
+  }).catch(function (e) { return { erro: String(e && e.message || e) }; });
+};
+
 /* o service worker pede para reinscrever quando o navegador troca a assinatura */
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('message', function (ev) {

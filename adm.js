@@ -194,8 +194,8 @@ var GRUPOS = [
   { id:'balcao',    nome:'Balcão',    sub:[['balcao','Atender']] },
   { id:'travessia', nome:'Travessia', sub:[['escala','Horários'], ['ilha','Na Ilha'],
                                            ['marinheiros','Marinheiros'], ['patio','Pátio']] },
-  { id:'clientes',  nome:'Clientes',  sub:[['clientes','Fichas'], ['msgs','Mensagens'],
-                                           ['prosp','Prospecção', 'dono']] },
+  { id:'clientes',  nome:'Clientes',  sub:[['clientes','Fichas'], ['avisos','Avisos'],
+                                           ['msgs','Mensagens'], ['prosp','Prospecção', 'dono']] },
   { id:'dinheiro',  nome:'Dinheiro',  so:'dono',
     sub:[['painel','Painel'], ['caixa','Caixa'], ['lanc','Lançamentos'],
          ['contas','Contas'], ['relat','Relatórios'], ['precos','Preços']] },
@@ -209,7 +209,7 @@ var PAGINAS = { hoje:pHoje, volta:pVolta, painel:pPainel, caixa:pCaixa, lanc:pLa
   contas:pContas, relat:pRelat, oper:pOper, prosp:pProsp, intel:pIntel,
   clientes:pClientes, patio:pPatio, manut:pManut, gestao:pGestao, escala:pEscala,
   msgs:pMsgs, dados:pDados, precos:pPrecos, ia:pIA, ilha:pNaIlha, balcao:pBalcao,
-  marinheiros:pMarinheiros };
+  marinheiros:pMarinheiros, avisos:pAvisos };
 
 /* Grupos e sub-abas que este papel pode ver. Nunca confie na tela: quem pedir
    uma página fechada cai no primeiro grupo que ele pode abrir. */
@@ -2473,5 +2473,216 @@ function pMarinheiros(raiz) {
     };
   });
 }
+
+
+/* ====================================================== AVISOS AO CLIENTE
+   O que chega no celular de quem instalou. Três motivos que se repetem (fim
+   de semana, ondas, evento) e um campo livre. O texto nasce pronto e o
+   Dhalsin corrige antes de mandar — nunca sai nada sem ele ler. */
+var AVISO_RASCUNHO = null;
+
+function pAvisos(raiz) {
+  var A = B12.DB.ajustes;
+  A.avisosCliente = A.avisosCliente || { fds:true, ondas:false, eventos:true, hora:'09:00' };
+  var eventos = (A.eventos || []);
+  var hoje = B12.hoje();
+  var futuros = eventos.filter(function (e) { return e.dia >= hoje; })
+                       .sort(function (a, b) { return a.dia < b.dia ? -1 : 1; });
+
+  raiz.appendChild(bloco(
+    '<div class="cx entra"><h3>O que chega no celular do cliente</h3>' +
+    '<p>Quem instalou o app e aceitou receber aviso. O texto sai daqui e você lê antes ' +
+    'de mandar — nada é enviado sozinho sem a sua leitura.</p></div>' +
+
+    '<div class="placar entra entra-1" id="ap-placar">' +
+      tile(0, 'Aparelhos com aviso', 'n', 'destaque') +
+      tile(0, 'Instalados', 'n') +
+      tile(0, 'Ativos em 7 dias', 'n') +
+    '</div>' +
+    '<div class="ajuda" id="ap-nota" style="margin:-4px 12px 10px">conferindo na nuvem…</div>' +
+
+    '<div class="faixa-sec"><div class="tit"><h2>Mandar um aviso</h2></div></div>' +
+    '<div class="cx entra entra-2"><div class="chips" id="av-motivos">' +
+      '<button type="button" class="chip" data-motivo="fds">Previsão do fim de semana</button>' +
+      '<button type="button" class="chip" data-motivo="ondas">Ondas para o surf</button>' +
+      '<button type="button" class="chip" data-motivo="evento">Evento ou festival</button>' +
+      '<button type="button" class="chip" data-motivo="livre">Escrever do zero</button>' +
+    '</div>' +
+    '<label for="av-tit" style="margin-top:12px">Título</label>' +
+    '<input id="av-tit" maxlength="48" placeholder="aparece em negrito no celular">' +
+    '<label for="av-txt">Mensagem</label>' +
+    '<textarea id="av-txt" rows="4" maxlength="180" placeholder="duas linhas bastam"></textarea>' +
+    '<div class="ajuda" id="av-conta">0 de 180</div>' +
+    '<button type="button" class="btn pri" id="av-mandar">Mandar para todos os clientes</button>' +
+    '<button type="button" class="btn sec" id="av-eu">Mandar só para o meu celular (teste)</button>' +
+    '<div class="ajuda">Teste primeiro no seu. O que sair para todos não volta atrás.</div></div>' +
+
+    '<div class="faixa-sec"><div class="tit"><h2>Eventos e festivais</h2>' +
+    '<button class="mini-btn" id="av-novo-ev">+ Novo</button></div>' +
+    '<p style="font-size:12.5px;color:var(--gelo-3);padding-bottom:8px">O que está marcado na ' +
+    'Ilha e em Pontal. Vira aviso com um toque, e aparece na tela do cliente.</p></div>' +
+    (futuros.length
+      ? '<div class="lista">' + futuros.map(function (e) {
+          return '<div class="linha" data-ev="' + e.id + '"><span class="tag">' +
+            B12.dataBR(e.dia).slice(0, 5) + '</span><div class="d"><b>' + esc(e.nome) + '</b>' +
+            '<small>' + esc(e.onde || 'Ilha do Mel') + (e.obs ? ' · ' + esc(e.obs) : '') + '</small></div>' +
+            '<button type="button" class="mini-btn" data-ev-avisar="' + e.id + '">Avisar</button></div>';
+        }).join('') + '</div>'
+      : '<div class="cx" style="margin-top:0"><p>Nenhum evento marcado. Toque em “+ Novo” para ' +
+        'colocar o próximo festival, feriado ou show.</p></div>') +
+
+    '<div class="faixa-sec"><div class="tit"><h2>Avisos automáticos</h2></div>' +
+    '<p style="font-size:12.5px;color:var(--gelo-3);padding-bottom:8px">Quando ligado, o app ' +
+    'prepara o texto e avisa VOCÊ para conferir e disparar. Nunca sai sozinho.</p></div>' +
+    '<div class="cx entra entra-3">' +
+      linhaChave('fds', 'Previsão do fim de semana', 'toda quinta, de manhã', A.avisosCliente.fds) +
+      linhaChave('ondas', 'Ondas boas para o surf', 'quando o mar fica surfável', A.avisosCliente.ondas) +
+      linhaChave('eventos', 'Véspera de evento', 'um dia antes do que está na lista', A.avisosCliente.eventos) +
+    '</div>'
+  ));
+
+  /* ---- contagem de aparelhos, da nuvem ---- */
+  var nota = raiz.querySelector('#ap-nota');
+  B12.apContagem().then(function (r) {
+    var pl = raiz.querySelector('#ap-placar');
+    if (!pl) return;
+    if (r.erro) {
+      nota.textContent = r.erro === 'semLogin'
+        ? 'Entre na nuvem (aba Dados) para ver a contagem — ela mora no banco, não no aparelho.'
+        : r.erro === 'semNuvem' ? 'A nuvem ainda não está ligada neste app.'
+        : 'Não consegui falar com a nuvem agora. Tente de novo com internet.';
+      return;
+    }
+    var n = r.n;
+    pl.innerHTML =
+      tile(n.com_avisos || 0, 'Aparelhos com aviso', 'n', 'destaque') +
+      tile(n.instalados || 0, 'Instalados', 'n') +
+      tile(n.ativos_7 || 0, 'Ativos em 7 dias', 'n');
+    B12.animarPlacar(pl);
+    nota.innerHTML = (n.total || 0) + ' aparelhos já abriram o app · ' + (n.novos_7 || 0) +
+      ' novos nos últimos 7 dias. <b>É estimativa, não censo:</b> quem limpa os dados do ' +
+      'navegador conta de novo, e quem apaga o app não dá baixa.';
+  });
+
+  /* ---- montar o texto ---- */
+  var cTit = raiz.querySelector('#av-tit'), cTxt = raiz.querySelector('#av-txt');
+  var conta = raiz.querySelector('#av-conta');
+  function contar() { conta.textContent = (cTxt.value || '').length + ' de 180'; }
+
+  /* O rascunho sobrevive ao redesenho. Sem isto, a sincronia chega no meio da
+     digitação, a tela se refaz e o texto que ele acabou de escrever some —
+     foi assim que já se perdeu reserva no app da Melissa. */
+  function guardar() {
+    AVISO_RASCUNHO = { titulo: cTit.value, texto: cTxt.value, motivo: motivoAtual };
+  }
+  var motivoAtual = AVISO_RASCUNHO && AVISO_RASCUNHO.motivo || '';
+  if (AVISO_RASCUNHO) {
+    cTit.value = AVISO_RASCUNHO.titulo || '';
+    cTxt.value = AVISO_RASCUNHO.texto || '';
+    /* o campo preenchido pelo próprio app também marca o defaultValue, senão
+       `formularioSujo()` acha que está sujo para sempre e nada mais sincroniza */
+    cTit.defaultValue = cTit.value; cTxt.defaultValue = cTxt.value;
+    if (motivoAtual) {
+      var m0 = raiz.querySelector('[data-motivo="' + motivoAtual + '"]');
+      if (m0) m0.classList.add('on');
+    }
+  }
+  contar();
+  cTit.oninput = guardar;
+  cTxt.oninput = function () { contar(); guardar(); };
+
+  raiz.querySelectorAll('[data-motivo]').forEach(function (b) {
+    b.onclick = function () {
+      raiz.querySelectorAll('[data-motivo]').forEach(function (x) { x.classList.remove('on'); });
+      b.classList.add('on');
+      motivoAtual = b.dataset.motivo;
+      var m = B12.textoAviso(motivoAtual);
+      cTit.value = m.titulo; cTxt.value = m.texto;
+      cTit.defaultValue = cTit.value; cTxt.defaultValue = cTxt.value;
+      contar(); guardar();
+    };
+  });
+
+  raiz.querySelector('#av-eu').onclick = function () { disparar(true); };
+  raiz.querySelector('#av-mandar').onclick = function () { disparar(false); };
+
+  function disparar(soEu) {
+    var t = (cTit.value || '').trim(), x = (cTxt.value || '').trim();
+    if (!t || !x) return alert('Escreva o título e a mensagem antes de mandar.');
+    if (!soEu && !confirm('Mandar para TODOS os clientes com aviso ligado?\n\n' + t + '\n' + x +
+      '\n\nIsso não volta atrás.')) return;
+    B12.avEnviar({ titulo:t, texto:x, para: soEu ? 'eu' : 'turista' }).then(function (r) {
+      if (r && r.ok && !soEu) { AVISO_RASCUNHO = null; re(); }
+      alert(r && r.ok ? (soEu ? 'Saiu para o seu celular.' : 'Enviado para ' + (r.enviados || 0) + ' aparelhos.')
+                      : 'Não consegui enviar agora. ' + ((r && r.erro) || ''));
+    });
+  }
+
+  /* ---- eventos ---- */
+  function re() { B12.admDesenhar('avisos'); }
+  raiz.querySelector('#av-novo-ev').onclick = function () { B12.fichaEvento(null, re); };
+  raiz.querySelectorAll('[data-ev]').forEach(function (el) {
+    el.onclick = function (ev) {
+      if (ev.target.closest('[data-ev-avisar]')) return;
+      B12.fichaEvento(el.dataset.ev, re);
+    };
+  });
+  raiz.querySelectorAll('[data-ev-avisar]').forEach(function (b) {
+    b.onclick = function (ev) {
+      ev.stopPropagation();
+      var e = (B12.DB.ajustes.eventos || []).filter(function (x) { return x.id === b.dataset.evAvisar; })[0];
+      if (!e) return;
+      var m = B12.textoAviso('evento', e);
+      cTit.value = m.titulo; cTxt.value = m.texto; contar();
+      cTit.scrollIntoView({ block:'center', behavior:'smooth' });
+    };
+  });
+
+  /* ---- chaves dos automáticos ---- */
+  raiz.querySelectorAll('[data-chave]').forEach(function (b) {
+    b.onclick = function () {
+      var k = b.dataset.chave;
+      A.avisosCliente[k] = !A.avisosCliente[k];
+      B12.salvar(); re();
+    };
+  });
+}
+
+function linhaChave(k, titulo, sub, ligado) {
+  return '<div class="lin-chave"><div><b>' + titulo + '</b><small>' + sub + '</small></div>' +
+    '<button type="button" class="chave' + (ligado ? ' on' : '') + '" data-chave="' + k + '" ' +
+    'role="switch" aria-checked="' + (!!ligado) + '" aria-label="' + titulo + '">' +
+    '<i></i><span>' + (ligado ? 'Ligado' : 'Desligado') + '</span></button></div>';
+}
+
+/* O texto nasce pronto, com o dado de verdade dentro. */
+B12.textoAviso = function (motivo, extra) {
+  var hoje = B12.hoje();
+  if (motivo === 'fds') {
+    return { titulo: 'O fim de semana na Ilha',
+      texto: 'A previsão para sábado e domingo está no app. Dê uma olhada e, se o tempo ' +
+             'ajudar, reserve sua travessia — os horários de mais movimento enchem primeiro.' };
+  }
+  if (motivo === 'ondas') {
+    var m = (B12.mar7 && B12.mar7()) || [];
+    var bom = m.filter(function (d) { return d.nota && d.nota.bom && d.dia >= hoje; })[0];
+    return { titulo: bom ? 'Entrou swell na Ilha' : 'Como está o mar',
+      texto: bom
+        ? 'Dia ' + B12.dataBR(bom.dia).slice(0, 5) + ' o mar dá ' +
+          bom.altura.toFixed(1).replace('.', ',') + ' m com ' + Math.round(bom.periodo) +
+          ' s de período — ' + bom.nota.txt.toLowerCase() + '. Quem quiser pegar, a B12 ' +
+          'atravessa a partir das 08h30.'
+        : 'A previsão de ondas dos próximos dias está no app. Qualquer coisa, chame no WhatsApp.' };
+  }
+  if (motivo === 'evento') {
+    var e = extra || ((B12.DB.ajustes.eventos || []).filter(function (x) { return x.dia >= hoje; })[0]);
+    if (!e) return { titulo:'Tem evento na Ilha', texto:'Cadastre o evento na lista abaixo para o texto nascer pronto.' };
+    return { titulo: e.nome,
+      texto: B12.dataBR(e.dia).slice(0, 5) + ' em ' + (e.onde || 'Ilha do Mel') +
+             (e.obs ? '. ' + e.obs : '') + '. Reserve sua travessia com antecedência — ' +
+             'em dia de evento a lancha enche.' };
+  }
+  return { titulo: '', texto: '' };
+};
 
 })();

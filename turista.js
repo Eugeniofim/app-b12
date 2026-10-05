@@ -20,6 +20,41 @@ B12.buscarClima = function () {
     .catch(function () { clearTimeout(corta); B12.pintarClima(); });
 };
 
+/* --------------------------------------------------------------------- mar
+   Mesma casa da previsão do tempo, API de mar, de graça e sem chave. Serve a
+   duas coisas: a tela do surfista e o aviso que o Dhalsin manda. */
+var MAR = null;
+B12.buscarMar = function () {
+  var u = 'https://marine-api.open-meteo.com/v1/marine?latitude=' + B12.EMPRESA.lat +
+    '&longitude=' + B12.EMPRESA.lon +
+    '&daily=wave_height_max,wave_period_max,wave_direction_dominant' +
+    '&timezone=America%2FSao_Paulo&forecast_days=7';
+  var ctrl = new AbortController(), corta = setTimeout(function () { ctrl.abort(); }, 12000);
+  return fetch(u, { signal: ctrl.signal })
+    .then(function (r) { return r.json(); })
+    .then(function (d) { clearTimeout(corta); MAR = d; return d; })
+    .catch(function () { clearTimeout(corta); return null; });
+};
+B12.mar7 = function () {
+  if (!MAR || !MAR.daily) return null;
+  var d = MAR.daily;
+  return d.time.map(function (t, i) {
+    return { dia: t, altura: d.wave_height_max[i], periodo: d.wave_period_max[i],
+             direcao: d.wave_direction_dominant[i], nota: B12.notaSurf(d.wave_height_max[i], d.wave_period_max[i]) };
+  });
+};
+/* Leitura de surfista, em palavra. Altura sozinha não diz nada: onda de 1 m com
+   período de 11 s é surfável; a mesma altura com 5 s é mexida sem forma. */
+B12.notaSurf = function (alt, per) {
+  if (alt == null) return { txt:'sem dado', bom:false };
+  if (alt < 0.4) return { txt:'Flat', bom:false };
+  if (per >= 9 && alt >= 0.8) return { txt:'Clássico', bom:true };
+  if (per >= 8 && alt >= 0.6) return { txt:'Surfável', bom:true };
+  if (alt >= 1.6) return { txt:'Grande e mexido', bom:false };
+  if (per < 7) return { txt:'Mexido', bom:false };
+  return { txt:'Pequeno', bom:false };
+};
+
 B12.codTempo = function (c) {
   if (c === 0) return 'Céu limpo';
   if (c <= 2) return 'Parcialmente nublado';

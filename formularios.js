@@ -1198,3 +1198,42 @@ B12.fichaMarinheiro = function (id, depois) {
     B12.salvar(); B12.fecharFolha(); if (depois) depois(null);
   };
 };
+
+/* ------------------------------------------------------------ evento/festival
+   O que está marcado na Ilha e em Pontal. Vira aviso com um toque. */
+B12.fichaEvento = function (id, depois) {
+  var A = B12.DB.ajustes;
+  A.eventos = A.eventos || [];
+  var e = A.eventos.filter(function (x) { return x.id === id; })[0] ||
+          { id:null, nome:'', dia:'', onde:'Ilha do Mel', obs:'' };
+  var novo = !e.id;
+  B12.folha({
+    titulo: novo ? 'Novo evento' : e.nome,
+    sub: 'Entra na tela do cliente e vira aviso no celular',
+    corpo:
+      B12.f_campo('Nome', 'nome', { valor:e.nome, obrig:true, max:48,
+        dica:'Festival de Inverno, Réveillon, show…' }) +
+      '<div class="grade2">' +
+        '<div>' + B12.f_campo('Quando', 'dia', { valor:e.dia, tipo:'date', obrig:true }) + '</div>' +
+        '<div>' + B12.f_campo('Onde', 'onde', { valor:e.onde, max:32 }) + '</div></div>' +
+      B12.f_campo('Uma linha a mais', 'obs', { valor:e.obs, max:90,
+        ajuda:'entra no texto do aviso; deixe vazio se não precisar' }),
+    extra: novo ? '' : '<button type="button" class="btn sec" id="b-ev-apagar">Apagar</button>',
+    aoSalvar: function (d) {
+      var nome = String(d.nome || '').trim();
+      if (!nome) return { erro:'O nome é obrigatório.', campo:'nome' };
+      if (!d.dia) return { erro:'Escolha a data do evento.', campo:'dia' };
+      if (novo) { e.id = 'ev' + Date.now().toString(36); A.eventos.push(e); }
+      e.nome = nome; e.dia = d.dia; e.onde = d.onde || 'Ilha do Mel'; e.obs = d.obs || '';
+      B12.salvar();
+      if (depois) depois(e);
+      return { ok:true };
+    }
+  });
+  var ap = document.getElementById('b-ev-apagar');
+  if (ap) ap.onclick = function () {
+    if (!confirm('Apagar “' + e.nome + '”?')) return;
+    A.eventos = A.eventos.filter(function (x) { return x.id !== e.id; });
+    B12.salvar(); B12.fecharFolha(); if (depois) depois(null);
+  };
+};
