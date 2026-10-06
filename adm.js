@@ -2661,9 +2661,18 @@ function pAvisos(raiz) {
     '<label for="av-txt">Mensagem</label>' +
     '<textarea id="av-txt" rows="4" maxlength="180" placeholder="duas linhas bastam"></textarea>' +
     '<div class="ajuda" id="av-conta">0 de 180</div>' +
+    /* dois canais, o mesmo texto. Push chega em quem instalou; e-mail chega
+       em quem deu o endereço — públicos diferentes, e ele escolhe. */
+    '<div class="canais"><span class="canais-rot">Mandar por</span>' +
+      '<button type="button" class="canal on" data-canal="push">' +
+      '<b>Aviso no celular</b><small id="n-push">quem instalou o app</small></button>' +
+      '<button type="button" class="canal" data-canal="email">' +
+      '<b>E-mail</b><small id="n-email">' + B12.emailLista().length +
+      ' com e-mail e autorização</small></button></div>' +
     '<button type="button" class="btn pri" id="av-mandar">Mandar para todos os clientes</button>' +
-    '<button type="button" class="btn sec" id="av-eu">Mandar só para o meu celular (teste)</button>' +
-    '<div class="ajuda">Teste primeiro no seu. O que sair para todos não volta atrás.</div></div>' +
+    '<button type="button" class="btn sec" id="av-eu">Mandar só para mim (teste)</button>' +
+    '<div class="ajuda">Teste primeiro no seu. O que sair para todos não volta atrás. ' +
+    'Por e-mail, só recebe quem autorizou — e todo e-mail leva link de descadastro.</div></div>' +
 
     '<div class="faixa-sec"><div class="tit"><h2>Eventos e festivais</h2>' +
     '<button class="mini-btn" id="av-novo-ev">+ Novo</button></div>' +
@@ -2760,13 +2769,45 @@ function pAvisos(raiz) {
     };
   });
 
+  var CANAL = 'push';
+  raiz.querySelectorAll('[data-canal]').forEach(function (b) {
+    b.onclick = function () {
+      raiz.querySelectorAll('[data-canal]').forEach(function (x) { x.classList.remove('on'); });
+      b.classList.add('on');
+      CANAL = b.dataset.canal;
+      raiz.querySelector('#av-mandar').textContent = CANAL === 'email'
+        ? 'Mandar e-mail para ' + B12.emailLista().length + ' clientes'
+        : 'Mandar para todos os clientes';
+    };
+  });
+
   raiz.querySelector('#av-eu').onclick = function () { disparar(true); };
   raiz.querySelector('#av-mandar').onclick = function () { disparar(false); };
 
   function disparar(soEu) {
     var t = (cTit.value || '').trim(), x = (cTxt.value || '').trim();
     if (!t || !x) return alert('Escreva o título e a mensagem antes de mandar.');
-    if (!soEu && !confirm('Mandar para TODOS os clientes com aviso ligado?\n\n' + t + '\n' + x +
+
+    if (CANAL === 'email') {
+      var quantos = B12.emailLista().length;
+      var meu = '';
+      if (soEu) {
+        meu = prompt('Para qual e-mail mando o teste?', '');
+        if (!meu) return;
+      } else if (!confirm('Mandar e-mail para ' + quantos + ' clientes?\n\n' + t +
+        '\n\nSó recebe quem autorizou. Isso não volta atrás.')) return;
+      B12.emailEnviar({ titulo:t, texto:x, para: soEu ? 'eu' : 'clientes', meuEmail: meu })
+        .then(function (r) {
+          if (r && r.ok && !soEu) { AVISO_RASCUNHO = null; re(); }
+          alert(r && r.ok
+            ? (soEu ? 'E-mail de teste enviado.' : r.enviados + ' e-mails enviados' +
+               (r.falhas ? ' · ' + r.falhas + ' falharam' : '') + '.')
+            : 'Não consegui enviar. ' + ((r && r.erro) || ''));
+        });
+      return;
+    }
+
+    if (!soEu && !confirm('Mandar aviso no celular para TODOS os clientes?\n\n' + t + '\n' + x +
       '\n\nIsso não volta atrás.')) return;
     B12.avEnviar({ titulo:t, texto:x, para: soEu ? 'eu' : 'turista' }).then(function (r) {
       if (r && r.ok && !soEu) { AVISO_RASCUNHO = null; re(); }

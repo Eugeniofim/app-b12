@@ -228,3 +228,40 @@ if ('serviceWorker' in navigator) {
 window.B12 = B12;
 
 })();
+
+/* ------------------------------------------------------------- e-mail
+   O outro canal. Push chega em quem instalou; e-mail chega em quem deu o
+   endereço. São públicos diferentes, e o Dhalsin manda os dois do mesmo
+   lugar. Quem não aceitou receber NÃO entra na lista — a trava é no
+   servidor, não nesta linha. */
+B12.emailEnviar = function (o) {
+  o = o || {};
+  if (!B12.NUVEM || !B12.NUVEM.url) return Promise.resolve({ erro: 'A nuvem não está ligada.' });
+  if (!B12.nuvLogado || !B12.nuvLogado())
+    return Promise.resolve({ erro: 'Entre na nuvem para mandar e-mail.' });
+
+  var ctrl = new AbortController();
+  var corta = setTimeout(function () { ctrl.abort(); }, 60000);  /* envio em lote demora */
+  return fetch(B12.NUVEM.url + '/functions/v1/email', {
+    method: 'POST', signal: ctrl.signal, headers: B12.nuvCabecalho(),
+    body: JSON.stringify({ titulo: o.titulo, texto: o.texto,
+                           para: o.para || 'clientes', meuEmail: o.meuEmail || '' })
+  }).then(function (r) { return r.json(); })
+    .then(function (j) {
+      if (j && j.ok) return { ok: true, enviados: j.enviados, falhas: j.falhas, naLista: j.naLista };
+      return { erro: (j && j.erro) || 'O servidor de e-mail não respondeu.' };
+    })
+    .catch(function (e) {
+      return { erro: e && e.name === 'AbortError'
+        ? 'Demorou demais. Confira na sua conta do Resend se os e-mails saíram.'
+        : 'Não consegui falar com o servidor de e-mail.' };
+    })
+    .finally(function () { clearTimeout(corta); });
+};
+
+/* Quantos clientes receberiam um e-mail hoje. */
+B12.emailLista = function () {
+  return (B12.DB.clientes || []).filter(function (c) {
+    return c.email && String(c.email).indexOf('@') > 0 && c.aceitaOfertas;
+  });
+};
