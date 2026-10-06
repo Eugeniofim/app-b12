@@ -355,6 +355,7 @@ function bloco(html) { var d = document.createElement('div'); d.innerHTML = html
 
 /* ------------------------------------------------------------------- HOJE */
 function pHoje(raiz) {
+  if (B12.emDemo && B12.emDemo()) blocoDemo(raiz);
   var hoje = B12.hoje(), r = B12.resumoDia(hoje), mes = B12.resumoMes(B12.mesAtual());
   var venc = B12.contasVencidas(), prox = B12.contasProximas(7);
   blocoLembretes(raiz);
@@ -1849,7 +1850,43 @@ function pMsgs(raiz) {
 
 /* ------------------------------------------------------------------ DADOS
    Tudo sai do app: Excel, PDF para o contador e cópia completa. */
+/* ------------------------------------------- a faixa do modo demonstração
+   Enquanto estiver ligado, TODO número da tela é mentira. Isso precisa estar
+   escrito onde o dono olha, não escondido numa aba. */
+function blocoDemo(raiz) {
+  if (!B12.emDemo || !B12.emDemo()) {
+    raiz.appendChild(bloco(
+      '<div class="cx bom entra"><h3>Valendo</h3>' +
+      '<p>Os dados de demonstração foram removidos. Tudo o que aparece no app agora é ' +
+      'movimento de verdade da B12.</p></div>'));
+    return;
+  }
+  var falsos = ['reservas','lancamentos','contas','saidas','patio','manutencoes','clientes']
+    .reduce(function (t, k) {
+      return t + (B12.DB[k] || []).filter(function (x) { return B12.ehDemo(x); }).length; }, 0);
+
+  var b = bloco(
+    '<div class="cx aviso entra"><h3>O app está em modo demonstração</h3>' +
+    '<p>Existem <b>' + falsos + ' registros de mentira</b> na tela agora, e eles se recriam ' +
+    'todo dia. <b>Caixa, Painel e Relatórios estão mostrando número inventado.</b> Serve para ' +
+    'apresentar o app; não serve para tocar o negócio.</p>' +
+    '<p style="margin-top:8px">Quando a B12 começar a usar de verdade, aperte o botão abaixo. ' +
+    'Os registros falsos somem e não voltam. O que você já lançou de verdade fica.</p>' +
+    '<button type="button" class="btn pri" id="b-sair-demo">Começar a usar valendo</button></div>');
+  raiz.appendChild(b);
+
+  b.querySelector('#b-sair-demo').onclick = function () {
+    if (!confirm('Tirar os ' + falsos + ' registros de demonstração?\n\n' +
+      'Isto não tem volta. O que foi lançado de verdade continua.')) return;
+    var r = B12.sairDaDemo();
+    alert(r.tirados + ' registros de demonstração saíram.\n\nA partir de agora todo número ' +
+      'na tela é de verdade.');
+    B12.admDesenhar('dados');
+  };
+}
+
 function pDados(raiz) {
+  blocoDemo(raiz);
   var n = B12.contagens(), cofre = B12.cofreCopias();
   var opcoes = [['tudo','Tudo, desde o começo'],['mes','Este mês'],['mesPassado','Mês passado'],['ano','Este ano']];
   raiz.appendChild(bloco(

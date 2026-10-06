@@ -124,9 +124,20 @@ B12.avLigar = async function (opc) {
           : { apikey: B12.NUVEM.chave, Authorization: 'Bearer ' + B12.NUVEM.chave,
               'Content-Type': 'application/json' };
   cab.Prefer = 'resolution=merge-duplicates,return=minimal';
-  var r = await fetch(B12.NUVEM.url + '/rest/v1/b12_avisos?on_conflict=endpoint', {
-    method: 'POST', headers: cab, body: JSON.stringify(corpo)
-  });
+  /* prazo: sem isto, sinal fraco deixa o botão "ligar avisos" girando para
+     sempre — foi assim que o login da Melissa travou (app-um-so, peça 7) */
+  var ctrl = new AbortController();
+  var corta = setTimeout(function () { ctrl.abort(); }, 12000);
+  var r;
+  try {
+    r = await fetch(B12.NUVEM.url + '/rest/v1/b12_avisos?on_conflict=endpoint', {
+      method: 'POST', headers: cab, body: JSON.stringify(corpo), signal: ctrl.signal
+    });
+  } catch (e) {
+    return { erro: e && e.name === 'AbortError'
+      ? 'A internet está lenta demais. Tente de novo daqui a pouco.'
+      : 'Não consegui falar com o servidor dos avisos.' };
+  } finally { clearTimeout(corta); }
   if (!r.ok) {
     var txt = await r.text();
     return { erro: 'O banco recusou a inscrição (' + r.status + '). ' + txt.slice(0, 90) };

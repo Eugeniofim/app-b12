@@ -147,8 +147,14 @@ B12.carregar = function () {
   if (!Array.isArray(B12.DB.marinheiros)) B12.DB.marinheiros = B12.MARINHEIROS.slice();
   if (!Array.isArray(A.produtos) || !A.produtos.length) A.produtos = B12.PRODUTOS.slice();
   if (!A.sobre) A.sobre = JSON.parse(JSON.stringify(B12.SOBRE));
-  if (!B12.DB.semeado) { B12.semear(); }
-  else if (B12.DB.demoDia !== B12.hoje()) { B12.refrescarDemo(); }
+  /* O modo demonstração enche a tela para apresentação. Quando o cliente
+     começa a usar valendo, ele some e NUNCA volta — senão o Caixa mistura
+     lançamento falso com dinheiro de verdade. Ver B12.sairDaDemo(). */
+  if (A.demo === undefined) A.demo = true;
+  if (A.demo) {
+    if (!B12.DB.semeado) { B12.semear(); }
+    else if (B12.DB.demoDia !== B12.hoje()) { B12.refrescarDemo(); }
+  }
   return B12.DB;
 };
 
@@ -1919,3 +1925,23 @@ B12.marcarChegada = function (id) {
   B12.salvar();
   return { ok: true, reserva: r };
 };
+
+/* ------------------------------------------------- sair do modo demonstração
+   O caminho sem volta: tira tudo que é de mentira e desliga o semeador. A
+   partir daqui todo número na tela é dinheiro de verdade. */
+B12.sairDaDemo = function () {
+  var D = B12.DB;
+  var tirados = 0;
+  ['reservas','lancamentos','contas','saidas','patio','manutencoes','clientes'].forEach(function (k) {
+    var antes = (D[k] || []).length;
+    D[k] = (D[k] || []).filter(function (x) { return !B12.ehDemo(x); });
+    tirados += antes - D[k].length;
+  });
+  D.ajustes.demo = false;
+  D.ajustes.demoSaiuEm = new Date().toISOString();
+  D.semeado = true;          /* não semeia de novo */
+  D.demoDia = null;
+  B12.salvar();
+  return { ok: true, tirados: tirados };
+};
+B12.emDemo = function () { return B12.DB && B12.DB.ajustes && B12.DB.ajustes.demo !== false; };
