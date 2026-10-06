@@ -13,7 +13,13 @@
 //
 // Segredos (cofre do Supabase, nunca no repositório):
 //   RESEND_API_KEY   a chave da conta Resend
-//   EMAIL_DE         ex.: "Estação B12 <contato@estacaob12.com.br>"
+//   EMAIL_DE         quem assina, ex.: "Estação B12 <contato@envios.eugeniofim.com>"
+//   EMAIL_RESPONDER  para onde vai a resposta, ex.: "luistinglin@gmail.com"
+//
+// O domínio de ENVIO não precisa ser o do cliente. Sai do domínio do Eugênio
+// (que ele controla) com o nome "Estação B12" na frente, e o RESPONDER
+// aponta para o e-mail do Dhalsin — a resposta chega nele, não no Eugênio.
+// Trocar para o domínio do cliente um dia é mudar UMA variável, zero código.
 // =====================================================================
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
@@ -62,7 +68,8 @@ function montar(nome: string, titulo: string, texto: string, sairUrl: string) {
         padding:13px 22px;border-radius:10px">Abrir o app da B12</a>
       <p style="font-size:12.5px;color:#647E8E;line-height:1.5;margin:28px 0 0;
         border-top:1px solid #D5E1E8;padding-top:16px">
-        Você recebe este e-mail porque viajou com a Estação B12 e aceitou receber novidades.<br>
+        Você recebe este e-mail porque viajou com a Estação B12 e aceitou receber novidades.
+        Ele é enviado pelo studio Ti Artes em nome da Estação B12.<br>
         <a href="${sairUrl}" style="color:#647E8E">Não quero mais receber</a> ·
         Av. Beira-Mar, 3433 · Pontal do Paraná – PR
       </p>
@@ -105,6 +112,7 @@ Deno.serve(async (req) => {
 
   const chave = Deno.env.get('RESEND_API_KEY');
   const de = Deno.env.get('EMAIL_DE');
+  const responder = Deno.env.get('EMAIL_RESPONDER') ?? '';
   if (!chave || !de) {
     return resposta({ erro: 'O e-mail ainda não foi configurado. Falta RESEND_API_KEY ' +
       'e EMAIL_DE no cofre do Supabase.' }, 400);
@@ -144,6 +152,8 @@ Deno.serve(async (req) => {
       headers: { Authorization: 'Bearer ' + chave, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         from: de, to: [c.email], subject: titulo,
+        /* a resposta vai para a B12, não para quem hospeda o envio */
+        reply_to: responder || undefined,
         html: montar(c.nome, titulo, texto, base + encodeURIComponent(c.id)),
         headers: { 'List-Unsubscribe': '<' + base + encodeURIComponent(c.id) + '>' },
       }),
