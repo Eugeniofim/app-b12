@@ -191,7 +191,7 @@ function grafRosca(alvo, fatias) {
    grupo, e pedir a página pelo nome também não entra. */
 var GRUPOS = [
   { id:'hoje',      nome:'Hoje',      sub:[['hoje','O dia'], ['volta','Quem volta']] },
-  { id:'balcao',    nome:'Cadastro cliente', sub:[['balcao','Cadastro cliente']] },
+  { id:'balcao',    nome:'Cadastro',  sub:[['balcao','Cadastro']] },
   { id:'travessia', nome:'Travessia', sub:[['escala','Horários'], ['ilha','Na Ilha'],
                                            ['marinheiros','Marinheiros'], ['patio','Pátio']] },
   { id:'clientes',  nome:'Clientes',  sub:[['clientes','Fichas'], ['avisos','Avisos'],
