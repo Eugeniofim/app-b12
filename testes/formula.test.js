@@ -51,6 +51,10 @@ eh('14 dá para sair da demonstração', /B12\.sairDaDemo/.test(nuc));
 eh('15 e o semeador respeita o desligamento', /if \(A\.demo\)/.test(nuc),
    'senão os dados falsos voltam todo dia');
 
+console.log('\n— gráficos —');
+eh('20 série toda em zero não vira NaN', /if \(!\(max - min\)\)/.test(leia('adm.js')),
+   'dia parado quebrava o gráfico inteiro com divisão por zero');
+
 console.log('\n— dedo e acessibilidade —');
 eh('16 alvos de 44px no toque', /pointer:\s*coarse/.test(css));
 eh('17 respeita quem pediu menos movimento', /prefers-reduced-motion/.test(css));

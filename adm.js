@@ -124,9 +124,13 @@ function grafLinha(alvo, pontos, opc) {
   var W = 480, H = opc.altura || 170, L = 42, R = 8, T = 12, B = 24;
   var pw = W-L-R, ph = H-T-B;
   var s = el('svg', { viewBox:'0 0 '+W+' '+H, class:'graf', role:'img' });
-  var vals = pontos.map(function(p){ return p.v; });
+  var vals = pontos.map(function(p){ return Number(p.v) || 0; });
   var max = Math.max.apply(null, vals) * 1.12, min = Math.min(0, Math.min.apply(null, vals) * 1.15);
-  function y(v){ return T + ph - ((v-min)/(max-min))*ph; }
+  /* dia parado = série toda em zero = max e min iguais = divisão por zero e
+     um gráfico cheio de NaN. Com teto mínimo, a linha deita no fundo, que é
+     a verdade: não entrou nada. */
+  if (!(max - min)) { max = 1; min = 0; }
+  function y(v){ return T + ph - (((Number(v)||0)-min)/(max-min))*ph; }
   function x(i){ return L + (i/(pontos.length-1))*pw; }
   for (var i=0;i<=4;i++){ var v = min + (max-min)*i/4;
     s.appendChild(el('line',{x1:L,x2:W-R,y1:y(v),y2:y(v),stroke:C.risco,'stroke-width':1}));
@@ -201,8 +205,8 @@ var GRUPOS = [
          ['contas','Contas'], ['relat','Relatórios'], ['precos','Preços']] },
   { id:'estacao',   nome:'Estação',   so:'dono',
     sub:[['gestao','Gestão'], ['sobre','A empresa'], ['manut','Manutenção'],
-         ['oper','Operação'], ['dados','Dados'], ['intel','Inteligência']] },
-  { id:'ia',        nome:'Assistente', sub:[['ia','Assistente']] }
+         ['oper','Operação'], ['dados','Dados'], ['intel','Inteligência'],
+         ['ia','Assistente']] },
 ];
 
 var PAGINAS = { hoje:pHoje, volta:pVolta, painel:pPainel, caixa:pCaixa, lanc:pLanc,
@@ -354,82 +358,138 @@ function pintarLupa(suf, termo) {
 function bloco(html) { var d = document.createElement('div'); d.innerHTML = html; return d; }
 
 /* ------------------------------------------------------------------- HOJE */
+/* ============================================================== HOJE
+   O DIÁRIO DE BORDO. É a tela que o Dhalsin abre todo dia, e ele vem do
+   papel — então ela segue a ordem do dia, não a ordem do banco de dados:
+
+     1. que dia é hoje, e quanta gente viaja
+     2. o que precisa de você AGORA (só aparece quando existe)
+     3. o dinheiro de hoje, com a forma dos últimos dias
+     4. quem está na Ilha
+     5. o que vem pela frente
+
+   O QUE SAIU DAQUI: "ligue a nuvem", "avisos no celular", "modo demonstração".
+   São coisas que se resolvem UMA VEZ e ocupavam a tela que ele vê TODO DIA.
+   Viraram uma linha só no topo, que some quando tudo estiver resolvido. */
 function pHoje(raiz) {
-  if (B12.emDemo && B12.emDemo()) blocoDemo(raiz);
-  var hoje = B12.hoje(), r = B12.resumoDia(hoje), mes = B12.resumoMes(B12.mesAtual());
-  var venc = B12.contasVencidas(), prox = B12.contasProximas(7);
-  blocoLembretes(raiz);
+  var hoje = B12.hoje();
+  var d = B12.resumoDia(hoje);
+  var n = B12.naIlha(hoje) || {};
+  var idas = B12.saidasDoDia(hoje, 'ida'), voltas = B12.saidasDoDia(hoje, 'volta');
+  var pax = idas.reduce(function (t, s) { return t + (s.ocupadas || 0); }, 0);
+  var DIAS = ['domingo','segunda-feira','terça-feira','quarta-feira','quinta-feira','sexta-feira','sábado'];
+  var MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto',
+               'setembro','outubro','novembro','dezembro'];
+  var dt = new Date(hoje + 'T12:00');
+
+  /* ---- a linha de pendências de configuração, em vez de três cartões ---- */
+  pendenciasDeConfig(raiz);
+
+  /* ---- 1. o dia ---- */
   raiz.appendChild(bloco(
-    '<div class="placar entra">' +
-    tile(r.faturamento,'Faturamento','brl','destaque') +
-    tile(r.travessias,'Travessias','n') +
-    tile(r.pax,'Passageiros','n') +
-    tile(r.passeios,'Passeios','n') +
-    tile(r.combustivel,'Combustível','brl') +
-    tile(r.resultado,'Resultado','brl','destaque') +
-    '</div>' +
-    (function () {
-      var ab = B12.contasAbertas();
-      if (!ab.length) return '';
-      var soma = ab.reduce(function (s, c) { return s + c.total; }, 0);
-      return '<button type="button" class="ia-atalho entra" data-ir-receber ' +
-        'style="border-color:var(--atencao)">' +
-        '<div class="ia-atalho-ico" style="background:linear-gradient(150deg,#E5A43B,#B87A1C)">' +
-        '<svg viewBox="0 0 24 24"><path d="M3 7h18v10H3z" stroke-linejoin="round"/>' +
-        '<circle cx="12" cy="12" r="2.6"/></svg></div>' +
-        '<div class="ia-atalho-txt"><b>A receber na saída: ' + B12.brl(soma) + '</b>' +
-        '<small>' + ab.length + ' pessoa' + (ab.length > 1 ? 's' : '') + ' já viajaram e pagam quando voltarem</small></div>' +
-        '<svg class="ia-atalho-seta" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
-      '</button>';
-    })() +
-    '<button type="button" class="ia-atalho entra" data-ia-abrir>' +
-      '<div class="ia-atalho-ico"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 0 0-9 9c0 1.6.4 3.1 1.2 4.4L3 21l4.8-1.1A9 9 0 1 0 12 3z" stroke-linejoin="round"/>' +
-      '<path d="M8.5 11h.01M12 11h.01M15.5 11h.01" stroke-linecap="round" stroke-width="2.6"/></svg></div>' +
-      '<div class="ia-atalho-txt"><b>Pergunte ao assistente</b>' +
-      '<small>"Como foi o dia?" · "Quem viaja amanhã?" · "Quanto posso retirar?"</small></div>' +
-      '<svg class="ia-atalho-seta" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
-    '</button>' +
-    '<div class="cx entra entra-1"><h3>O mês até agora <span class="selo-demo">demonstração</span></h3>' +
-    '<p>Entrou ' + B12.brl(mes.entradas) + ', saiu ' + B12.brl(mes.saidas) +
-    ', e a maquininha levou ' + B12.brl(mes.taxa) + '.</p>' +
-    '<div class="medidor' + (mes.entradas < B12.DB.ajustes.metaMensal*0.6 ? ' aviso':'') + '">' +
-    '<i style="width:' + Math.min(100, mes.entradas/B12.DB.ajustes.metaMensal*100).toFixed(1) + '%"></i></div>' +
-    '<p style="margin-top:7px;font-size:12px">Meta do mês: ' + B12.brl(B12.DB.ajustes.metaMensal) +
-    ' · falta ' + B12.brl(Math.max(0, B12.DB.ajustes.metaMensal - mes.entradas)) + '</p></div>' +
-    (venc.length ?
-      '<div class="cx aviso entra entra-2"><h3>' + venc.length + ' conta' + (venc.length>1?'s':'') +
-      ' vencida' + (venc.length>1?'s':'') + '</h3><p>' +
-      venc.map(function(c){ return c.desc + ' · ' + B12.brl(c.valor); }).join('<br>') + '</p></div>' : '') +
-    (prox.length ?
-      '<div class="cx entra entra-3"><h3>Vence nos próximos 7 dias</h3>' +
-      prox.map(function (c) { return '<div class="linha" style="margin-top:8px"><span class="tag">' +
-        B12.dataBR(c.venc).slice(0,5) + '</span><div class="d"><b>' + c.desc + '</b>' +
-        '<small>' + c.cat + '</small></div><span class="v sai">' + B12.brl(c.valor) + '</span></div>'; }).join('') +
-      '</div>' : '')
-  ));
-  /* os horários: hoje, e amanhã enquanto não estiverem montados */
-  raiz.appendChild(blocoHorarios(hoje));
-  var manha = B12.diaMais(hoje, 1);
-  if (!B12.saidasDoDia(manha, 'volta').length || !B12.saidasDoDia(manha, 'ida').length) {
-    raiz.appendChild(blocoHorarios(manha));
-  }
+    '<div class="db-dia entra">' +
+      '<div class="db-data"><b>' + dt.getDate() + '</b>' +
+      '<span>' + DIAS[dt.getDay()] + '<br>' + MESES[dt.getMonth()] + '</span></div>' +
+      '<div class="db-gente">' +
+        '<div class="db-num">' + pax + '</div>' +
+        '<div class="db-rot">' + (pax === 1 ? 'pessoa viaja hoje' : 'pessoas viajam hoje') + '</div>' +
+        '<div class="db-sub">' + idas.length + (idas.length === 1 ? ' saída' : ' saídas') +
+        ' · ' + voltas.length + (voltas.length === 1 ? ' retorno' : ' retornos') + '</div>' +
+      '</div>' +
+    '</div>'));
 
-  blocoNuvem(raiz);
-  blocoAvisos(raiz);
+  /* ---- 2. o que precisa de você (só quando existe) ---- */
+  blocoLembretes(raiz);
 
-  var g = document.createElement('div'); g.className = 'cx entra entra-4';
-  g.innerHTML = '<h3>Últimos 14 dias <span class="selo-demo">demonstração</span></h3>';
-  raiz.appendChild(g);
+  /* ---- 3. o dinheiro de hoje ---- */
   var serie = [];
   for (var i = 13; i >= 0; i--) {
-    var d = B12.diaMais(hoje, -i), rr = B12.resumoDia(d);
-    serie.push({ a: rr.faturamento, rot: (i%3===0? d.slice(8) : ''), destaque: i===0 });
+    var dia = B12.diaMais(hoje, -i);
+    serie.push({ r: B12.dataBR(dia).slice(0, 5), v: B12.resumoDia(dia).entradas });
   }
-  grafBarras(g, serie, { altura:150 });
-  var atalho = raiz.querySelector('[data-ia-abrir]');
-  if (atalho) atalho.onclick = function () { B12.admDesenhar('ia'); };
-  var rec = raiz.querySelector('[data-ir-receber]');
-  if (rec) rec.onclick = function () { B12.admDesenhar('ilha'); };
+  var bD = bloco(
+    '<div class="db-cartao entra entra-1">' +
+      '<div class="db-cab"><span>Entrou hoje</span>' +
+      '<button type="button" class="mini-btn" data-ir-caixa>Ver o caixa</button></div>' +
+      '<div class="db-valor">' + B12.brl(d.entradas) + '</div>' +
+      (d.saidas ? '<div class="db-sub">saiu ' + B12.brl(d.saidas) + '</div>' : '') +
+      '<div class="db-graf" id="db-graf"></div>' +
+      '<div class="db-pe">os últimos 14 dias</div>' +
+    '</div>');
+  raiz.appendChild(bD);
+  try { grafLinha(bD.querySelector('#db-graf'), serie, { altura: 120, brl: true }); } catch (e) {}
+
+  /* ---- 4. quem está na Ilha ---- */
+  var naIlha = (n.agora || []).length;
+  var voltamHoje = (n.voltam || []).length;
+  if (naIlha) {
+    raiz.appendChild(bloco(
+      '<div class="db-cartao entra entra-2">' +
+        '<div class="db-cab"><span>Na Ilha agora</span>' +
+        '<button type="button" class="mini-btn" data-ir-ilha>Ver quem</button></div>' +
+        '<div class="db-valor">' + naIlha + '<small>' +
+        (naIlha === 1 ? ' pessoa' : ' pessoas') + '</small></div>' +
+        (voltamHoje ? '<div class="db-sub"><b>' + voltamHoje + '</b> volta' +
+          (voltamHoje > 1 ? 'm' : '') + ' hoje</div>' : '') +
+      '</div>'));
+  }
+
+  /* ---- 5. o que vem pela frente ---- */
+  var prox = [];
+  for (var k = 1; k <= 7; k++) {
+    var dia2 = B12.diaMais(hoje, k);
+    var v = (B12.naIlha(dia2) || {}).voltam || [];
+    var sai = B12.saidasDoDia(dia2, 'ida');
+    if (v.length || sai.length) prox.push({ dia: dia2, voltam: v.length, saidas: sai.length });
+  }
+  if (prox.length) {
+    raiz.appendChild(bloco(
+      '<div class="db-cartao entra entra-3">' +
+        '<div class="db-cab"><span>Os próximos dias</span>' +
+        '<button type="button" class="mini-btn" data-ir-volta>Quem volta</button></div>' +
+        '<div class="db-prox">' + prox.map(function (x) {
+          var dd = new Date(x.dia + 'T12:00');
+          return '<div class="db-prox-d"><b>' + dd.getDate() + '</b>' +
+            '<span>' + ['dom','seg','ter','qua','qui','sex','sáb'][dd.getDay()] + '</span>' +
+            '<i>' + (x.voltam ? x.voltam + ' volta' + (x.voltam > 1 ? 'm' : '') : '—') + '</i></div>';
+        }).join('') + '</div>' +
+      '</div>'));
+  }
+
+  raiz.querySelectorAll('[data-ir-caixa]').forEach(function (b) {
+    b.onclick = function () { B12.admDesenhar('caixa'); }; });
+  raiz.querySelectorAll('[data-ir-ilha]').forEach(function (b) {
+    b.onclick = function () { B12.admDesenhar('ilha'); }; });
+  raiz.querySelectorAll('[data-ir-volta]').forEach(function (b) {
+    b.onclick = function () { B12.admDesenhar('volta'); }; });
+}
+
+/* Configuração não é diário. As três coisas que se resolvem UMA VEZ (nuvem,
+   avisos, demonstração) viram uma linha só — e somem quando resolvidas. */
+function pendenciasDeConfig(raiz) {
+  var falta = [];
+  if (B12.emDemo && B12.emDemo())
+    falta.push({ t: 'Sair do modo demonstração', d: 'os números na tela são inventados', aba: 'dados' });
+  if (!B12.nuvLogado || !B12.nuvLogado())
+    falta.push({ t: 'Entrar na nuvem', d: 'sem isso os dados ficam só neste aparelho', aba: 'dados' });
+  if (B12.avEstado && B12.avEstado() !== 'ligado')
+    falta.push({ t: 'Ligar os avisos no celular', d: 'para saber sem abrir o app', aba: 'dados' });
+  if (!falta.length) return;
+
+  var b = bloco(
+    '<details class="db-config entra"><summary>' +
+    '<span class="db-cfg-n">' + falta.length + '</span>' +
+    '<span class="db-cfg-t">' + (falta.length === 1 ? 'coisa para ajustar' : 'coisas para ajustar') + '</span>' +
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>' +
+    '<div class="db-cfg-lista">' + falta.map(function (f) {
+      return '<button type="button" class="db-cfg-item" data-cfg="' + f.aba + '">' +
+        '<span><b>' + f.t + '</b><small>' + f.d + '</small></span>' +
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>';
+    }).join('') + '</div></details>');
+  raiz.appendChild(b);
+  b.querySelectorAll('[data-cfg]').forEach(function (x) {
+    x.onclick = function () { B12.admDesenhar(x.dataset.cfg); };
+  });
 }
 
 function tile(v, k, fmt, cls) {
