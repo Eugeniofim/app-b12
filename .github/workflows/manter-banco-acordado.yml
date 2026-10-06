@@ -1,0 +1,50 @@
+# =====================================================================
+# Estação B12 — o despertador do banco
+#
+# O Supabase no plano grátis PAUSA o projeto depois de 7 dias sem uso.
+# Quando isso acontece, o app continua abrindo (ele guarda no celular),
+# mas nada da nuvem funciona: aviso no celular, login da equipe e
+# sincronia param — e ninguém percebe. Aconteceu em 06/10/2026.
+#
+# Este relógio bate no banco de 3 em 3 dias, de fora, e o contador de
+# inatividade volta a zero. Roda no GitHub, não na máquina do Eugênio:
+# funciona com o laptop desligado.
+#
+# A chave abaixo é a PUBLICÁVEL (anon), a mesma que já está no config.js
+# do repositório. Ela é pública de propósito e não abre nada: quem manda
+# é a RLS do Postgres. Chave de serviço NUNCA entra aqui.
+# =====================================================================
+name: Manter o banco acordado
+
+on:
+  schedule:
+    # 09:10 UTC (06:10 em Brasília) nos dias 1, 4, 7, 10… de cada mês
+    - cron: '10 9 */3 * *'
+  workflow_dispatch:        # dá para rodar na mão pelo botão do GitHub
+
+jobs:
+  acordar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Bater no banco da B12
+        env:
+          URL: https://jvvniuzwltmbhhweaoqd.supabase.co
+          CHAVE: sb_publishable_xXWoJeyTEaH3qCEjtS3XWg_H_ml5WIx
+        run: |
+          set -u
+          # tenta 3 vezes: um soluço de rede não pode virar alarme falso
+          for tentativa in 1 2 3; do
+            codigo=$(curl -s -o /tmp/resposta -w '%{http_code}' --max-time 25 \
+              -H "apikey: $CHAVE" "$URL/rest/v1/" || echo 000)
+            echo "tentativa $tentativa → HTTP $codigo"
+            if [ "$codigo" = "200" ]; then
+              echo "✅ Banco acordado e respondendo."
+              exit 0
+            fi
+            sleep 20
+          done
+          echo "::error::O banco da B12 não respondeu 200 (último código: $codigo)."
+          echo "Pode estar pausado, ou o projeto foi apagado. Abra:"
+          echo "https://supabase.com/dashboard/project/jvvniuzwltmbhhweaoqd"
+          head -c 400 /tmp/resposta || true
+          exit 1
