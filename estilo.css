@@ -1474,3 +1474,25 @@ body.adm .dobra > .pessoas{padding-bottom:12px}
    ao sair do campo. */
 body:has(.folha-inline :focus) .ia-bolha-flut{opacity:0;pointer-events:none;transform:scale(.9)}
 .ia-bolha-flut{transition:opacity .18s,transform .18s}
+
+/* ---------------------------------------- a conta aberta na ficha da reserva
+   O Dhalsin vem do papel. Ele precisa poder dizer "foram três diárias" olhando
+   para a tela, em vez de anunciar um total que ninguém sabe de onde saiu. */
+.conta-aberta{background:var(--carta-2);border:1px solid var(--risco);border-radius:12px;
+  padding:13px 15px;margin-top:12px}
+body.adm .conta-aberta{background:var(--noite-3);border-color:var(--noite-risco)}
+.ca-tit{font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;font-weight:800;
+  color:var(--tinta-3);margin-bottom:9px}
+body.adm .ca-tit{color:var(--gelo-3)}
+.ca-lin{display:flex;justify-content:space-between;align-items:baseline;gap:14px;
+  padding:7px 0;font-size:14.5px;color:var(--tinta-2)}
+body.adm .ca-lin{color:var(--gelo-2)}
+.ca-lin b{font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:700}
+.ca-lin small{display:block;font-size:11.5px;color:var(--tinta-3);margin-top:1px}
+body.adm .ca-lin small{color:var(--gelo-3)}
+.ca-dias{color:var(--turq-600);font-weight:800}
+body.adm .ca-dias{color:var(--turq-400)}
+.ca-pago{color:var(--turq-600)}
+.ca-total{border-top:1px solid var(--risco);margin-top:5px;padding-top:11px;
+  font-size:17px;font-weight:750;color:var(--tinta)}
+body.adm .ca-total{border-top-color:var(--noite-risco);color:#fff}

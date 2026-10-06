@@ -820,8 +820,26 @@ B12.fichaReserva = function (id, depois) {
     (!dono ? ''                                    /* a equipe não vê dinheiro */
       : c.jaPago && !c.estacionamento
       ? '<div class="ficha-conta paga">Conta já recebida</div>'
-      : '<div class="ficha-conta">A receber na saída<b>' +
-        (mostra ? B12.brl(c.total) : 'a combinar') + '</b></div>');
+      /* A conta ABERTA, linha por linha. O Dhalsin vem do papel: ele precisa
+         poder dizer ao cliente "foram três diárias" olhando para a tela, e
+         não só anunciar um total que ninguém sabe de onde saiu. */
+      : '<div class="conta-aberta">' +
+          '<div class="ca-tit">A receber na saída</div>' +
+          (c.travessia > 0
+            ? '<div class="ca-lin"><span>Travessia' +
+              (r.pax > 1 ? ' · ' + r.pax + ' pessoas' : '') + '</span>' +
+              '<b>' + (mostra ? B12.brl(c.travessia) : 'a combinar') + '</b></div>' : '') +
+          (c.diarias > 0
+            ? '<div class="ca-lin"><span>Estacionamento · <b class="ca-dias">' + c.diarias +
+              (c.diarias > 1 ? ' diárias' : ' diária') + '</b>' +
+              (c.carro && c.carro.entrada ? '<small>desde ' + B12.dataBR(c.carro.entrada) + '</small>' : '') +
+              '</span><b>' + (mostra ? B12.brl(c.estacionamento) : 'a combinar') + '</b></div>' : '') +
+          (c.carro && c.carro.pagoNaEntrada > 0
+            ? '<div class="ca-lin ca-pago"><span>Já pago na entrada</span><b>− ' +
+              B12.brl(c.carro.pagoNaEntrada) + '</b></div>' : '') +
+          '<div class="ca-lin ca-total"><span>Total</span><b>' +
+          (mostra ? B12.brl(c.total) : 'a combinar') + '</b></div>' +
+        '</div>');
 
   var form = B12.folha({
     titulo: 'Reserva de ' + String(r.nome || '').split(' ')[0],
