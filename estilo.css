@@ -1496,3 +1496,15 @@ body.adm .ca-dias{color:var(--turq-400)}
 .ca-total{border-top:1px solid var(--risco);margin-top:5px;padding-top:11px;
   font-size:17px;font-weight:750;color:var(--tinta)}
 body.adm .ca-total{border-top-color:var(--noite-risco);color:#fff}
+
+/* ------------------------------------------- uma caixinha por criança
+   Digitar "3, 7, 11" num teclado de celular dá erro: esquece a vírgula e
+   vira uma criança de 3.711 anos. Uma caixa por criança não tem como errar. */
+.idades-grade{display:flex;flex-wrap:wrap;gap:9px;margin-top:10px}
+.idade-item{display:flex;flex-direction:column;gap:4px;width:84px}
+.idade-item span{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;
+  font-weight:700;color:var(--tinta-3)}
+.idade-item input{margin:0;text-align:center;font-size:16px;font-weight:700;
+  min-height:48px;padding:10px 6px}
+.idade-item.cortesia input{border-color:var(--turq-500);background:var(--selo,#EDFBF9)}
+.idade-item.cortesia span{color:var(--turq-700)}

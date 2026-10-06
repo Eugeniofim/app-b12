@@ -25,7 +25,7 @@
 <meta name="twitter:image" content="https://app.estacaob12.com.br/compartilhar.jpg">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="estilo.css?v=1.72.0">
+<link rel="stylesheet" href="estilo.css?v=1.73.0">
 </head>
 <body>
 
@@ -206,9 +206,16 @@
       <b id="v-pax" class="num">2</b><button id="b-pax-mais" aria-label="Mais">+</button>
       <div style="font-size:12px;color:var(--tinta-3);line-height:1.35">crianças até<br><span id="v-cortesia">5</span> anos não pagam</div></div>
     <div class="ajuda" id="ajuda-lotacao" hidden></div>
-    <label>2 · Vão crianças? Diga as idades</label>
-    <input id="f-idades" inputmode="numeric" maxlength="24" placeholder="3, 7 · deixe vazio se não vão">
-    <div class="ajuda" id="ajuda-idades">Crianças até <span class="v-cortesia">5</span> anos não pagam.</div>
+    <label>2 · Vão crianças?</label>
+    <!-- Antes era um campo só, onde a pessoa digitava "3, 7, 11". No celular,
+         esquecer a vírgula vira uma criança de 3.711 anos. Agora diz QUANTAS,
+         e aparece uma caixinha por criança. -->
+    <div class="contador"><button type="button" id="b-cri-menos" aria-label="Menos crianças">−</button>
+      <b id="v-cri" class="num">0</b><button type="button" id="b-cri-mais" aria-label="Mais crianças">+</button>
+      <div style="font-size:12px;color:var(--tinta-3);line-height:1.35">crianças até<br><span class="v-cortesia">5</span> anos não pagam</div></div>
+    <div class="idades-grade" id="f-idades-grade" hidden></div>
+    <input id="f-idades" type="hidden">
+    <div class="ajuda" id="ajuda-idades">Se não vão crianças, deixe em zero.</div>
     <div class="par">
       <div><label>3 · Chegada</label><input type="date" id="f-ida"></div>
       <div><label>4 · Retorno</label><input type="date" id="f-volta"></div>
@@ -425,22 +432,22 @@
     <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></svg><span>Mais</span></button>
 </div></nav>
 
-<script src="config.js?v=1.72.0"></script>
-<script src="marca.js?v=1.72.0"></script>
-<script src="dados.js?v=1.72.0"></script>
-<script src="nucleo.js?v=1.72.0"></script>
-<script src="exportar.js?v=1.72.0"></script>
-<script src="oceano.js?v=1.72.0"></script>
-<script src="formularios.js?v=1.72.0"></script>
-<script src="acesso.js?v=1.72.0"></script>
-<script src="mensagens.js?v=1.72.0"></script>
-<script src="turista.js?v=1.72.0"></script>
-<script src="assistente.js?v=1.72.0"></script>
-<script src="adm.js?v=1.72.0"></script>
-<script src="nuvemlogin.js?v=1.72.0"></script>
-<script src="avisos.js?v=1.72.0"></script>
-<script src="aparelhos.js?v=1.72.0"></script>
-<script src="sincronia.js?v=1.72.0"></script>
-<script src="app.js?v=1.72.0"></script>
+<script src="config.js?v=1.73.0"></script>
+<script src="marca.js?v=1.73.0"></script>
+<script src="dados.js?v=1.73.0"></script>
+<script src="nucleo.js?v=1.73.0"></script>
+<script src="exportar.js?v=1.73.0"></script>
+<script src="oceano.js?v=1.73.0"></script>
+<script src="formularios.js?v=1.73.0"></script>
+<script src="acesso.js?v=1.73.0"></script>
+<script src="mensagens.js?v=1.73.0"></script>
+<script src="turista.js?v=1.73.0"></script>
+<script src="assistente.js?v=1.73.0"></script>
+<script src="adm.js?v=1.73.0"></script>
+<script src="nuvemlogin.js?v=1.73.0"></script>
+<script src="avisos.js?v=1.73.0"></script>
+<script src="aparelhos.js?v=1.73.0"></script>
+<script src="sincronia.js?v=1.73.0"></script>
+<script src="app.js?v=1.73.0"></script>
 </body>
 </html>

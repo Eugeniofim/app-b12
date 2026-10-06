@@ -494,30 +494,86 @@ B12.montarFormulario = function () {
   });
   document.getElementById('b-pax-menos').onclick = function () { mexer('pax', -1); };
   document.getElementById('b-pax-mais').onclick  = function () { mexer('pax', 1); };
-  var idc = document.getElementById('f-idades');
-  if (idc) idc.oninput = function () {
-    F.cri = B12.contarCortesia(idc.value);
-    F.idades = idc.value.trim();
-    var aj = document.getElementById('ajuda-idades');
-    if (aj) {
-      var todas = B12.idadesLista(idc.value);
-      aj.innerHTML = todas.length
-        ? todas.length + (todas.length > 1 ? ' crianças' : ' criança') + ' · ' +
-          (F.cri ? F.cri + (F.cri > 1 ? ' não pagam' : ' não paga') : 'todas pagam') +
-          ' (cortesia até ' + B12.DB.ajustes.idadeCortesia + ' anos)'
-        : 'Crianças até <span class="v-cortesia">' + B12.DB.ajustes.idadeCortesia + '</span> anos não pagam.';
-    }
-    B12.calcular();
-  };
+  document.getElementById('b-cri-menos').onclick = function () { mexerCriancas(-1); };
+  document.getElementById('b-cri-mais').onclick  = function () { mexerCriancas(1); };
+  pintarIdades();
   document.getElementById('est-nao').onclick = function () { F.estac = 0; B12.calcular(); };
   document.getElementById('est-sim').onclick = function () { F.estac = 1; B12.calcular(); };
   document.getElementById('b-reservar').onclick = B12.reservar;
   B12.calcular();
   B12.selarListas();
 };
+/* ------------------------------------------------- quantas crianças, e as idades
+   Quantas primeiro, idades depois: uma caixa por criança. Digitar "3, 7, 11"
+   num teclado de celular dá erro — esquece a vírgula e vira uma criança de
+   3.711 anos. E QUANTAS crianças não é o mesmo que quantas não pagam: uma de
+   dez anos é criança e paga. A cortesia sai das idades, não da contagem. */
+var NUM_CRI = 0, IDADES = [];
+
+function mexerCriancas(d) {
+  NUM_CRI = Math.max(0, Math.min(F.pax, NUM_CRI + d));
+  IDADES.length = NUM_CRI;
+  document.getElementById('v-cri').textContent = NUM_CRI;
+  pintarIdades();
+}
+
+function pintarIdades() {
+  var g = document.getElementById('f-idades-grade');
+  if (!g) return;
+  var lim = Number(B12.DB.ajustes.idadeCortesia) || 0;
+  g.hidden = !NUM_CRI;
+  g.innerHTML = '';
+  for (var i = 0; i < NUM_CRI; i++) {
+    var v = IDADES[i];
+    var cortesia = v != null && v !== '' && Number(v) <= lim;
+    var d = document.createElement('div');
+    d.className = 'idade-item' + (cortesia ? ' cortesia' : '');
+    d.innerHTML = '<span>' + (i + 1) + 'ª criança</span>' +
+      '<input type="number" inputmode="numeric" min="0" max="17" step="1" ' +
+      'aria-label="Idade da ' + (i + 1) + 'ª criança" placeholder="idade" ' +
+      'value="' + (v == null ? '' : v) + '">';
+    g.appendChild(d);
+  }
+  g.querySelectorAll('input').forEach(function (c, i) {
+    c.oninput = function () {
+      IDADES[i] = c.value === '' ? null : Math.max(0, Math.min(17, +c.value || 0));
+      aplicarIdades();
+      c.parentElement.classList.toggle('cortesia',
+        IDADES[i] != null && IDADES[i] <= (Number(B12.DB.ajustes.idadeCortesia) || 0));
+    };
+  });
+  aplicarIdades();
+}
+
+function aplicarIdades() {
+  var lim = Number(B12.DB.ajustes.idadeCortesia) || 0;
+  var postas = IDADES.filter(function (x) { return x != null && x !== ''; });
+  F.idades = postas.join(', ');
+  F.cri = postas.filter(function (x) { return Number(x) <= lim; }).length;
+  var esc = document.getElementById('f-idades');
+  if (esc) esc.value = F.idades;
+
+  var aj = document.getElementById('ajuda-idades');
+  if (aj) {
+    if (!NUM_CRI) aj.textContent = 'Se não vão crianças, deixe em zero.';
+    else if (postas.length < NUM_CRI)
+      aj.innerHTML = 'Falta a idade de ' + (NUM_CRI - postas.length) +
+        (NUM_CRI - postas.length > 1 ? ' crianças' : ' criança') +
+        ' — é a idade que diz quem não paga.';
+    else aj.innerHTML = NUM_CRI + (NUM_CRI > 1 ? ' crianças' : ' criança') + ' · ' +
+      (F.cri ? '<b>' + F.cri + (F.cri > 1 ? ' não pagam' : ' não paga') + '</b>' : 'todas pagam') +
+      ' (cortesia até ' + lim + ' anos)';
+  }
+  B12.calcular();
+}
+
 function mexer(campo, d) {
-  if (campo === 'pax') { F.pax = Math.max(1, Math.min(B12.CAPACIDADE, F.pax + d)); if (F.cri > F.pax) F.cri = F.pax; }
-  else { F.cri = Math.max(0, Math.min(F.pax, F.cri + d)); }   /* não é mais usado pela tela */
+  if (campo === 'pax') {
+    F.pax = Math.max(1, Math.min(B12.CAPACIDADE, F.pax + d));
+    if (NUM_CRI > F.pax) { NUM_CRI = F.pax; IDADES.length = NUM_CRI;
+      document.getElementById('v-cri').textContent = NUM_CRI; pintarIdades(); }
+  }
+  else { F.cri = Math.max(0, Math.min(F.pax, F.cri + d)); }
   document.getElementById('v-pax').textContent = F.pax;
   /* a lancha tem um teto: quem bate nele precisa saber que ainda dá, em duas viagens */
   var av = document.getElementById('ajuda-lotacao');
