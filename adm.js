@@ -191,7 +191,7 @@ function grafRosca(alvo, fatias) {
    grupo, e pedir a página pelo nome também não entra. */
 var GRUPOS = [
   { id:'hoje',      nome:'Hoje',      sub:[['hoje','O dia'], ['volta','Quem volta']] },
-  { id:'balcao',    nome:'Ficha',     sub:[['balcao','Ficha']] },
+  { id:'balcao',    nome:'Cadastro cliente', sub:[['balcao','Cadastro cliente']] },
   { id:'travessia', nome:'Travessia', sub:[['escala','Horários'], ['ilha','Na Ilha'],
                                            ['marinheiros','Marinheiros'], ['patio','Pátio']] },
   { id:'clientes',  nome:'Clientes',  sub:[['clientes','Fichas'], ['avisos','Avisos'],
@@ -2326,7 +2326,7 @@ function pBalcao(raiz) {
   /* ---- 2. a ficha: a tela É isto ---- */
   var cabeca = bloco(
     '<div class="faixa-sec" style="margin-top:' + (esp.length ? '14px' : '4px') + '">' +
-    '<div class="tit"><h2>Ficha do cliente</h2>' +
+    '<div class="tit"><h2>Cadastro do cliente</h2>' +
     '<button class="mini-btn" id="b-so-ficha">Só guardar o contato</button></div>' +
     '<p style="font-size:12.5px;color:var(--gelo-3);padding-bottom:6px">' +
     'Na mesma ordem em que você pergunta no balcão. O código da viagem nasce no fim.</p></div>');
