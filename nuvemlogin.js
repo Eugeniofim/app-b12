@@ -84,6 +84,10 @@ B12.nuvEntrar = async function (email, senha) {
     return { erro: 'Esta conta entrou, mas não tem papel na B12. Fale com o proprietário.' };
   }
   s.papel = papel;
+  /* entrou: o aparelho faz o primeiro ritual com o banco antes de qualquer
+     envio. Sem isso, o catálogo de fábrica deste aparelho subiria por cima
+     do que já existe lá. */
+  setTimeout(function () { if (B12.sincAoAbrir) B12.sincAoAbrir(); }, 300);
   guardar(s);
   return { ok: true, papel: papel, email: s.email };
 };

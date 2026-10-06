@@ -89,6 +89,22 @@ function pintar(nome) {
   if (nome === 'equipe')   B12.pintarEquipe();
   if (nome === 'adm')      { B12.admDesenhar(); quemEntrou(); }
 }
+/* ------------------------------------------------- redesenhar sem atrapalhar
+   A sincronia chama isto quando o outro aparelho mudou alguma coisa. Três
+   travas, todas pagas em erro de verdade no app da Melissa:
+   1. Formulário aberto ou campo digitado: NÃO redesenha. O texto que a pessoa
+      acabou de escrever sumia na frente dela.
+   2. Guarda e devolve o scroll, sem animação — senão a tela pula para o topo
+      no meio da leitura ("de tempo em tempo ele puxa lá pra cima").
+   3. Nunca redesenha a cara do turista no meio de uma reserva. */
+B12.redesenhar = function () {
+  if (document.querySelector('.folha, .portao')) return;   /* folha aberta */
+  if (ocupado()) return;                                   /* digitando */
+  var y = window.scrollY;
+  try { pintar(atual); } catch (e) { console.warn('redesenhar:', e); }
+  window.scrollTo({ top: y, behavior: 'instant' });
+};
+
 function quemEntrou() {
   var q = document.getElementById('adm-papel');
   if (q) q.textContent = B12.papel() === 'dono' ? 'Proprietário' : 'Equipe';
@@ -262,7 +278,9 @@ function ligarAtualizacao() {
 /* ---------------------------------------------------------------- partida */
 function comecar() {
   B12.carregar();
-  if (B12.nuvAcordar) B12.nuvAcordar();   /* a sessão da nuvem volta sozinha ao abrir */
+  if (B12.nuvAcordar) B12.nuvAcordar()      /* a sessão da nuvem volta sozinha ao abrir */
+    .then(function () { if (B12.sincAoAbrir) return B12.sincAoAbrir(); })
+    .catch(function () {});                  /* sem rede o app abre igual, pelo cache */
 
   /* conteúdo que depende de dados */
   B12.pintarPasseios();

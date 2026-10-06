@@ -147,6 +147,9 @@ B12.salvar = function () {
   try { localStorage.setItem(CHAVE, JSON.stringify(B12.DB)); }
   catch (e) { console.warn('não coube no aparelho', e); }
   B12.cofreGuardar('auto');
+  /* o aparelho continua guardando (é o que faz abrir rápido e sem internet),
+     mas agora a mudança também sobe. Ver sincronia.js. */
+  if (B12.sincAgendar) B12.sincAgendar();
 };
 
 /* --------------------------------------------------------------------- cofre */
