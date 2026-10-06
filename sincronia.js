@@ -83,6 +83,9 @@
       var vivos = {};
       (B12.DB[col] || []).forEach(function (o) {
         if (!o || !o.id) return;
+        /* dado de demonstração NUNCA sobe: é o que enche a tela numa
+           apresentação, e no banco do cliente viraria caixa falso */
+        if (B12.ehDemo && B12.ehDemo(o)) return;
         vivos[o.id] = 1;
         var agora = JSON.stringify(o);
         if (SOMBRA[col][o.id] !== agora) {
@@ -95,6 +98,8 @@
       Object.keys(SOMBRA[col]).forEach(function (id) {
         if (!vivos[id]) { por(col, id, null, true); delete SOMBRA[col][id]; }
       });
+      /* e o que vem do banco e é demo daqui não conta: a varredura diária
+         recria os demos com ids novos, e eles não existem na SOMBRA */
     });
     /* ajustes é uma linha só */
     var aj = JSON.stringify(B12.DB.ajustes || {});

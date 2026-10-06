@@ -49,6 +49,15 @@ B12.mesBR = function (ym) { var p=ym.split('-'); return B12.MESNOME[+p[1]-1]+'/'
 /* ============================================================ banco no aparelho */
 var CHAVE = 'b12_dados_v1', COFRE = 'b12_cofre_v1';
 
+/* O app nasce com dados de demonstração para a tela não ficar vazia numa
+   apresentação. Eles NUNCA podem subir para a nuvem: lançamento falso
+   misturado ao caixa de verdade é o pior estrago possível. A sincronia
+   consulta esta função antes de enfileirar qualquer coisa. */
+B12.ehDemo = function (x) {
+  return !!(x && (x.demo || x.origem === 'demo' ||
+    /^(rs-demo-|rs-app-demo-|pt-demo-|mn-demo-|cl-demo-|s\d+$|v\d+$|c\d+b?$|r[12]$)/.test(x.id || '')));
+};
+
 B12.DB = null;
 
 function vazio() {
@@ -309,8 +318,7 @@ function semearTurista(D, hoje) {
 B12.refrescarDemo = function (forcar) {
   var D = B12.DB, hoje = B12.hoje();
   if (!forcar && D.demoDia === hoje) return false;
-  var ehDemo = function (x) { return x && (x.demo || x.origem === 'demo' ||
-    /^(rs-demo-|rs-app-demo-|pt-demo-|mn-demo-|cl-demo-|s\d+$|v\d+$|c\d+b?$|r[12]$)/.test(x.id || '')); };
+  var ehDemo = B12.ehDemo;
   ['reservas','lancamentos','contas','saidas','patio','manutencoes','clientes'].forEach(function (k) {
     D[k] = (D[k] || []).filter(function (x) { return !ehDemo(x); });
   });

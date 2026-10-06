@@ -76,6 +76,8 @@ function aparelho(banco, papel) {
     nuvToken: () => 't',
     nuvCabecalho: () => ({ apikey: 'k', Authorization: 'Bearer t', 'Content-Type': 'application/json' }),
     hoje: () => '2026-10-06',
+    ehDemo: x => !!(x && (x.demo || x.origem === 'demo' ||
+      /^(rs-demo-|rs-app-demo-|pt-demo-|mn-demo-|cl-demo-|s\d+$|v\d+$|c\d+b?$|r[12]$)/.test(x.id || ''))),
     redesenhar: () => { janela.B12.__redesenhou = (janela.B12.__redesenhou || 0) + 1; },
   };
   const ctx = vm.createContext(janela);
@@ -89,7 +91,7 @@ const espera = ms => new Promise(r => setTimeout(r, ms));
   console.log('\n— a fila e o portão —');
   {
     const banco = bancoFalso(), A = aparelho(banco);
-    A.DB.reservas.push({ id: 'r1', nome: 'Ana', pax: 2 });
+    A.DB.reservas.push({ id: 'rs-k7a', nome: 'Ana', pax: 2 });
     A.sincAgendar();                      /* antes do ritual: NÃO pode subir */
     await espera(1200);
     eh('não envia nada antes do primeiro ritual',
@@ -98,16 +100,16 @@ const espera = ms => new Promise(r => setTimeout(r, ms));
 
     await A.sincAoAbrir();
     eh('depois do ritual, a reserva subiu',
-       !!(banco.linhas.b12_reservas && banco.linhas.b12_reservas.r1));
+       !!(banco.linhas.b12_reservas && banco.linhas.b12_reservas['rs-k7a']));
     eh('o objeto subiu INTEIRO (pax não se perdeu)',
-       banco.linhas.b12_reservas.r1.dados.pax === 2);
+       banco.linhas.b12_reservas['rs-k7a'].dados.pax === 2);
   }
 
   console.log('\n— dois aparelhos —');
   {
     const banco = bancoFalso();
     const A = aparelho(banco), B = aparelho(banco);
-    A.DB.reservas.push({ id: 'r1', nome: 'Ana', pax: 2 });
+    A.DB.reservas.push({ id: 'rs-k7a', nome: 'Ana', pax: 2 });
     await A.sincAoAbrir();
     await B.sincAoAbrir();
     eh('o aparelho vazio recebeu a reserva', B.DB.reservas.length === 1);
@@ -133,12 +135,12 @@ const espera = ms => new Promise(r => setTimeout(r, ms));
   console.log('\n— o eco da própria subida (v111 do TI ARTES OS) —');
   {
     const banco = bancoFalso(), A = aparelho(banco);
-    A.DB.reservas.push({ id: 'r1', nome: 'Ana', pax: 2 });
+    A.DB.reservas.push({ id: 'rs-k7a', nome: 'Ana', pax: 2 });
     await A.sincAoAbrir();
     const ref = A.DB.reservas[0];
     A.DB.reservas[0].pax = 9;             /* mudou de novo, ainda não subiu */
     /* o banco devolve a versão VELHA, atrasada */
-    banco.injetarEco({ id: 'r1', dados: { id: 'r1', nome: 'Ana', pax: 2 },
+    banco.injetarEco({ id: 'rs-k7a', dados: { id: 'rs-k7a', nome: 'Ana', pax: 2 },
                        apagado: false, atualizado: '2099-01-01T00:00:00Z' });
     await A.sincAoAbrir();
     eh('o eco atrasado NÃO regride o registro', A.DB.reservas[0].pax === 9,
@@ -150,36 +152,55 @@ const espera = ms => new Promise(r => setTimeout(r, ms));
   {
     const banco = bancoFalso();
     const dono = aparelho(banco, 'dono');
-    dono.DB.lancamentos.push({ id: 'l1', valor: 1000 });
-    dono.DB.reservas.push({ id: 'r1', nome: 'Ana' });
+    dono.DB.lancamentos.push({ id: 'ln-m3', valor: 1000 });
+    dono.DB.reservas.push({ id: 'rs-k7a', nome: 'Ana' });
     await dono.sincAoAbrir();
 
     const eq = aparelho(banco, 'equipe');
-    eq.DB.lancamentos.push({ id: 'lx', valor: 7 });   /* nunca deve subir */
+    eq.DB.lancamentos.push({ id: 'ln-x9', valor: 7 });   /* nunca deve subir */
     await eq.sincAoAbrir();
     eh('a equipe recebe as reservas', eq.DB.reservas.length === 1);
-    eh('a equipe NÃO puxa lançamentos', eq.DB.lancamentos.every(l => l.id !== 'l1'),
+    eh('a equipe NÃO puxa lançamentos', eq.DB.lancamentos.every(l => l.id !== 'ln-m3'),
        JSON.stringify(eq.DB.lancamentos));
     eh('a equipe NÃO envia lançamentos',
-       !(banco.linhas.b12_lancamentos && banco.linhas.b12_lancamentos.lx));
+       !(banco.linhas.b12_lancamentos && banco.linhas.b12_lancamentos['ln-x9']));
     eh('e o lançamento do dono segue intacto no banco',
-       banco.linhas.b12_lancamentos.l1.dados.valor === 1000);
+       banco.linhas.b12_lancamentos['ln-m3'].dados.valor === 1000);
   }
 
   console.log('\n— o que entra DURANTE o envio não se perde (v108) —');
   {
     const banco = bancoFalso(), A = aparelho(banco);
     await A.sincAoAbrir();
-    for (let i = 0; i < 5; i++) A.DB.clientes.push({ id: 'c' + i, nome: 'C' + i });
+    for (let i = 0; i < 5; i++) A.DB.clientes.push({ id: 'cl-' + i, nome: 'C' + i });
     A.sincAgendar();
     await espera(300);
-    A.DB.clientes.push({ id: 'c99', nome: 'entrou no meio' });  /* durante o POST */
+    A.DB.clientes.push({ id: 'cl-99', nome: 'entrou no meio' });  /* durante o POST */
     A.sincAgendar();
     await espera(1600);
     eh('os 5 primeiros subiram',
-       [0,1,2,3,4].every(i => banco.linhas.b12_clientes && banco.linhas.b12_clientes['c'+i]));
+       [0,1,2,3,4].every(i => banco.linhas.b12_clientes && banco.linhas.b12_clientes['cl-'+i]));
     eh('e o que entrou no meio também subiu',
-       !!(banco.linhas.b12_clientes && banco.linhas.b12_clientes.c99));
+       !!(banco.linhas.b12_clientes && banco.linhas.b12_clientes['cl-99']));
+  }
+
+  console.log('\n— o dado de demonstração NUNCA sobe —');
+  {
+    const banco = bancoFalso(), A = aparelho(banco);
+    A.DB.reservas.push({ id: 'rs-demo-3-1', nome: 'Demo', demo: true });
+    A.DB.lancamentos.push({ id: 'ln-f1', valor: 999, demo: true });
+    A.DB.lancamentos.push({ id: 'ln-v1', valor: 500 });        /* este é de verdade */
+    A.DB.clientes.push({ id: 'cl-demo-9', nome: 'Fulano demo' });
+    await A.sincAoAbrir();
+    eh('reserva de demonstração não subiu',
+       !(banco.linhas.b12_reservas && banco.linhas.b12_reservas['rs-demo-3-1']));
+    eh('lançamento marcado demo não subiu',
+       !(banco.linhas.b12_lancamentos && banco.linhas.b12_lancamentos['ln-f1']));
+    eh('cliente com id de demonstração não subiu',
+       !(banco.linhas.b12_clientes && banco.linhas.b12_clientes['cl-demo-9']));
+    eh('mas o lançamento DE VERDADE subiu',
+       !!(banco.linhas.b12_lancamentos && banco.linhas.b12_lancamentos['ln-v1']),
+       'o filtro não pode engolir dado real');
   }
 
   console.log('\n— sem internet —');

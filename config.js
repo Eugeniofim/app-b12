@@ -22,7 +22,7 @@ B12.NUVEM = {
      cofre do Supabase, e existe uma cópia em ~/Desktop/B12/12-CHAVES-AVISOS.txt */
   chavePush: 'BEodWJtTSP-0emsKuBXDZKM7MqW1mhDsX5cLYZ74bMhMOuAMNbvNaNBPfo6m-tqug93dShcIShAdvoUGfE1CbpU',
 
-  ligada: false      /* vira true quando a troca do banco do aparelho estiver testada */
+  ligada: true      /* LIGADA em 06/10/2026. Só sincroniza com alguém logado. */
 };
 
 window.B12 = B12;
