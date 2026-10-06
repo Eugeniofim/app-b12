@@ -12,20 +12,27 @@ var B12 = window.B12 || {};
 var aberta = null;
 
 B12.folha = function (opc) {
-  B12.fecharFolha();
+  /* `dentro` = o formulário nasce DENTRO da tela, não como folha que sobe.
+     É o que faz a aba Ficha ser a própria ficha, sem uma batida a mais para
+     quem atende cinquenta pessoas por dia. Mesmo código, dois lugares. */
+  var inline = !!opc.dentro;
+  if (!inline) B12.fecharFolha();
+
   var f = document.createElement('div');
-  f.className = 'folha';
+  f.className = inline ? 'folha-inline' : 'folha';
   f.innerHTML =
-    '<div class="folha-fundo"></div>' +
+    (inline ? '' : '<div class="folha-fundo"></div>') +
     '<form class="folha-cx" novalidate>' +
-      '<div class="folha-alca"></div>' +
+      (inline ? '' : '<div class="folha-alca"></div>') +
+      (inline && opc.semTopo ? '' :
       '<div class="folha-topo">' +
         '<div><h3>' + opc.titulo + '</h3>' +
         (opc.sub ? '<p>' + opc.sub + '</p>' : '') + '</div>' +
+        (inline ? '' :
         '<button type="button" class="folha-x" aria-label="Fechar">' +
         '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" ' +
-        'stroke-width="2.2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>' +
-      '</div>' +
+        'stroke-width="2.2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>') +
+      '</div>') +
       '<div class="folha-corpo">' + opc.corpo + '</div>' +
       '<div class="folha-pe">' +
         '<div class="folha-erro" hidden></div>' +
@@ -34,16 +41,22 @@ B12.folha = function (opc) {
         (opc.acao || 'Salvar') + '</button>' +
       '</div>' +
     '</form>';
-  document.body.appendChild(f);
-  aberta = f;
-  document.body.style.overflow = 'hidden';
-  if (B12.iaBolhaFlutuante) B12.iaBolhaFlutuante();
+
+  if (inline) { opc.dentro.appendChild(f); }
+  else {
+    document.body.appendChild(f);
+    aberta = f;
+    document.body.style.overflow = 'hidden';
+    if (B12.iaBolhaFlutuante) B12.iaBolhaFlutuante();
+  }
 
   var form = f.querySelector('form');
   var erro = f.querySelector('.folha-erro');
-  function fechar() { B12.fecharFolha(); }
-  f.querySelector('.folha-x').onclick = fechar;
-  f.querySelector('.folha-fundo').onclick = fechar;
+  function fechar() { if (inline) { if (opc.aoFechar) opc.aoFechar(); } else B12.fecharFolha(); }
+  var bx = f.querySelector('.folha-x');
+  if (bx) bx.onclick = fechar;
+  var bf = f.querySelector('.folha-fundo');
+  if (bf) bf.onclick = fechar;
 
   form.onsubmit = function (ev) {
     ev.preventDefault();
@@ -326,11 +339,14 @@ B12.confirmarSaidaPatio = function (id, depois) {
 
 /* ================================================ ATENDIMENTO DE BALCÃO */
 /* A pessoa chegou agora, sem reserva. Ficha + venda + carro num caminho só. */
-B12.formBalcao = function (depois) {
+B12.formBalcao = function (depois, dentro) {
   var agora = new Date();
   var horaAgora = String(agora.getHours()).padStart(2,'0') + ':' + String(agora.getMinutes()).padStart(2,'0');
   var faixaAgora = B12.faixaHora(horaAgora);
   B12.folha({
+    dentro: dentro || null,
+    semTopo: !!dentro,
+    aoFechar: function () { if (depois) depois(null); },
     titulo: 'Chegou agora',
     sub: 'Na mesma ordem da ficha de papel',
     corpo:

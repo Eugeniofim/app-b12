@@ -191,7 +191,7 @@ function grafRosca(alvo, fatias) {
    grupo, e pedir a página pelo nome também não entra. */
 var GRUPOS = [
   { id:'hoje',      nome:'Hoje',      sub:[['hoje','O dia'], ['volta','Quem volta']] },
-  { id:'balcao',    nome:'Balcão',    sub:[['balcao','Atender']] },
+  { id:'balcao',    nome:'Ficha',     sub:[['balcao','Ficha']] },
   { id:'travessia', nome:'Travessia', sub:[['escala','Horários'], ['ilha','Na Ilha'],
                                            ['marinheiros','Marinheiros'], ['patio','Pátio']] },
   { id:'clientes',  nome:'Clientes',  sub:[['clientes','Fichas'], ['avisos','Avisos'],
@@ -2276,48 +2276,82 @@ function pNaIlha(raiz) {
 /* -------------------------------------------------------------- BALCÃO
    Quem chega sem reserva. Dois caminhos: atender agora (nasce ficha, viagem
    e código, e vai para a próxima saída) ou só guardar a ficha da pessoa. */
+/* ===================================================== FICHA (antigo Balcão)
+   O Dhalsin anota tudo no papel. Esta aba substitui o bloco de ficha dele,
+   então ela É a ficha: abre com o formulário na cara, sem cartão no meio
+   perguntando o que ele quer fazer. Quem atende cinquenta pessoas por dia
+   não pode gastar uma batida por atendimento num menu.
+
+   A ordem da tela é a ordem da conversa no balcão:
+   1. essa pessoa já reservou? (a fila de esperados, só se houver)
+   2. a ficha, para escrever
+   3. quem já passou hoje */
 function pBalcao(raiz) {
   var hoje = B12.hoje();
   var deHoje = B12.DB.reservas.filter(function (r) {
     return r.origem === 'balcao' && (r.criada || '').slice(0, 10) === hoje; });
-  var novos = B12.DB.clientes.filter(function (c) { return (c.criadoEm || '').slice(0, 10) === hoje; });
+  var esp = B12.esperados(hoje);
+  function re() { B12.admDesenhar('balcao'); }
 
-  raiz.appendChild(bloco(
-    '<div class="cx entra"><h3>Chegou alguém sem reserva?</h3>' +
-    '<p>Cadastre aqui. A ficha do cliente nasce, a viagem ganha código e a pessoa entra na ' +
-    'próxima saída com lugar. A mensagem de confirmação sai pronta, com o link do app.</p>' +
-    '<button type="button" class="btn pri" id="b-atender">Atender agora · cliente chegou</button>' +
-    '<button type="button" class="btn sec" id="b-so-ficha">Só guardar a ficha da pessoa</button>' +
-    '<div class="ajuda" style="margin-top:10px">A ficha já é o suficiente para ele voltar depois: ' +
-    'na próxima viagem, o WhatsApp encontra a pessoa e o histórico continua.</div></div>' +
+  /* ---- 1. já reservou? ---- */
+  if (esp.length) {
+    /* RECOLHIDO de propósito: a ficha tem de estar na primeira tela. Num dia
+       cheio são trinta pessoas esperadas, e elas empurrariam o formulário
+       para fora da vista — justamente o que esta aba veio resolver. */
+    var b1 = bloco(
+      '<details class="cx nota dobra entra"><summary>' +
+      '<h3>' + esp.length + ' já reservou para hoje</h3>' +
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>' +
+      '<p style="padding-bottom:10px">Se a pessoa na sua frente for uma destas, toque em ' +
+      'Chegou — não precisa escrever ficha nova.</p>' +
+      '<div class="pessoas">' + esp.map(function (r) {
+        return '<div class="pes"><div class="pes-cima"><div><b>' + esc(r.nome) + '</b>' +
+          '<span class="pes-cod">' + r.cod + '</span></div>' +
+          '<button type="button" class="mini-btn" data-chegou="' + r.id + '">Chegou</button>' +
+          '</div><div class="pes-baixo">' +
+          (r.hora ? '<span>' + r.hora + '</span>' : '<span>sem hora</span>') +
+          '<span>' + (r.pax || 1) + (r.pax > 1 ? ' pessoas' : ' pessoa') + '</span>' +
+          (r.placa ? '<span>' + esc(r.placa) + '</span>' : '') + '</div></div>'; }).join('') +
+      '</div></details>');
+    raiz.appendChild(b1);
+    b1.querySelectorAll('[data-chegou]').forEach(function (b) {
+      b.onclick = function () {
+        var r = B12.marcarChegada(b.dataset.chegou);
+        if (r.erro) return alert(r.erro);
+        re();
+      };
+    });
+  }
 
-    '<div class="placar entra entra-1">' +
+  /* ---- 2. a ficha: a tela É isto ---- */
+  var cabeca = bloco(
+    '<div class="faixa-sec" style="margin-top:' + (esp.length ? '14px' : '4px') + '">' +
+    '<div class="tit"><h2>Ficha do cliente</h2>' +
+    '<button class="mini-btn" id="b-so-ficha">Só guardar o contato</button></div>' +
+    '<p style="font-size:12.5px;color:var(--gelo-3);padding-bottom:6px">' +
+    'Na mesma ordem em que você pergunta no balcão. O código da viagem nasce no fim.</p></div>');
+  raiz.appendChild(cabeca);
+
+  var caixa = document.createElement('div');
+  caixa.className = 'ficha-caixa';
+  raiz.appendChild(caixa);
+  B12.formBalcao(function (res) {
+    if (!res) return;                 /* fechou sem salvar */
+    re(); B12.aposBalcao(res);
+  }, caixa);
+
+  cabeca.querySelector('#b-so-ficha').onclick = function () {
+    B12.fichaCliente(null, function () { re(); });
+  };
+
+  /* ---- 3. quem já passou hoje ---- */
+  var b3 = bloco(
+    '<div class="placar entra" style="margin-top:16px">' +
       tile(deHoje.length, 'Atendidos hoje', 'n', 'destaque') +
       tile(deHoje.reduce(function (s, r) { return s + (r.pax || 1); }, 0), 'Passageiros', 'n') +
-      tile(novos.length, 'Fichas novas', 'n') +
+      tile(B12.DB.clientes.filter(function (c) {
+        return (c.criadoEm || '').slice(0, 10) === hoje; }).length, 'Fichas novas', 'n') +
     '</div>' +
-
-    /* quem reservou pelo celular e ainda não apareceu: a fila de chegada */
-    (function () {
-      var esp = B12.esperados(hoje);
-      if (!esp.length) return '';
-      return '<div class="faixa-sec"><div class="tit"><h2>Esperados hoje</h2></div>' +
-        '<p style="font-size:12.5px;color:var(--gelo-3);padding-bottom:8px">Reservaram pelo app ' +
-        'e ainda não chegaram. Quando aparecerem no balcão, toque em Chegou.</p></div>' +
-        '<div class="pessoas">' + esp.map(function (r) {
-          var z = (r.zap || '').replace(/\D/g, '');
-          return '<div class="pes"><div class="pes-cima"><div><b>' + esc(r.nome) + '</b>' +
-            '<span class="pes-cod">' + r.cod + '</span></div>' +
-            '<button type="button" class="mini-btn" data-chegou="' + r.id + '">Chegou</button>' +
-            '</div><div class="pes-baixo">' +
-            (r.hora ? '<span>' + r.hora + '</span>' : '<span>sem hora</span>') +
-            '<span>' + (r.pax || 1) + (r.pax > 1 ? ' pessoas' : ' pessoa') + '</span>' +
-            (r.placa ? '<span>' + esc(r.placa) + '</span>' : '') +
-            (z ? '<span>' + z.slice(-4).padStart(z.length > 4 ? 8 : z.length, '·') + '</span>' : '') +
-            '<span>' + esc(r.situacao) + '</span></div></div>'; }).join('') + '</div>';
-    })() +
-
-    '<div class="faixa-sec"><div class="tit"><h2>Atendidos hoje no balcão</h2></div></div>' +
     (deHoje.length
       ? '<div class="pessoas">' + deHoje.map(function (r) {
           var zap = (r.zap || '').replace(/\D/g, '');
@@ -2331,27 +2365,13 @@ function pBalcao(raiz) {
             '<span>' + esc(r.destino || '') + '</span>' +
             (r.placa ? '<span>' + r.placa + '</span>' : '') +
             '<span>' + esc(r.situacao) + '</span></div></div>'; }).join('') + '</div>'
-      : '<div class="cx" style="margin-top:0"><p>Ninguém atendido no balcão hoje.</p></div>')
-  ));
+      : '<div class="cx" style="margin-top:0"><p>Ninguém atendido no balcão hoje ainda.</p></div>'));
+  raiz.appendChild(b3);
 
-  function re() { B12.admDesenhar('balcao'); }
-  raiz.querySelectorAll('[data-chegou]').forEach(function (b) {
+  b3.querySelectorAll('[data-bzap]').forEach(function (b) {
     b.onclick = function () {
-      var r = B12.marcarChegada(b.dataset.chegou);
-      if (r.erro) return alert(r.erro);
-      re();
-    };
-  });
-  raiz.querySelector('#b-atender').onclick = function () {
-    B12.formBalcao(function (res) { re(); B12.aposBalcao(res); });
-  };
-  raiz.querySelector('#b-so-ficha').onclick = function () {
-    B12.formCliente(null, function () { re(); B12.aviso('Ficha guardada.', 'bom'); });
-  };
-  raiz.querySelectorAll('[data-bzap]').forEach(function (b) {
-    b.onclick = function () {
-      var txt = 'Olá, ' + b.dataset.nome.split(' ')[0] + '! Aqui é a Estação B12. ' +
-        'Sua reserva é a ' + b.dataset.cod + '. Guarde este código.';
+      var txt = 'Oi, ' + String(b.dataset.nome || '').split(' ')[0] +
+        '! Aqui é da Estação B12. O código da sua viagem é ' + b.dataset.cod + '.';
       window.open('https://wa.me/' + b.dataset.bzap + '?text=' + encodeURIComponent(txt), '_blank');
     };
   });

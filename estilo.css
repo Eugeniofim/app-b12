@@ -1449,3 +1449,28 @@ body.ia-solta .ia-gaveta-cx::after{content:'Solta aqui — vai pro assistente';p
 @media (prefers-reduced-motion:reduce){
   .ia-gaveta-cx{transition:none}
 }
+
+/* ------------------------------- o formulário dentro da tela (aba Ficha)
+   A mesma folha que sobe de baixo, mas nascida na página: sem fundo escuro,
+   sem alça, sem X. O Dhalsin anota no papel — aqui a tela É o bloco dele,
+   e abrir um menu antes custaria uma batida por atendimento. */
+.ficha-caixa{margin:0 12px}
+.folha-inline{display:block}
+.folha-inline .folha-cx{position:static;width:auto;max-width:none;max-height:none;
+  border-radius:var(--r-m);transform:none;box-shadow:none;
+  background:var(--noite-2);border:1px solid var(--noite-risco);overflow:visible}
+.folha-inline .folha-corpo{max-height:none;overflow:visible;padding:16px 16px 4px}
+.folha-inline .folha-pe{position:static;padding:4px 16px 16px;background:transparent;
+  border-top:0;box-shadow:none}
+body.adm .folha-inline .folha-cx{background:var(--noite-2)}
+
+/* a dobra dos esperados no painel: fundo escuro, mesmo gesto da capa */
+body.adm .dobra > summary h3{margin:0}
+body.adm .dobra > summary svg{stroke:var(--gelo-3)}
+body.adm .dobra > .pessoas{padding-bottom:12px}
+
+/* A bolha do assistente flutua por cima da ficha. Enquanto a pessoa escreve,
+   ela sai de cena — mesmo princípio de quando uma folha abre. Volta sozinha
+   ao sair do campo. */
+body:has(.folha-inline :focus) .ia-bolha-flut{opacity:0;pointer-events:none;transform:scale(.9)}
+.ia-bolha-flut{transition:opacity .18s,transform .18s}
