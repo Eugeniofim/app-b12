@@ -111,6 +111,24 @@ async function varrerODia() {
       ir: '/#/equipe', importante: true,
     });
   }
+  /* Gente nova instalou o app? É o sinal de que a divulgação pegou, e o
+     Dhalsin pediu para saber. UMA vez por dia, com o total — não um aviso por
+     aparelho, senão um feriado vira enxurrada no celular dele. */
+  const ontem = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+  const { count: novos } = await servidor
+    .from('b12_aparelhos').select('id', { count: 'exact', head: true })
+    .eq('papel', 'turista').gt('criado', ontem);
+  if (novos && novos > 0) {
+    avisos.push({
+      papel: 'dono', tag: 'instalou',
+      titulo: novos === 1 ? 'Alguém instalou o app' : novos + ' pessoas instalaram o app',
+      texto: novos === 1
+        ? 'Mais um celular com a Estação B12 na tela de início.'
+        : 'Nas últimas 24 horas. A divulgação está pegando.',
+      ir: '/#/adm',
+    });
+  }
+
   return avisos;
 }
 

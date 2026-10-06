@@ -198,8 +198,11 @@ var GRUPOS = [
   { id:'balcao',    nome:'Cadastro',  sub:[['balcao','Cadastro']] },
   { id:'travessia', nome:'Travessia', sub:[['escala','Horários'], ['ilha','Na Ilha'],
                                            ['marinheiros','Marinheiros'], ['patio','Pátio']] },
-  { id:'clientes',  nome:'Clientes',  sub:[['clientes','Fichas'], ['avisos','Avisos'],
-                                           ['msgs','Mensagens'], ['prosp','Prospecção', 'dono']] },
+  { id:'clientes',  nome:'Clientes',  sub:[['clientes','Fichas'], ['msgs','Mensagens'],
+                                           ['prosp','Prospecção', 'dono']] },
+  /* Avisos era sub-aba de Clientes e o Eugênio não achou em dois dias.
+     Funcionalidade que não se acha é funcionalidade que não existe. */
+  { id:'avisos',    nome:'Avisos',    sub:[['avisos','Mandar aviso']] },
   { id:'dinheiro',  nome:'Dinheiro',  so:'dono',
     sub:[['painel','Painel'], ['caixa','Caixa'], ['lanc','Lançamentos'],
          ['contas','Contas'], ['relat','Relatórios'], ['precos','Preços']] },
@@ -2675,6 +2678,15 @@ function pAvisos(raiz) {
         }).join('') + '</div>'
       : '<div class="cx" style="margin-top:0"><p>Nenhum evento marcado. Toque em “+ Novo” para ' +
         'colocar o próximo festival, feriado ou show.</p></div>') +
+
+    '<div class="faixa-sec"><div class="tit"><h2>Quando alguém instala o app</h2></div>' +
+    '<p style="font-size:12.5px;color:var(--gelo-3);padding-bottom:8px">O app conta os ' +
+    'aparelhos sozinho. Ligue para receber um aviso no seu celular quando gente nova ' +
+    'instalar — é o sinal de que a divulgação está funcionando.</p></div>' +
+    '<div class="cx entra entra-3">' +
+      linhaChave('instalou', 'Avisar quando instalarem', 'uma vez por dia, com o total do dia',
+        A.avisosCliente.instalou) +
+    '</div>' +
 
     '<div class="faixa-sec"><div class="tit"><h2>Avisos automáticos</h2></div>' +
     '<p style="font-size:12.5px;color:var(--gelo-3);padding-bottom:8px">Quando ligado, o app ' +
