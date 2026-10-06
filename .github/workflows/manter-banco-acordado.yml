@@ -34,8 +34,12 @@ jobs:
           set -u
           # tenta 3 vezes: um soluço de rede não pode virar alarme falso
           for tentativa in 1 2 3; do
+            # Bate numa TABELA, igual ao app faz. A raiz /rest/v1/ devolve 401
+            # para a chave publicável (o Supabase fechou o OpenAPI para anon),
+            # então usá-la como teste dá alarme falso com o banco são.
             codigo=$(curl -s -o /tmp/resposta -w '%{http_code}' --max-time 25 \
-              -H "apikey: $CHAVE" "$URL/rest/v1/" || echo 000)
+              -H "apikey: $CHAVE" -H "Authorization: Bearer $CHAVE" \
+              "$URL/rest/v1/b12_avisos?select=id&limit=1" || echo 000)
             echo "tentativa $tentativa → HTTP $codigo"
             if [ "$codigo" = "200" ]; then
               echo "✅ Banco acordado e respondendo."
