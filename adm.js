@@ -200,8 +200,8 @@ var GRUPOS = [
     sub:[['painel','Painel'], ['caixa','Caixa'], ['lanc','Lançamentos'],
          ['contas','Contas'], ['relat','Relatórios'], ['precos','Preços']] },
   { id:'estacao',   nome:'Estação',   so:'dono',
-    sub:[['gestao','Gestão'], ['manut','Manutenção'], ['oper','Operação'],
-         ['dados','Dados'], ['intel','Inteligência']] },
+    sub:[['gestao','Gestão'], ['sobre','A empresa'], ['manut','Manutenção'],
+         ['oper','Operação'], ['dados','Dados'], ['intel','Inteligência']] },
   { id:'ia',        nome:'Assistente', sub:[['ia','Assistente']] }
 ];
 
@@ -209,7 +209,7 @@ var PAGINAS = { hoje:pHoje, volta:pVolta, painel:pPainel, caixa:pCaixa, lanc:pLa
   contas:pContas, relat:pRelat, oper:pOper, prosp:pProsp, intel:pIntel,
   clientes:pClientes, patio:pPatio, manut:pManut, gestao:pGestao, escala:pEscala,
   msgs:pMsgs, dados:pDados, precos:pPrecos, ia:pIA, ilha:pNaIlha, balcao:pBalcao,
-  marinheiros:pMarinheiros, avisos:pAvisos };
+  marinheiros:pMarinheiros, avisos:pAvisos, sobre:pSobre };
 
 /* Grupos e sub-abas que este papel pode ver. Nunca confie na tela: quem pedir
    uma página fechada cai no primeiro grupo que ele pode abrir. */
@@ -666,6 +666,7 @@ function pContas(raiz) {
 /* ------------------------------------------------------------- RELATÓRIOS */
 function pRelat(raiz) {
   var ym = B12.mesAtual(), r = B12.resumoMes(ym);
+  blocoAparelhos(raiz);
   /* taxa de cartão por forma */
   var formas = Object.keys(r.porPg).map(function (p) {
     return { pg:p, v:r.porPg[p], taxa: Math.round(r.porPg[p] * (B12.DB.ajustes.taxas[p]||0)) };
@@ -2259,6 +2260,26 @@ function pBalcao(raiz) {
       tile(novos.length, 'Fichas novas', 'n') +
     '</div>' +
 
+    /* quem reservou pelo celular e ainda não apareceu: a fila de chegada */
+    (function () {
+      var esp = B12.esperados(hoje);
+      if (!esp.length) return '';
+      return '<div class="faixa-sec"><div class="tit"><h2>Esperados hoje</h2></div>' +
+        '<p style="font-size:12.5px;color:var(--gelo-3);padding-bottom:8px">Reservaram pelo app ' +
+        'e ainda não chegaram. Quando aparecerem no balcão, toque em Chegou.</p></div>' +
+        '<div class="pessoas">' + esp.map(function (r) {
+          var z = (r.zap || '').replace(/\D/g, '');
+          return '<div class="pes"><div class="pes-cima"><div><b>' + esc(r.nome) + '</b>' +
+            '<span class="pes-cod">' + r.cod + '</span></div>' +
+            '<button type="button" class="mini-btn" data-chegou="' + r.id + '">Chegou</button>' +
+            '</div><div class="pes-baixo">' +
+            (r.hora ? '<span>' + r.hora + '</span>' : '<span>sem hora</span>') +
+            '<span>' + (r.pax || 1) + (r.pax > 1 ? ' pessoas' : ' pessoa') + '</span>' +
+            (r.placa ? '<span>' + esc(r.placa) + '</span>' : '') +
+            (z ? '<span>' + z.slice(-4).padStart(z.length > 4 ? 8 : z.length, '·') + '</span>' : '') +
+            '<span>' + esc(r.situacao) + '</span></div></div>'; }).join('') + '</div>';
+    })() +
+
     '<div class="faixa-sec"><div class="tit"><h2>Atendidos hoje no balcão</h2></div></div>' +
     (deHoje.length
       ? '<div class="pessoas">' + deHoje.map(function (r) {
@@ -2277,6 +2298,13 @@ function pBalcao(raiz) {
   ));
 
   function re() { B12.admDesenhar('balcao'); }
+  raiz.querySelectorAll('[data-chegou]').forEach(function (b) {
+    b.onclick = function () {
+      var r = B12.marcarChegada(b.dataset.chegou);
+      if (r.erro) return alert(r.erro);
+      re();
+    };
+  });
   raiz.querySelector('#b-atender').onclick = function () {
     B12.formBalcao(function (res) { re(); B12.aposBalcao(res); });
   };
@@ -2684,5 +2712,161 @@ B12.textoAviso = function (motivo, extra) {
   }
   return { titulo: '', texto: '' };
 };
+
+
+/* ===================================================== A EMPRESA (quem somos)
+   O texto que o cliente lê sobre a B12. Enquanto o Dhalsin não escrever o
+   dele, o rascunho fica marcado — no painel, nunca na tela do cliente. */
+function pSobre(raiz) {
+  var A = B12.DB.ajustes, S = A.sobre || B12.SOBRE;
+  function re() { B12.admDesenhar('sobre'); }
+
+  raiz.appendChild(bloco(
+    (S.rascunho
+      ? '<div class="cx aviso entra"><h3>Isto ainda é rascunho</h3>' +
+        '<p>O texto abaixo foi escrito por nós para a tela não nascer vazia. ' +
+        '<b>O cliente já está lendo isso.</b> Troque pelas suas palavras e o aviso some.</p></div>'
+      : '<div class="cx bom entra"><h3>Texto seu, no ar</h3>' +
+        '<p>É isto que o cliente lê quando toca em “Quem somos nós”.</p></div>') +
+
+    '<div class="cx entra entra-1"><h3>' + esc(S.titulo || 'Quem somos') + '</h3>' +
+    '<p style="color:var(--gelo-2);line-height:1.6">' + esc(S.texto || '') + '</p>' +
+    '<button type="button" class="btn pri" id="b-sobre-texto">Editar o texto</button></div>' +
+
+    '<div class="faixa-sec"><div class="tit"><h2>Os três destaques</h2>' +
+    '<button class="mini-btn" id="b-sobre-novo">+ Novo</button></div>' +
+    '<p style="font-size:12.5px;color:var(--gelo-3);padding-bottom:8px">Aparecem numerados ' +
+    'abaixo do texto. Três é o número que se lê; mais do que isso vira lista.</p></div>' +
+    ((S.pontos || []).length
+      ? '<div class="lista">' + S.pontos.map(function (x, i) {
+          return '<div class="linha" data-ponto="' + i + '"><span class="tag">' + (i + 1) + '</span>' +
+            '<div class="d"><b>' + esc(x.t) + '</b><small>' + esc(x.d) + '</small></div>' +
+            '<button type="button" class="mini-btn" data-ponto-fora="' + i + '">Tirar</button></div>';
+        }).join('') + '</div>'
+      : '<div class="cx" style="margin-top:0"><p>Nenhum destaque. Toque em “+ Novo”.</p></div>')
+  ));
+
+  raiz.querySelector('#b-sobre-texto').onclick = function () {
+    B12.folha({
+      titulo: 'Quem somos',
+      sub: 'É o que o cliente lê sobre a Estação B12',
+      corpo:
+        B12.f_campo('Título', 'titulo', { valor: S.titulo || 'Quem somos', max: 32, obrig: true }) +
+        '<label for="c-texto">Texto</label>' +
+        '<textarea id="c-texto" name="texto" rows="7" maxlength="900">' +
+        esc(S.texto || '') + '</textarea>' +
+        '<div class="ajuda">Escreva como você falaria com um cliente na frente. ' +
+        'Quem é a B12, há quanto tempo, o que faz bem feito.</div>',
+      aoSalvar: function (d) {
+        var t = String(d.texto || '').trim();
+        if (!t) return { erro: 'O texto não pode ficar vazio.', campo: 'texto' };
+        S.titulo = String(d.titulo || '').trim() || 'Quem somos';
+        S.texto = t;
+        S.rascunho = false;            /* escreveu o dele: o aviso some */
+        A.sobre = S; B12.salvar(); re();
+        return { ok: true };
+      }
+    });
+  };
+
+  raiz.querySelector('#b-sobre-novo').onclick = function () { editarPonto(null); };
+  raiz.querySelectorAll('[data-ponto]').forEach(function (el) {
+    el.onclick = function (ev) {
+      if (ev.target.closest('[data-ponto-fora]')) return;
+      editarPonto(+el.dataset.ponto);
+    };
+  });
+  raiz.querySelectorAll('[data-ponto-fora]').forEach(function (b) {
+    b.onclick = function (ev) {
+      ev.stopPropagation();
+      var i = +b.dataset.pontoFora;
+      if (!confirm('Tirar “' + S.pontos[i].t + '”?')) return;
+      S.pontos.splice(i, 1); A.sobre = S; B12.salvar(); re();
+    };
+  });
+
+  function editarPonto(i) {
+    var p = (i == null) ? { t: '', d: '' } : S.pontos[i];
+    B12.folha({
+      titulo: i == null ? 'Novo destaque' : p.t,
+      sub: 'Uma coisa que a B12 faz bem',
+      corpo:
+        B12.f_campo('Destaque', 't', { valor: p.t, max: 34, obrig: true,
+          dica: 'Embarcação própria' }) +
+        B12.f_campo('Explicando', 'd', { valor: p.d, max: 110,
+          dica: 'Lancha com 20 lugares, documentação em dia' }),
+      extra: i == null ? '' : '<button type="button" class="btn sec" id="b-ponto-apagar">Apagar</button>',
+      aoSalvar: function (d) {
+        var t = String(d.t || '').trim();
+        if (!t) return { erro: 'Escreva o destaque.', campo: 't' };
+        p.t = t; p.d = String(d.d || '').trim();
+        S.pontos = S.pontos || [];
+        if (i == null) S.pontos.push(p);
+        A.sobre = S; B12.salvar(); re();
+        return { ok: true };
+      }
+    });
+    var ap = document.getElementById('b-ponto-apagar');
+    if (ap) ap.onclick = function () {
+      S.pontos.splice(i, 1); A.sobre = S; B12.salvar(); B12.fecharFolha(); re();
+    };
+  }
+}
+
+
+/* ------------------------------------------------- quantos aparelhos têm o app
+   PWA não passa por loja, então não existe "download". O que existe é isto, e
+   a tela diz exatamente o que o número é — e o que ele não é. */
+function blocoAparelhos(raiz) {
+  var b = bloco(
+    '<div class="faixa-sec"><div class="tit"><h2>O app no celular das pessoas</h2></div></div>' +
+    '<div class="placar entra" id="rel-ap">' +
+      tile(0, 'Com aviso ligado', 'n', 'destaque') +
+      tile(0, 'Instalados', 'n') +
+      tile(0, 'Ativos em 7 dias', 'n') +
+    '</div>' +
+    '<div class="cx entra entra-1" id="rel-ap-cx"><p class="ajuda" style="margin:0">conferindo na nuvem…</p></div>'
+  );
+  raiz.appendChild(b);
+
+  B12.apContagem().then(function (res) {
+    var cx = b.querySelector('#rel-ap-cx'), pl = b.querySelector('#rel-ap');
+    if (res.erro) {
+      cx.innerHTML = '<h3>Ainda não dá para contar</h3><p>' + (
+        res.erro === 'semLogin' ? 'Entre na nuvem (Estação → Dados) para ver estes números: eles moram no banco, não neste aparelho.'
+      : res.erro === 'semNuvem' ? 'A nuvem ainda não está ligada neste app.'
+      : res.erro === 'recusado' ? 'O banco recusou a leitura. Falta rodar <b>nuvem/03-aparelhos.sql</b> no Supabase.'
+      : 'Não consegui falar com a nuvem agora. Tente de novo com internet.') + '</p>';
+      return;
+    }
+    var n = res.n;
+    pl.innerHTML =
+      tile(n.com_avisos || 0, 'Com aviso ligado', 'n', 'destaque') +
+      tile(n.instalados || 0, 'Instalados', 'n') +
+      tile(n.ativos_7 || 0, 'Ativos em 7 dias', 'n');
+    B12.animarPlacar(pl);
+
+    /* uma barra por grupo, para ver a proporção sem precisar fazer conta */
+    var total = Math.max(1, n.total || 0);
+    function barra(rot, v, cor) {
+      var pc = Math.round((v || 0) / total * 100);
+      return '<div style="margin-top:11px">' +
+        '<div style="display:flex;justify-content:space-between;font-size:12.5px;' +
+        'color:var(--gelo-2);margin-bottom:5px"><span>' + rot + '</span>' +
+        '<b style="font-variant-numeric:tabular-nums">' + (v || 0) + ' · ' + pc + '%</b></div>' +
+        '<div class="medidor"><i style="width:' + Math.max(2, pc) + '%;background:' + cor + '"></i></div></div>';
+    }
+    cx.innerHTML =
+      '<h3>' + (n.total || 0) + ' aparelhos já abriram o app</h3>' +
+      barra('Instalados na tela de início', n.instalados, 'var(--turq-500)') +
+      barra('Aceitam receber aviso', n.com_avisos, 'var(--turq-600)') +
+      barra('Ativos nos últimos 7 dias', n.ativos_7, '#F2B93B') +
+      barra('Ativos nos últimos 30 dias', n.ativos_30, 'var(--gelo-3)') +
+      '<p class="ajuda" style="margin-top:14px"><b>' + (n.novos_7 || 0) + ' novos</b> nos últimos 7 dias. ' +
+      'É estimativa, não censo: quem limpa os dados do navegador conta de novo, e ' +
+      'quem apaga o app não dá baixa. No iPhone, só recebe aviso quem instalou na tela de início — ' +
+      'por isso os dois primeiros números costumam andar juntos.</p>';
+  });
+}
 
 })();

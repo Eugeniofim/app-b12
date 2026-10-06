@@ -1398,3 +1398,54 @@ body.ia-solta .ia-gaveta-cx::after{content:'Solta aqui — vai pro assistente';p
 .dobra > summary:focus-visible{outline:2px solid var(--turq-500);outline-offset:3px;border-radius:8px}
 .dobra > p{margin:0;padding-bottom:15px}
 @media (prefers-reduced-motion:reduce){ .dobra > summary svg{transition:none} }
+
+/* ------------------------------------------- consumo no balcão (formulário)
+   Botão de + e − porque ninguém digita número no celular com fila na frente.
+   O campo continua lá e aceita digitação: o passo é atalho, não prisão. */
+.prod{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:9px 0;border-bottom:1px solid var(--risco)}
+.prod:last-of-type{border-bottom:0}
+.prod-n b{display:block;font-size:14.5px;font-weight:650;color:var(--tinta)}
+.prod-n small{display:block;font-size:12px;color:var(--tinta-3);margin-top:1px}
+.passo{display:flex;align-items:center;gap:0;flex:none;
+  border:1.5px solid var(--risco);border-radius:10px;overflow:hidden}
+.passo-b{width:40px;min-height:40px;background:var(--carta-2);border:0;
+  font-size:19px;font-weight:700;color:var(--azul-700);line-height:1}
+.passo-b:active{background:var(--risco)}
+.passo input{width:46px;min-height:40px;border:0;border-inline:1.5px solid var(--risco);
+  border-radius:0;text-align:center;font-size:15px;font-weight:700;margin:0;padding:0;
+  background:var(--carta);color:var(--tinta);-moz-appearance:textfield}
+.passo input::-webkit-outer-spin-button,.passo input::-webkit-inner-spin-button{
+  -webkit-appearance:none;margin:0}
+.dobra-btn svg{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;
+  stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+@media (pointer:coarse){ .passo-b,.passo input{min-height:44px} }
+
+/* A tabela como referência, nunca como imposição: o valor é de quem atende. */
+.sugestao{display:flex;align-items:center;gap:10px;justify-content:space-between;
+  margin-top:-4px;padding:9px 11px;border-radius:10px;background:var(--carta-2);
+  border:1px dashed var(--risco-forte,var(--risco));font-size:12.5px;color:var(--tinta-2)}
+.sugestao b{font-weight:750;color:var(--tinta)}
+
+/* a barra da onda: verde quando o dia presta, cinza quando não */
+.medidor i.bom{background:var(--turq-500)}
+
+/* ------------------------------------- assistente encostado na direita
+   No celular, gaveta por baixo: é onde o polegar chega e não rouba largura.
+   A partir de 900px ela encosta na lateral direita, de cima a baixo — aí
+   sobra espaço, e o painel continua visível ao lado enquanto se conversa.
+   Ver [[assistente-mexe-em-tudo]]: o assistente alcança todas as abas. */
+@media (min-width:900px){
+  .ia-gaveta{align-items:stretch;justify-content:flex-end}
+  .ia-gaveta-fundo{background:rgba(4,16,26,.30)}
+  .ia-gaveta-cx{width:390px;max-width:94vw;height:100%;border-radius:0;
+    box-shadow:-14px 0 44px rgba(0,0,0,.42);
+    transform:translateX(100%);
+    border-left:1px solid var(--noite-risco)}
+  .ia-gaveta.on .ia-gaveta-cx{transform:none}
+  /* a bolha sobe para o canto, longe da barra de baixo que nem existe aqui */
+  body.adm .ia-bolha-flut{bottom:24px}
+}
+@media (prefers-reduced-motion:reduce){
+  .ia-gaveta-cx{transition:none}
+}

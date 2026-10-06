@@ -15,7 +15,7 @@ var B12 = window.B12 || {};
 /* ---------------------------------------------------------------- identidade */
 /* o cofre: o servidor da Ti Artes que guarda a chave da IA. Vazio = assistente
    desligado (o app continua funcionando igual, só sem o chat). */
-B12.VERSAO = 'b12-v1.66.5';   /* tem que bater com o CACHE do sw.js */
+B12.VERSAO = 'b12-v1.67.1';   /* tem que bater com o CACHE do sw.js */
 
 B12.IA = { cofre: 'https://uopfqlogjzuqpabptxkb.supabase.co/functions/v1/cofre',
            modelo: 'claude-haiku-4-5' };
@@ -145,6 +145,22 @@ B12.DESC_DINHEIRO = 0.05;
 B12.IDADE_CORTESIA = 5;
 
 B12.DESTINOS = ['Brasília', 'Encantadas'];
+
+/* ------------------------------------------------------- quem somos nós
+   RASCUNHO. O Dhalsin ainda não passou o texto dele — isto é só para a tela
+   não nascer vazia, e ele troca inteiro na aba Estação → A empresa. */
+B12.SOBRE = {
+  titulo: 'Quem somos',
+  texto: 'A Estação B12 fica em Pontal do Paraná, na beira do mar, e é de onde sai a ' +
+    'travessia para a Ilha do Mel. Somos uma empresa da região: conhecemos a maré, o ' +
+    'canal e o tempo daqui porque é onde a gente vive.',
+  pontos: [
+    { t: 'Embarcação própria', d: 'Lancha com 20 lugares, revisada e com toda a documentação em dia.' },
+    { t: 'Marinheiros da casa', d: 'Quem pilota conhece a baía e é habilitado pela Marinha.' },
+    { t: 'Estacionamento no local', d: 'Seu carro fica na estação enquanto você está na Ilha.' }
+  ],
+  rascunho: true        /* vira false quando o Dhalsin salvar o texto dele */
+};
 
 /* ------------------------------------------------- balcão: o que se vende
    O consumo que entra na ficha de quem está esperando a lancha. Valores de
@@ -350,7 +366,7 @@ B12.CREDITOS = [
 
 
 /* ------------------------------- categorias do financeiro (lista do briefing) */
-B12.ENTRADAS = ['Travessias','Passeios','Estacionamento','Comissões de hospedagem','Outras receitas'];
+B12.ENTRADAS = ['Travessias','Passeios','Estacionamento','Bar e loja','Comissões de hospedagem','Outras receitas'];
 B12.SAIDAS   = ['Combustível','Manutenção','Operação/marinheiros','Impostos e taxas',
                 'Despesas administrativas','Compras e fornecedores','Outras despesas'];
 B12.CENTROS  = ['Lancha','Receptivo B12','Estacionamento','Administrativo'];

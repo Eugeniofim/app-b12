@@ -88,6 +88,85 @@ B12.pintarClima = function () {
   document.getElementById('cl-vento').textContent = forcaVento(a.wind_speed_10m);
 };
 
+/* cada arquivo tem o seu: adm.js e assistente.js fecham o escopo e os deles
+   nao chegam aqui. Texto que o Dhalsin digita entra em HTML, entao escapa. */
+function escT(x) {
+  return String(x == null ? '' : x)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/* ------------------------------------------------------------ quem somos
+   O texto é do Dhalsin: sai de Estação → A empresa, nunca daqui. Enquanto
+   ele não escrever o dele, o rascunho aparece com aviso só para o painel. */
+B12.telaSobre = function () {
+  var S = (B12.DB.ajustes && B12.DB.ajustes.sobre) || B12.SOBRE;
+  var E = B12.EMPRESA;
+  var t = document.getElementById('sobre-tit');
+  if (t) t.textContent = S.titulo || 'Quem somos';
+  document.getElementById('sobre-corpo').innerHTML =
+    '<div class="cx entra" style="margin-top:12px">' +
+      '<p style="color:var(--tinta-2);line-height:1.6">' + escT(S.texto) + '</p></div>' +
+    ((S.pontos || []).length
+      ? '<div class="lista entra entra-1">' + S.pontos.map(function (x, i) {
+          return '<div class="linha"><span class="tag">' + (i + 1) + '</span>' +
+            '<div class="d"><b>' + escT(x.t) + '</b><small>' + escT(x.d) + '</small></div></div>';
+        }).join('') + '</div>'
+      : '') +
+    '<div class="cx entra entra-2"><h3>Onde estamos</h3>' +
+      '<p style="color:var(--tinta-2)">' + escT(E.endereco) + '<br>CEP ' + escT(E.cep) + '</p>' +
+      '<a class="btn pri" href="https://www.google.com/maps/search/?api=1&query=' +
+      E.lat + '%2C' + E.lon + '" target="_blank" rel="noopener">Traçar rota até a B12</a></div>';
+};
+
+/* ---------------------------------------------------------------- ondas
+   Para quem surfa. A B12 não vende surf, mas quem surfa atravessa — e o
+   turista que sabe que vai pegar onda boa reserva a travessia. */
+B12.telaOndas = function () {
+  var alvo = document.getElementById('lista-ondas');
+  var dados = B12.mar7 && B12.mar7();
+  if (!dados) {
+    alvo.innerHTML = '<div class="vazio"><b>Sem a previsão do mar agora</b>' +
+      '<p>Não conseguimos falar com o serviço de meteorologia. Tente de novo com internet.</p></div>';
+    if (B12.buscarMar) B12.buscarMar().then(function (d) { if (d) B12.telaOndas(); });
+    return;
+  }
+  var hoje = B12.hoje();
+  var dias = ['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
+  var bons = dados.filter(function (d) { return d.nota.bom; });
+  var maxAlt = Math.max.apply(null, dados.map(function (d) { return d.altura || 0; })) || 1;
+
+  alvo.innerHTML =
+    (bons.length
+      ? '<div class="cx bom" style="margin:12px"><h3>Tem dia bom na semana</h3><p>' +
+        bons.map(function (d) {
+          return '<b>' + (d.dia === hoje ? 'hoje' : B12.dataBR(d.dia).slice(0, 5)) + '</b> · ' +
+            d.nota.txt.toLowerCase(); }).join(' · ') + '</p></div>'
+      : '<div class="cx" style="margin:12px"><h3>Semana fraca para o surf</h3>' +
+        '<p>Nenhum dia com formação boa nos próximos sete. A travessia segue normal.</p></div>') +
+    '<div class="lista">' + dados.map(function (d, i) {
+      var dt = new Date(d.dia + 'T12:00');
+      var fds = dt.getDay() === 5 || dt.getDay() === 6 || dt.getDay() === 0;
+      var larg = Math.max(6, Math.round((d.altura || 0) / maxAlt * 100));
+      return '<div class="linha entra entra-' + Math.min(i + 1, 6) +
+        (i === 0 ? ' dia-hoje' : fds ? ' dia-fds' : '') + '">' +
+        '<span class="tag">' + (i === 0 ? 'HOJE' : dias[dt.getDay()].slice(0, 3).toUpperCase()) + '</span>' +
+        '<div class="d"><b>' + (d.altura != null ? d.altura.toFixed(1).replace('.', ',') + ' m' : '—') +
+        ' · ' + d.nota.txt + '</b>' +
+        '<small>período ' + (d.periodo != null ? Math.round(d.periodo) + ' s' : '—') +
+        ' · ' + B12.rumo(d.direcao) + '</small>' +
+        '<div class="medidor" style="margin-top:6px"><i style="width:' + larg + '%"' +
+        (d.nota.bom ? ' class="bom"' : '') + '></i></div></div></div>';
+    }).join('') + '</div>';
+};
+
+/* De onde a onda vem, em palavra. Grau sozinho não serve para ninguém. */
+B12.rumo = function (g) {
+  if (g == null) return 'sem direção';
+  var r = ['norte','nordeste','leste','sudeste','sul','sudoeste','oeste','noroeste'];
+  return r[Math.round(((g % 360) / 45)) % 8];
+};
+
 B12.telaPrevisao = function () {
   var alvo = document.getElementById('lista-previsao');
   if (!CLIMA || !CLIMA.daily) {

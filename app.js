@@ -9,7 +9,7 @@ var B12 = window.B12 || {};
 (function () {
 
 /* ------------------------------------------------------------------ rotas */
-var TELAS = ['inicio','travessias','passeios','passeio','ilha','previsao','promocoes',
+var TELAS = ['inicio','travessias','passeios','passeio','ilha','previsao','ondas','sobre','promocoes',
              'pontos','reservas','equipe','adm'];
 var atual = 'inicio';
 
@@ -84,6 +84,8 @@ function pintar(nome) {
   if (nome === 'reservas') B12.pintarReservas();
   if (nome === 'pontos')   B12.pintarPontos();
   if (nome === 'previsao') B12.telaPrevisao();
+  if (nome === 'ondas')    B12.telaOndas();
+  if (nome === 'sobre')    B12.telaSobre();
   if (nome === 'equipe')   B12.pintarEquipe();
   if (nome === 'adm')      { B12.admDesenhar(); quemEntrou(); }
 }

@@ -339,9 +339,9 @@ B12.formBalcao = function (depois) {
         '<div style="grid-column:span 2">' + campo('Nome', 'nome', { obrig:true, max:60, dica:'como a pessoa se chama' }) + '</div>' +
       '</div>' +
       '<div class="par">' +
-        '<div>' + campo('Nº pessoas', 'pax', { tipo:'number', modo:'numeric', valor:1, passo:'1' }) + '</div>' +
-        '<div>' + campo('Idades das crianças', 'idades', { modo:'numeric', max:24,
-          dica:'3, 7, 11' }) + '</div>' +
+        '<div>' + campo('Pessoas no veículo', 'pax', { tipo:'number', modo:'numeric', valor:1, passo:'1' }) + '</div>' +
+        '<div>' + campo('Pagantes', 'pagantes', { tipo:'number', modo:'numeric', valor:1, passo:'1',
+          ajuda:'é este número que faz o preço' }) + '</div>' +
       '</div>' +
       '<div class="par">' +
         '<div>' + campo('Ida', 'data', { tipo:'date', valor: B12.hoje() }) + '</div>' +
@@ -354,12 +354,35 @@ B12.formBalcao = function (depois) {
       campo('Placa', 'placa', { max:8, dica:'deixe vazio se não deixou carro' }) +
       campo('Celular', 'whats', { tipo:'tel', modo:'tel', dica:'(41) 90000-0000' }) +
       '<div class="par">' +
-        '<div>' + campo('Valor', 'valorManual', { tipo:'number', passo:'0.01', modo:'decimal',
-          dica:'vazio = pela tabela' }) + '</div>' +
+        '<div>' + campo('Valor a cobrar', 'valorManual', { tipo:'number', passo:'0.01', modo:'decimal',
+          dica:'quanto foi combinado' }) + '</div>' +
         '<div>' + lista('Pagamento', 'pg', PAGAMENTOS, 'pix') + '</div>' +
       '</div>' +
+      /* O preço é de quem atende, não do código. A tabela aparece como
+         referência, com um toque para usar — e ninguém é obrigado. */
+      '<div class="sugestao" id="sug-balcao" hidden>' +
+        '<span id="sug-txt"></span>' +
+        '<button type="button" class="mini-btn" id="sug-usar">Usar</button></div>' +
       lista('Pousada', 'pousada', ['', 'Direto (sem pousada)']
         .concat(B12.PARCEIROS.map(function (p) { return p.nome; })).concat(['Outra']), '') +
+      /* ---- o que a pessoa consumiu esperando a lancha ---- */
+      '<button type="button" class="btn sec dobra-btn" id="b-consumo" style="margin-top:14px" ' +
+      'aria-expanded="false" aria-controls="cx-consumo">' +
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3h8l-1 5H9z"/>' +
+      '<path d="M9 8v11a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V8"/></svg>' +
+      '<span id="b-consumo-txt">Consumo e observação</span></button>' +
+      '<div id="cx-consumo" hidden>' +
+        (B12.DB.ajustes.produtos || []).map(function (pr) {
+          return '<div class="prod"><div class="prod-n"><b>' + pr.nome + '</b>' +
+            '<small>' + B12.brl(pr.valor) + '</small></div>' +
+            '<div class="passo">' +
+            '<button type="button" class="passo-b" data-menos="' + pr.id + '" aria-label="Menos ' + pr.nome + '">−</button>' +
+            '<input type="number" inputmode="numeric" min="0" step="1" value="0" ' +
+              'name="qtd_' + pr.id + '" aria-label="Quantidade de ' + pr.nome + '">' +
+            '<button type="button" class="passo-b" data-mais="' + pr.id + '" aria-label="Mais ' + pr.nome + '">+</button>' +
+            '</div></div>'; }).join('') +
+        campo('Observação', 'obs', { max:140, dica:'o que mais precisa ficar registrado' }) +
+      '</div>' +
       '<div class="previa" id="previa-balcao"></div>' +
 
       /* ---- o resto fica guardado, para não atrapalhar quem tem fila ---- */
@@ -372,6 +395,8 @@ B12.formBalcao = function (depois) {
         campo('CPF', 'cpf', { modo:'numeric', max:14, dica:'só se pedir nota fiscal' }) +
         campo('Cidade', 'cidade', { dica:'opcional' }) +
         grupo('Sobre a viagem') +
+        campo('Idades das crianças', 'idades', { modo:'numeric', max:24, dica:'3, 7, 11',
+          ajuda:'só registro — quem decide o preço é o número de pagantes' }) +
         lista('Destino', 'destino', B12.DESTINOS, 'Brasília') +
         lista('Serviço', 'produto', [['regular','Táxi Náutico'],
           ['nautico','Serviço Náutico Premium']], 'regular') +
@@ -388,6 +413,34 @@ B12.formBalcao = function (depois) {
         mais.hidden = !mais.hidden;
         bm.textContent = mais.hidden ? 'Mais informações (opcional)' : 'Esconder o resto';
       };
+      /* consumo: abre, fecha, e os botoes de + e - para nao digitar no celular */
+      var bc = form.querySelector('#b-consumo'), cxc = form.querySelector('#cx-consumo');
+      bc.onclick = function () {
+        cxc.hidden = !cxc.hidden;
+        bc.setAttribute('aria-expanded', String(!cxc.hidden));
+        form.querySelector('#b-consumo-txt').textContent =
+          cxc.hidden ? 'Consumo e observação' : 'Esconder o consumo';
+      };
+      form.querySelectorAll('[data-mais],[data-menos]').forEach(function (b) {
+        b.onclick = function () {
+          var id = b.dataset.mais || b.dataset.menos;
+          var c = form.querySelector('[name="qtd_' + id + '"]');
+          var v = (+c.value || 0) + (b.dataset.mais ? 1 : -1);
+          c.value = Math.max(0, v);
+          calcular();
+        };
+      });
+
+      /* pagantes acompanha o nº de pessoas até alguém mexer nele à mão: no
+         caso comum (ninguém não-pagante) é zero trabalho para quem atende */
+      var cPax = form.querySelector('[name=pax]'), cPag = form.querySelector('[name=pagantes]');
+      var pagNaMao = false;
+      cPag.oninput = function () { pagNaMao = true; calcular(); };
+      cPax.addEventListener('input', function () {
+        if (!pagNaMao) cPag.value = cPax.value;
+        calcular();
+      });
+
       /* a hora da ida escolhe a faixa sozinha: uma decisão a menos para quem atende */
       var hora = form.querySelector('[name=hora]'), faixa = form.querySelector('[name=faixa]');
       hora.onchange = function () {
@@ -396,27 +449,56 @@ B12.formBalcao = function (depois) {
         calcular();
       };
       function calcular() {
-        var pax = +form.querySelector('[name=pax]').value || 1;
-        var cri = B12.contarCortesia(form.querySelector('[name=idades]').value);
+        var pax = +cPax.value || 1;
+        var pag = Math.max(0, Math.min(+cPag.value || 0, pax));
         var manual = Number(form.querySelector('[name=valorManual]').value) || 0;
         var pr = B12.preco({ produto: form.querySelector('[name=produto]').value,
-          pax: pax, criancas: cri, faixa: faixa.value,
+          pax: pax, pagantes: pag, faixa: faixa.value,
           diarias: 0, pg: form.querySelector('[name=pg]').value });
+        var cons = B12.somarConsumo(form);
         var el = form.querySelector('#previa-balcao');
-        var nota = cri ? ' · ' + cri + (cri > 1 ? ' crianças não pagam' : ' criança não paga') : '';
-        el.innerHTML = manual > 0
-          ? '<span>Valor combinado' + nota + '</span><b>' + B12.brl(manual) + '</b>'
-          : (pr ? '<span>Pela tabela' + nota + '</span><b>' + B12.brl(pr.travessia) + '</b>'
-                : '<span>Fora da tabela</span><b>informe o valor</b>');
+        var naoPag = pax - pag;
+        var nota = naoPag > 0 ? ' · ' + naoPag + (naoPag > 1 ? ' não pagam' : ' não paga') : '';
+        var travessia = manual > 0 ? manual : (pr ? pr.travessia : 0);
+
+        /* a referência da tabela, só como sugestão */
+        var sug = form.querySelector('#sug-balcao'), sugT = form.querySelector('#sug-txt');
+        if (pr && Math.round(pr.travessia) !== Math.round(manual)) {
+          sug.hidden = false;
+          sugT.innerHTML = 'Pela tabela daria <b>' + B12.brl(pr.travessia) + '</b>' +
+            (pr.faixaTxt ? ' · ' + pr.faixaTxt : '') + ' · ' + pag + (pag > 1 ? ' pagantes' : ' pagante');
+          sug.dataset.valor = pr.travessia;
+        } else { sug.hidden = true; }
+
+        if (!travessia) {
+          el.innerHTML = '<span>Falta o valor' + nota + '</span><b>combine e digite</b>';
+        } else {
+          el.innerHTML = '<span>' + (manual > 0 ? 'Valor combinado' : 'Pela tabela') + nota +
+            (cons.total ? ' · consumo ' + B12.brl(cons.total) : '') + '</span>' +
+            '<b>' + B12.brl(travessia + cons.total) + '</b>';
+        }
+        /* o rótulo do botão conta o consumo sem precisar abrir */
+        var bt = form.querySelector('#b-consumo-txt');
+        if (bt && cxc.hidden) bt.textContent = cons.itens.length
+          ? 'Consumo · ' + B12.brl(cons.total) : 'Consumo e observação';
       }
-      form.querySelectorAll('[name=pax],[name=idades],[name=produto],[name=faixa],[name=pg],[name=valorManual]')
+      form.querySelectorAll('[name=produto],[name=faixa],[name=pg],[name=valorManual],[name^=qtd_]')
         .forEach(function (c) { c.oninput = calcular; c.onchange = calcular; });
+      form.querySelector('#sug-usar').onclick = function () {
+        var sug = form.querySelector('#sug-balcao');
+        form.querySelector('[name=valorManual]').value = sug.dataset.valor || '';
+        calcular();
+      };
       calcular();
     },
     aoSalvar: function (d) {
       d.pax = +d.pax || 1;
+      d.pagantes = Math.max(0, Math.min(+d.pagantes || d.pax, d.pax));
       d.idades = String(d.idades || '').trim();
-      d.criancas = B12.contarCortesia(d.idades);
+      /* quem não paga é o que sobra: o balcão digitou os pagantes, e esse
+         número manda. As idades ficam de registro, não de regra. */
+      d.criancas = d.pax - d.pagantes;
+      d.consumo = B12.lerConsumo(d);
       if (!d.faixa) d.faixa = B12.faixaHora(d.hora);
       if (d.placa && !d.saidaPrevista) d.saidaPrevista = d.volta || '';
       return B12.atenderBalcao(d);
@@ -1236,4 +1318,28 @@ B12.fichaEvento = function (id, depois) {
     A.eventos = A.eventos.filter(function (x) { return x.id !== e.id; });
     B12.salvar(); B12.fecharFolha(); if (depois) depois(null);
   };
+};
+
+/* ------------------------------------------------------------- consumo
+   Duas leituras do mesmo carrinho: uma do formulário vivo (para a prévia) e
+   outra dos dados já colhidos (para gravar). */
+B12.somarConsumo = function (form) {
+  var itens = [], total = 0;
+  (B12.DB.ajustes.produtos || []).forEach(function (pr) {
+    var c = form.querySelector('[name="qtd_' + pr.id + '"]');
+    var q = c ? Math.max(0, +c.value || 0) : 0;
+    if (q) { itens.push({ id: pr.id, nome: pr.nome, qtd: q, valor: pr.valor });
+             total += q * pr.valor; }
+  });
+  return { itens: itens, total: total };
+};
+B12.lerConsumo = function (d) {
+  var itens = [], total = 0;
+  (B12.DB.ajustes.produtos || []).forEach(function (pr) {
+    var q = Math.max(0, +d['qtd_' + pr.id] || 0);
+    if (q) { itens.push({ id: pr.id, nome: pr.nome, qtd: q, valor: pr.valor });
+             total += q * pr.valor; }
+    delete d['qtd_' + pr.id];
+  });
+  return { itens: itens, total: total };
 };

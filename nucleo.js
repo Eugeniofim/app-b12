@@ -137,6 +137,7 @@ B12.carregar = function () {
      instalado ganha as duas coisas sem perder nada do que já estava gravado. */
   if (!Array.isArray(B12.DB.marinheiros)) B12.DB.marinheiros = B12.MARINHEIROS.slice();
   if (!Array.isArray(A.produtos) || !A.produtos.length) A.produtos = B12.PRODUTOS.slice();
+  if (!A.sobre) A.sobre = JSON.parse(JSON.stringify(B12.SOBRE));
   if (!B12.DB.semeado) { B12.semear(); }
   else if (B12.DB.demoDia !== B12.hoje()) { B12.refrescarDemo(); }
   return B12.DB;
@@ -1363,7 +1364,8 @@ B12.diariasDe = function (reg, ate) {
     return Math.max(1, Math.ceil(ms / 86400000));
   }
   var fimData = fimIso.slice(0, 10) === fimIso ? fimIso : (function () { var d = new Date(fimIso);
-    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); })();
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); 
+  })();
   var d = (new Date(fimData + 'T12:00') - new Date(reg.entrada + 'T12:00')) / 86400000;
   return Math.max(1, Math.round(d) || 1);
 };
@@ -1436,19 +1438,32 @@ B12.atenderBalcao = function (a) {
   var cli = res.cliente;
 
   var p = B12.preco({ produto: a.produto || 'regular', pax: a.pax || 1,
-    criancas: a.criancas || 0, faixa: a.faixa || B12.faixaHora(a.hora),
-    diarias: 0, pg: a.pg });
+    pagantes: a.pagantes, criancas: a.criancas || 0,
+    faixa: a.faixa || B12.faixaHora(a.hora), diarias: 0, pg: a.pg });
   /* quem atende manda: valor digitado ganha da tabela. É assim no papel. */
   var combinado = Number(a.valorManual) || 0;
-  var valor = combinado > 0 ? combinado : (p ? p.travessia : 0);
-  if (valor <= 0) return { erro: 'Horário fora da tabela: informe o valor combinado.' };
+  var travessia = combinado > 0 ? combinado : (p ? p.travessia : 0);
+  if (travessia <= 0) return { erro: 'Falta o valor: combine com a pessoa e digite quanto foi.' };
+
+  /* o consumo é outra venda: entra em Bar e loja, não em Travessias, senão o
+     relatório diz que a lancha faturou o que foi a cerveja */
+  var cons = a.consumo || { itens: [], total: 0 };
+  var valor = travessia + cons.total;
 
   var lan = B12.salvarLancamento({
     data: a.data || B12.hoje(), tipo: 'entrada', cat: 'Travessias', centro: 'Lancha',
-    desc: (a.pax || 1) + ' travessias · ' + (a.pax || 1) + ' passageiros · ' + cli.nome,
-    valor: valor, pg: a.pg || 'pix', responsavel: a.responsavel || '',
+    desc: (a.pagantes || a.pax || 1) + ' pagantes · ' + (a.pax || 1) + ' no veículo · ' + cli.nome,
+    valor: travessia, pg: a.pg || 'pix', responsavel: a.responsavel || '',
     embarcacao: 'l01', clienteId: cli.id
   });
+  if (cons.total > 0) {
+    B12.salvarLancamento({
+      data: a.data || B12.hoje(), tipo: 'entrada', cat: 'Bar e loja', centro: 'Receptivo B12',
+      desc: cons.itens.map(function (i) { return i.qtd + 'x ' + i.nome; }).join(', ') + ' · ' + cli.nome,
+      valor: cons.total, pg: a.pg || 'pix', responsavel: a.responsavel || '',
+      clienteId: cli.id
+    });
+  }
   cli.viagens = (cli.viagens || 0) + 1;
   cli.gasto = (cli.gasto || 0) + valor;
 
@@ -1471,7 +1486,9 @@ B12.atenderBalcao = function (a) {
     faixa: t ? t.de + ' às ' + t.ate : 'sob consulta',
     estacionamento: a.placa && (a.volta || a.saidaPrevista) ? B12.diarias(dia, a.volta || a.saidaPrevista) : 0,
     placa: a.placa || '', pg: a.pg || 'pix', total: valor, clienteId: cli.id, instagram: a.instagram,
-    idades: a.idades || '', hora: a.hora || '', horaVolta: a.horaVolta || ''
+    idades: a.idades || '', hora: a.hora || '', horaVolta: a.horaVolta || '',
+    pagantes: a.pagantes || a.pax || 1, consumo: cons.itens, consumoTotal: cons.total,
+    obs: a.obs || ''
   });
   r.origem = 'balcao';                         /* feita pela B12, não pelo celular do turista */
   r.lancamentoId = lan.ok ? lan.lancamento.id : null;
@@ -1862,4 +1879,32 @@ B12.contasAbertas = function () {
       return { id: r.id, cod: r.cod, nome: r.nome, zap: r.zap, ida: r.ida, volta: r.volta,
                pax: r.pax, placa: r.placa || '', travessia: c.travessia,
                estacionamento: c.estacionamento, total: c.total }; });
+};
+
+/* ------------------------------------------------- quem reservou e ainda não chegou
+   O cadastro e a reserva feitos no celular do turista caem aqui. Antes, quando a
+   pessoa chegava na estação, o atendente tinha de caçá-la na lupa; agora ela já
+   está na fila do balcão e atender é um toque. */
+B12.esperados = function (iso) {
+  var dia = iso || B12.hoje();
+  return B12.DB.reservas.filter(function (r) {
+    return r.ida === dia && r.origem !== 'balcao' &&
+           r.situacao !== 'cancelada' && !r.chegouEm;
+  }).sort(function (a, b) { return (a.hora || '99:99') < (b.hora || '99:99') ? -1 : 1; });
+};
+
+/* "Chegou": carimba a hora e, se houver lugar na próxima saída, embarca. */
+B12.marcarChegada = function (id) {
+  var r = B12.DB.reservas.filter(function (x) { return x.id === id; })[0];
+  if (!r) return { erro: 'Reserva não encontrada.' };
+  if (r.chegouEm) return { erro: 'Esta pessoa já foi marcada como chegada.' };
+  r.chegouEm = new Date().toISOString();
+  if (r.situacao === 'pedida') { r.situacao = 'confirmada'; r.confirmadaEm = r.chegouEm; }
+  if (!r.saidaId) {
+    var faixa = B12.faixaHora(r.hora || '') || 'dia';
+    var saida = B12.proximaSaida(r.ida, faixa, r.pax || 1);
+    if (saida) { r.saidaId = saida.id; saida.ocupadas = (saida.ocupadas || 0) + (r.pax || 1); }
+  }
+  B12.salvar();
+  return { ok: true, reserva: r };
 };
