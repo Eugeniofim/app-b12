@@ -1,25 +1,21 @@
 // =====================================================================
-// Estação B12 — o carteiro de e-mail (Resend)
+// Estação B12 — mandar e-mail para os clientes
 //
-// Manda e-mail para os clientes da B12. Três travas, todas de propósito:
+// Esta função NÃO fala com o Brevo. Ela fala com o COFRE da Ti Artes, que
+// é quem tem a chave.
 //
-//  1. SÓ O DONO manda. O papel sai do banco, não do que a pessoa diz.
-//  2. SÓ QUEM ACEITOU recebe. O app guarda o consentimento com data e hora
-//     (`aceites.ofertas`); quem não aceitou não entra na lista, nem que o
-//     e-mail esteja cadastrado.
-//  3. TODO e-mail leva link de descadastro. Não é enfeite: sem isso o
-//     domínio da B12 vira spam em duas semanas e aí nenhum e-mail chega,
-//     nem os de confirmação de reserva.
+// Por quê: `avisos.eugeniofim.com` é infraestrutura compartilhada — Mario,
+// Dulcineia, Mari e Carol mandam pelo mesmo domínio. O banco da B12 fica na
+// conta do DHALSIN; se a chave do Brevo morasse aqui e essa conta vazasse,
+// o e-mail de todos morreria junto, porque reputação de envio é do domínio.
 //
-// Segredos (cofre do Supabase, nunca no repositório):
-//   RESEND_API_KEY   a chave da conta Resend
-//   EMAIL_DE         quem assina, ex.: "Estação B12 <contato@envios.eugeniofim.com>"
-//   EMAIL_RESPONDER  para onde vai a resposta, ex.: "luistinglin@gmail.com"
+// Então aqui mora só um TOKEN próprio da B12 (COFRE_TOKEN), revogável:
+// se vazar, o Eugênio apaga aquele token e ninguém mais é afetado.
 //
-// O domínio de ENVIO não precisa ser o do cliente. Sai do domínio do Eugênio
-// (que ele controla) com o nome "Estação B12" na frente, e o RESPONDER
-// aponta para o e-mail do Dhalsin — a resposta chega nele, não no Eugênio.
-// Trocar para o domínio do cliente um dia é mudar UMA variável, zero código.
+// Três travas, as mesmas de antes:
+//  1. SÓ O DONO manda; o papel sai do banco, não do que o aparelho diz.
+//  2. SÓ QUEM ACEITOU recebe; o consentimento tem data e hora no cadastro.
+//  3. TODO e-mail leva descadastro — quem monta isso é o cofre.
 // =====================================================================
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
@@ -35,7 +31,9 @@ const servidor = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
 );
 
-/* quem está chamando? O papel sai do banco. */
+const COFRE = Deno.env.get('COFRE_URL') ?? 'https://uopfqlogjzuqpabptxkb.supabase.co/functions/v1/cofre';
+const TOKEN = Deno.env.get('COFRE_TOKEN') ?? '';
+
 async function quemEh(req: Request) {
   const cab = req.headers.get('Authorization') ?? '';
   const { data, error } = await servidor.auth.getUser(cab.replace('Bearer ', ''));
@@ -46,121 +44,49 @@ async function quemEh(req: Request) {
   return { id: data.user.id, papel: p.papel, nome: p.nome };
 }
 
-function escapa(s: string) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-/* O corpo do e-mail. Sóbrio de propósito: e-mail enfeitado cai em promoções. */
-function montar(nome: string, titulo: string, texto: string, sairUrl: string) {
-  const primeiro = String(nome || '').split(' ')[0] || 'tudo bem';
-  return `<!doctype html><html lang="pt-BR"><body style="margin:0;background:#F1F5F7;
-    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#0E1F2D">
-    <div style="max-width:560px;margin:0 auto;padding:28px 22px">
-      <div style="font-size:13px;letter-spacing:.12em;text-transform:uppercase;
-        font-weight:800;color:#0B2A4A">Estação B12</div>
-      <h1 style="font-size:22px;line-height:1.25;margin:16px 0 12px;color:#0B2A4A">${escapa(titulo)}</h1>
-      <p style="font-size:16px;line-height:1.6;color:#3F5665;margin:0 0 18px">
-        Oi, ${escapa(primeiro)}!</p>
-      <p style="font-size:16px;line-height:1.6;color:#3F5665;margin:0 0 22px;
-        white-space:pre-line">${escapa(texto)}</p>
-      <a href="https://app.estacaob12.com.br" style="display:inline-block;background:#0B7A70;
-        color:#fff;text-decoration:none;font-weight:700;font-size:15px;
-        padding:13px 22px;border-radius:10px">Abrir o app da B12</a>
-      <p style="font-size:12.5px;color:#647E8E;line-height:1.5;margin:28px 0 0;
-        border-top:1px solid #D5E1E8;padding-top:16px">
-        Você recebe este e-mail porque viajou com a Estação B12 e aceitou receber novidades.
-        Ele é enviado pelo studio Ti Artes em nome da Estação B12.<br>
-        <a href="${sairUrl}" style="color:#647E8E">Não quero mais receber</a> ·
-        Av. Beira-Mar, 3433 · Pontal do Paraná – PR
-      </p>
-    </div></body></html>`;
-}
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
-
-  const url = new URL(req.url);
-
-  /* ---- descadastro: link do rodapé, sem login ---- */
-  const sair = url.searchParams.get('sair');
-  if (sair) {
-    await servidor.from('b12_clientes')
-      .update({ dados: { aceitaOfertas: false } })
-      .eq('id', sair);
-    /* o jsonb inteiro não pode ser trocado por um campo só: lê, muda, grava */
-    const { data: c } = await servidor.from('b12_clientes').select('dados').eq('id', sair).single();
-    if (c) {
-      const d = { ...(c.dados ?? {}), aceitaOfertas: false,
-                  saiuDasOfertasEm: new Date().toISOString() };
-      await servidor.from('b12_clientes').update({ dados: d }).eq('id', sair);
-    }
-    return new Response(
-      `<!doctype html><meta charset=utf8><body style="font-family:system-ui;padding:40px;
-       max-width:420px;margin:0 auto;color:#0E1F2D">
-       <h2 style="color:#0B2A4A">Pronto, você saiu da lista</h2>
-       <p style="color:#3F5665;line-height:1.6">Não vamos mais mandar novidades por e-mail.
-       Mensagens sobre uma viagem sua continuam chegando — essas não são propaganda.</p>
-       <p style="color:#647E8E;font-size:13px">Estação B12 · Pontal do Paraná</p></body>`,
-      { headers: { ...cors, 'Content-Type': 'text/html; charset=utf-8' } });
-  }
-
   if (req.method !== 'POST') return resposta({ erro: 'Use POST.' }, 405);
 
   const eu = await quemEh(req);
   if (!eu) return resposta({ erro: 'Entre na conta da B12 para mandar e-mail.' }, 401);
   if (eu.papel !== 'dono') return resposta({ erro: 'Só o proprietário manda e-mail.' }, 403);
-
-  const chave = Deno.env.get('RESEND_API_KEY');
-  const de = Deno.env.get('EMAIL_DE');
-  const responder = Deno.env.get('EMAIL_RESPONDER') ?? '';
-  if (!chave || !de) {
-    return resposta({ erro: 'O e-mail ainda não foi configurado. Falta RESEND_API_KEY ' +
-      'e EMAIL_DE no cofre do Supabase.' }, 400);
-  }
+  if (!TOKEN) return resposta({ erro: 'Falta COFRE_TOKEN no cofre deste projeto.' }, 500);
 
   const corpo = await req.json().catch(() => ({}));
   const titulo = String(corpo.titulo ?? '').slice(0, 90).trim();
-  const texto = String(corpo.texto ?? '').slice(0, 1200).trim();
+  const texto = String(corpo.texto ?? '').slice(0, 1500).trim();
   if (!titulo || !texto) return resposta({ erro: 'Escreva o assunto e a mensagem.' }, 400);
 
-  /* ---- a lista: só quem tem e-mail E aceitou ---- */
-  const { data: linhas } = await servidor.from('b12_clientes').select('id, dados');
-  const lista = (linhas ?? [])
-    .map((l: any) => ({ id: l.id, ...(l.dados ?? {}) }))
-    .filter((c: any) => c.email && String(c.email).includes('@') && c.aceitaOfertas);
+  let lista: { nome: string; email: string; id: string }[] = [];
 
-  const alvo = corpo.para === 'eu'
-    ? lista.slice(0, 1).map((c: any) => ({ ...c, email: corpo.meuEmail || c.email }))
-    : lista;
-
-  if (corpo.para === 'eu' && corpo.meuEmail) {
-    alvo.length = 0;
-    alvo.push({ id: 'teste', nome: eu.nome || 'você', email: corpo.meuEmail });
-  }
-  if (!alvo.length) {
-    return resposta({ erro: corpo.para === 'eu'
-      ? 'Informe o e-mail para o teste.'
-      : 'Ninguém na lista: é preciso ter clientes com e-mail que aceitaram receber.' }, 400);
-  }
-
-  const base = Deno.env.get('SUPABASE_URL')! + '/functions/v1/email?sair=';
-  let enviados = 0, falhas = 0;
-
-  for (const c of alvo) {
-    const r = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { Authorization: 'Bearer ' + chave, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from: de, to: [c.email], subject: titulo,
-        /* a resposta vai para a B12, não para quem hospeda o envio */
-        reply_to: responder || undefined,
-        html: montar(c.nome, titulo, texto, base + encodeURIComponent(c.id)),
-        headers: { 'List-Unsubscribe': '<' + base + encodeURIComponent(c.id) + '>' },
-      }),
-    }).catch(() => null);
-    if (r && r.ok) enviados++; else falhas++;
-    await new Promise((x) => setTimeout(x, 120));   /* o Resend limita por segundo */
+  if (corpo.para === 'eu') {
+    const meu = String(corpo.meuEmail ?? '').trim();
+    if (!meu.includes('@')) return resposta({ erro: 'Informe o e-mail para o teste.' }, 400);
+    lista = [{ nome: eu.nome ?? 'você', email: meu, id: 'teste' }];
+  } else {
+    /* a lista sai do banco, nunca do aparelho: assim ninguém manda
+       e-mail para quem não autorizou, mesmo mexendo no app */
+    const { data: linhas } = await servidor
+      .from('b12_clientes').select('id, dados').eq('apagado', false);
+    lista = (linhas ?? [])
+      .map((l: any) => ({ ...(l.dados ?? {}), id: l.id }))
+      .filter((c: any) => c.email && String(c.email).includes('@') && c.aceitaOfertas)
+      .map((c: any) => ({ nome: c.nome ?? '', email: c.email, id: c.id }));
+    if (!lista.length) {
+      return resposta({ erro: 'Ninguém na lista: é preciso ter cliente com e-mail ' +
+        'que aceitou receber novidades.' }, 400);
+    }
   }
 
-  return resposta({ ok: true, enviados, falhas, naLista: lista.length });
+  const r = await fetch(COFRE + '/email', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-cofre-token': TOKEN },
+    body: JSON.stringify({ titulo, texto, para: lista }),
+  }).catch(() => null);
+
+  if (!r) return resposta({ erro: 'Não consegui falar com o servidor de e-mail.' }, 502);
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || !j.ok) return resposta({ erro: j.erro ?? ('servidor de e-mail ' + r.status) }, 502);
+  return resposta({ ok: true, enviados: j.enviados, falhas: j.falhas, naLista: lista.length });
 });
