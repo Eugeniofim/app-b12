@@ -128,6 +128,70 @@ B12.telaSobre = function () {
       '<button type="button" class="btn pri" data-como-chegar>Como chegar até a B12</button></div>';
 };
 
+/* --------------------------------------------------- convite para o aviso
+   Até 12/10/2026 só o painel chamava B12.avLigar(). Ou seja: o app sabia
+   mandar aviso e ninguém do lado de fora podia assinar — o push tinha
+   público zero por construção.
+
+   Este cartão é a porta do turista. Regras:
+   - some quando o aparelho não sabe receber, quando a pessoa já ligou, e
+     quando ela já disse não (volta em 30 dias);
+   - no iPhone, aviso só existe com o app instalado na tela de início: lá o
+     cartão troca de texto e manda instalar primeiro, em vez de prometer uma
+     coisa que não vai acontecer. */
+var CHAVE_ADIAR = 'b12_aviso_depois';
+
+B12.conviteAviso = function () {
+  var cx = document.getElementById('avisar-convite');
+  if (!cx || !B12.avEstado) return;
+  var e = B12.avEstado();
+
+  var quando = 0;
+  try { quando = +localStorage.getItem(CHAVE_ADIAR) || 0; } catch (err) {}
+  if (quando && Date.now() < quando) { cx.hidden = true; return; }
+
+  /* já ligado, navegador sem suporte, bloqueado no aparelho ou nuvem fora:
+     não existe cartão nenhum a mostrar */
+  if (e.ligado || e.negado || e.semNuvem || (!e.pode && !e.precisaInstalar)) {
+    cx.hidden = true; return;
+  }
+
+  var sub = document.getElementById('avisar-sub');
+  var bt = document.getElementById('avisar-btn');
+  if (e.precisaInstalar) {
+    /* o convite de instalar, logo acima, já ensina o caminho */
+    if (!B12.avInstalado()) { cx.hidden = true; return; }
+  }
+  if (sub) sub.textContent = 'Previsão do fim de semana, ondas boas para surfar e ' +
+    'novidade na Ilha — direto no seu celular.';
+  if (bt) bt.textContent = 'Quero';
+  cx.hidden = false;
+};
+
+B12.ligarConviteAviso = function () {
+  var bt = document.getElementById('avisar-btn');
+  var x = document.getElementById('avisar-x');
+  if (!bt || bt.dataset.ligado) return;
+  bt.dataset.ligado = '1';
+
+  bt.onclick = function () {
+    bt.disabled = true; bt.textContent = '…';
+    B12.avLigar({ papel: 'turista' }).then(function (r) {
+      bt.disabled = false; bt.textContent = 'Quero';
+      if (r && r.erro) return B12.aviso(r.erro, 'ruim');
+      document.getElementById('avisar-convite').hidden = true;
+      B12.aviso('Pronto. A gente avisa quando tiver novidade.', 'bom');
+    }).catch(function () {
+      bt.disabled = false; bt.textContent = 'Quero';
+      B12.aviso('Não consegui ligar agora. Tente de novo com internet.', 'ruim');
+    });
+  };
+  if (x) x.onclick = function () {
+    try { localStorage.setItem(CHAVE_ADIAR, Date.now() + 30 * 86400000); } catch (err) {}
+    document.getElementById('avisar-convite').hidden = true;
+  };
+};
+
 /* ------------------------------------------------------------ avaliações
    A B12 tem 4,9 com 242 avaliações no Google e isso não aparecia em lugar
    nenhum do app — era a prova social mais forte que existe, atrás de um link

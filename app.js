@@ -311,6 +311,8 @@ function comecar() {
   B12.pintarPasseios();
   B12.montarFormulario();
   B12.pintarNotaGoogle();
+  B12.ligarConviteAviso();
+  B12.conviteAviso();
 
   B12.pintarIlha();
 

@@ -448,6 +448,11 @@ body.adm .navb{color:var(--gelo-3)}
 body.adm .navb.on{color:var(--turq-300)}
 .navb.on svg{transform:translateY(-2px)}
 
+/* o convite do aviso usa o molde do convite de instalar, em outro tom:
+   turquesa, para não parecer o mesmo cartão duas vezes seguidas */
+.aviso-convite{background:linear-gradient(135deg,#0A5A54,var(--turq-600));animation-delay:.5s}
+.aviso-convite .instalar-ico svg{stroke:#BFF3EC;fill:none;stroke-width:1.9}
+
 /* --------------------------------------------------------- avaliações
    A nota grande primeiro: 4,9 é o argumento, e ele tem que caber num olhar. */
 .nota-google{display:flex;align-items:center;gap:16px}
