@@ -1,14 +1,16 @@
 # =====================================================================
 # Estação B12 — o despertador do banco
 #
-# O Supabase no plano grátis PAUSA o projeto depois de 7 dias sem uso.
-# Quando isso acontece, o app continua abrindo (ele guarda no celular),
-# mas nada da nuvem funciona: aviso no celular, login da equipe e
-# sincronia param — e ninguém percebe. Aconteceu em 06/10/2026.
+# 12/10/2026: a B12 saiu do plano grátis e virou uma sala no projeto PAGO
+# do estúdio, que não pausa. Então este relógio deixou de ser despertador e
+# virou VIGIA: se o banco parar de responder por qualquer motivo, o GitHub
+# manda o aviso de falha e a gente descobre no mesmo dia, em vez de no dia
+# em que o Dhalsin ligar reclamando.
 #
-# Este relógio bate no banco de 3 em 3 dias, de fora, e o contador de
-# inatividade volta a zero. Roda no GitHub, não na máquina do Eugênio:
-# funciona com o laptop desligado.
+# Por que a mudança: o Supabase conta o limite de 2 projetos grátis POR
+# PESSOA, em toda organização onde ela é dona ou administradora. O Eugênio
+# entrou como administrador na organização da B12, já tinha os 2 ocupados, e
+# o projeto da B12 foi pausado — e não deixava nem retomar.
 #
 # A chave abaixo é a PUBLICÁVEL (anon), a mesma que já está no config.js
 # do repositório. Ela é pública de propósito e não abre nada: quem manda
@@ -28,8 +30,8 @@ jobs:
     steps:
       - name: Bater no banco da B12
         env:
-          URL: https://jvvniuzwltmbhhweaoqd.supabase.co
-          CHAVE: sb_publishable_xXWoJeyTEaH3qCEjtS3XWg_H_ml5WIx
+          URL: https://uopfqlogjzuqpabptxkb.supabase.co
+          CHAVE: sb_publishable_VKIdd2RNpMf3e4IEDprxJw_TOKPIHT2
         run: |
           set -u
           # tenta 3 vezes: um soluço de rede não pode virar alarme falso
@@ -49,6 +51,6 @@ jobs:
           done
           echo "::error::O banco da B12 não respondeu 200 (último código: $codigo)."
           echo "Pode estar pausado, ou o projeto foi apagado. Abra:"
-          echo "https://supabase.com/dashboard/project/jvvniuzwltmbhhweaoqd"
+          echo "https://supabase.com/dashboard/project/uopfqlogjzuqpabptxkb"
           head -c 400 /tmp/resposta || true
           exit 1
