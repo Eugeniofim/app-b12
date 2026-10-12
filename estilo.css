@@ -1627,3 +1627,14 @@ body.adm .ca-total{border-top-color:var(--noite-risco);color:#fff}
   .tut-brilha{animation:none}
   .tut-balao{transition:opacity .2s}
 }
+
+/* ---------------------------------------------- foco visível, em tudo
+   Quem navega por teclado (e quem usa leitor de tela) precisa ver onde
+   está. O padrão do navegador some com nossos estilos, então devolvemos —
+   só no foco por teclado, para não aparecer anel ao tocar com o dedo. */
+:where(button, a, input, select, textarea, summary, [tabindex]):focus-visible{
+  outline:2px solid var(--turq-500);
+  outline-offset:2px;
+  border-radius:8px}
+body.adm :where(button, a, input, select, textarea, summary, [tabindex]):focus-visible{
+  outline-color:var(--turq-400)}
