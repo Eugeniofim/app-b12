@@ -15,6 +15,10 @@ var atual = 'inicio';
 
 B12.ir = function (nome) {
   if (nome === 'mais') return abrirMais();
+  /* "painel" nao e tela: e a porta. Dono cai no painel, equipe na operacao, e
+     quem ainda nao entrou ve o PIN uma vez so. */
+  if (nome === 'painel')
+    return B12.portao('equipe', function (papel) { B12.ir(papel === 'dono' ? 'adm' : 'equipe'); });
   if (TELAS.indexOf(nome) < 0) nome = 'inicio';
   if (nome === 'passeio' && !B12.passeioAtual) nome = 'passeios';
   var hashAlvo = nome === 'passeio' ? '/passeio/' + B12.passeioAtual : '/' + nome;
@@ -57,9 +61,13 @@ function folhaAberta() { return document.querySelector('.folha, .portao'); }
 new MutationObserver(function (muts) {
   muts.forEach(function (m) {
     Array.prototype.forEach.call(m.addedNodes, function (n) {
-      if (n.nodeType === 1 && (n.classList.contains('folha') || n.classList.contains('portao')) &&
-          !(history.state && history.state.folha))
-        history.pushState({ folha: 1 }, '', location.href);
+      if (n.nodeType === 1 && (n.classList.contains('folha') || n.classList.contains('portao'))) {
+        /* O balão do tutorial fica acima da folha (z-index 120 contra 90) e
+           tapava o rodapé do formulário. Abriu formulário, a aula espera. */
+        if (B12.tutFechar) B12.tutFechar();
+        if (!(history.state && history.state.folha))
+          history.pushState({ folha: 1 }, '', location.href);
+      }
     });
     Array.prototype.forEach.call(m.removedNodes, function (n) {
       if (n.nodeType === 1 && (n.classList.contains('folha') || n.classList.contains('portao')) &&
@@ -79,6 +87,12 @@ window.addEventListener('popstate', function () {
 
 function pintar(nome) {
   if (B12.iaBolhaFlutuante) B12.iaBolhaFlutuante();   /* vale para todo caminho, inclusive o atalho */
+  /* o turista nunca ve "Painel": o botao so existe depois do PIN */
+  var np = document.getElementById('n-painel');
+  if (np) {
+    np.hidden = !B12.pode('equipe');
+    np.classList.toggle('on', nome === 'adm' || nome === 'equipe');
+  }
   if (nome === 'passeio')  B12.pintarPasseio(B12.passeioAtual);
   if (nome === 'ilha')     B12.pintarIlha();
   if (nome === 'reservas') B12.pintarReservas();
@@ -130,6 +144,8 @@ function abrirMais() {
     '<div style="width:38px;height:4px;border-radius:99px;background:var(--risco);margin:0 auto 16px"></div>' +
     '<h3 style="font-size:17px;margin-bottom:3px">Mais</h3>' +
     '<p style="font-size:13px;color:var(--tinta-2);margin-bottom:14px">Estação B12 · Pontal do Paraná</p>' +
+    item('reservas','Minhas reservas','Seu ticket, o código e o horário da volta') +
+    item('recuperar','Já reservei pelo WhatsApp','Trazer a reserva para este celular') +
     item('b12','Área da B12','Equipe e proprietário · acesso com PIN') +
     '<button class="btn sec" id="b-fechar-mais">Fechar</button></div>';
   document.body.appendChild(q);

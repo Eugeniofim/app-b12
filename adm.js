@@ -196,8 +196,9 @@ function grafRosca(alvo, fatias) {
 var GRUPOS = [
   { id:'hoje',      nome:'Hoje',      sub:[['hoje','O dia'], ['volta','Quem volta']] },
   { id:'balcao',    nome:'Cadastro',  sub:[['balcao','Cadastro']] },
-  { id:'travessia', nome:'Travessia', sub:[['escala','Horários'], ['ilha','Na Ilha'],
-                                           ['marinheiros','Marinheiros'], ['patio','Pátio']] },
+  { id:'travessia', nome:'Travessia', sub:[['reservas','Reservas'], ['escala','Horários'],
+                                           ['ilha','Na Ilha'], ['marinheiros','Marinheiros'],
+                                           ['patio','Pátio']] },
   { id:'clientes',  nome:'Clientes',  sub:[['clientes','Fichas'], ['msgs','Mensagens'],
                                            ['prosp','Prospecção', 'dono']] },
   /* Avisos era sub-aba de Clientes e o Eugênio não achou em dois dias.
@@ -216,7 +217,7 @@ var PAGINAS = { hoje:pHoje, volta:pVolta, painel:pPainel, caixa:pCaixa, lanc:pLa
   contas:pContas, relat:pRelat, oper:pOper, prosp:pProsp, intel:pIntel,
   clientes:pClientes, patio:pPatio, manut:pManut, gestao:pGestao, escala:pEscala,
   msgs:pMsgs, dados:pDados, precos:pPrecos, ia:pIA, ilha:pNaIlha, balcao:pBalcao,
-  marinheiros:pMarinheiros, avisos:pAvisos, sobre:pSobre };
+  marinheiros:pMarinheiros, avisos:pAvisos, sobre:pSobre, reservas:pReservas };
 
 /* Grupos e sub-abas que este papel pode ver. Nunca confie na tela: quem pedir
    uma página fechada cai no primeiro grupo que ele pode abrir. */
@@ -2267,6 +2268,113 @@ function contasAbertasBloco() {
         B12.brl(c.total) + '</button></div>'; }).join('') + '</div>';
 }
 
+/* ===================================================== RESERVAS
+   O Eugênio tirou o ícone "Reservas" da barra do turista e mandou ele para
+   cá: a lista de quem reservou é do dono, não do cliente. Esta aba é a única
+   tela do app onde TODAS as reservas aparecem juntas — as que chegaram pelo
+   app, as que o balcão escreveu e as que vieram pelo WhatsApp e foram
+   recuperadas. A primeira fatia é sempre "para confirmar", porque é a única
+   que depende de alguém fazer alguma coisa. */
+var resFiltro = 'confirmar';
+
+function pReservas(raiz) {
+  var hoje = B12.hoje();
+  var vivas = B12.DB.reservas.filter(function (r) { return r.situacao !== 'cancelada'; });
+  var confirmar = vivas.filter(function (r) { return r.situacao === 'pedida'; })
+    .sort(function (a, b) { return String(b.criada || '').localeCompare(String(a.criada || '')); });
+  var deHoje = vivas.filter(function (r) { return r.ida === hoje; });
+  var proximas = vivas.filter(function (r) { return r.ida > hoje; })
+    .sort(function (a, b) { return String(a.ida).localeCompare(String(b.ida)); });
+  var todas = B12.DB.reservas.slice()
+    .sort(function (a, b) { return String(b.ida).localeCompare(String(a.ida)); });
+
+  var ABAS = [
+    { id:'confirmar', nome:'Para confirmar', lista:confirmar,
+      vazio:'Nenhuma reserva esperando resposta. Tudo em dia.' },
+    { id:'hoje',      nome:'Chegam hoje',    lista:deHoje,
+      vazio:'Ninguém marcado para chegar hoje.' },
+    { id:'proximas',  nome:'Próximas',       lista:proximas,
+      vazio:'Nenhuma reserva para os próximos dias.' },
+    { id:'todas',     nome:'Todas',          lista:todas,
+      vazio:'Nenhuma reserva ainda. A primeira aparece aqui assim que alguém reservar pelo app.' },
+  ];
+  var atual = ABAS.filter(function (a) { return a.id === resFiltro; })[0] || ABAS[0];
+
+  function deOnde(r) {
+    return r.origem === 'balcao' ? 'balcão'
+         : r.recuperada ? 'WhatsApp'
+         : r.origem === 'app' ? 'pelo app' : 'painel';
+  }
+  function selo(r) {
+    if (r.situacao === 'cancelada') return '<span class="pend">cancelada</span>';
+    if (r.situacao === 'pedida')    return '<span class="pend">esperando você confirmar</span>';
+    if (r.situacao === 'concluída') return '<span>concluída</span>';
+    return '<span>confirmada</span>';
+  }
+  function linha(r) {
+    return '<button type="button" class="pes pes-bt" data-res="' + r.id + '">' +
+      '<div class="pes-cima"><div><b>' + esc(r.nome || 'sem nome') + '</b>' +
+        '<span class="pes-cod">' + esc(r.cod || '') + '</span></div>' +
+        (r.zap ? '<span class="pes-zap" data-zap="' + esc(r.zap) + '" data-nome="' + esc(r.nome || '') +
+          '" data-cod="' + esc(r.cod || '') + '" role="button" tabindex="0" ' +
+          'aria-label="WhatsApp de ' + esc(r.nome || '') + '">WhatsApp</span>' : '') +
+      '</div>' +
+      '<div class="pes-baixo">' +
+        '<span>' + (r.pax || 1) + ((r.pax || 1) > 1 ? ' pessoas' : ' pessoa') + '</span>' +
+        '<span>chega ' + (r.ida === hoje ? 'hoje' : B12.dataBR(r.ida)) +
+          (r.horaChegada ? ' às ' + r.horaChegada.replace(':', 'h') : '') + '</span>' +
+        (r.volta ? '<span>volta ' + B12.dataBR(r.volta) + '</span>'
+                 : '<span class="pend">sem data de volta</span>') +
+        (r.placa ? '<span>' + esc(r.placa) + '</span>' : '') +
+        '<span>' + deOnde(r) + '</span>' +
+        selo(r) +
+      '</div></button>';
+  }
+
+  raiz.appendChild(bloco(
+    '<div class="placar entra">' +
+      tile(confirmar.length, 'Para confirmar', 'n', confirmar.length ? 'alerta' : '') +
+      tile(deHoje.length, 'Chegam hoje', 'n', 'destaque') +
+      tile(proximas.length, 'Próximas', 'n') +
+      tile(vivas.length, 'No total', 'n') +
+    '</div>' +
+    (confirmar.length
+      ? '<div class="cx aviso entra entra-1"><h3>' + confirmar.length + ' reserva' +
+        (confirmar.length > 1 ? 's esperando' : ' esperando') + ' a sua resposta</h3>' +
+        '<p>Toque na reserva para ver a ficha inteira e confirmar. Enquanto você não ' +
+        'confirma, a pessoa não tem horário de saída.</p></div>'
+      : '') +
+    '<div class="cx entra entra-1"><div class="chips" id="res-filtros">' +
+      ABAS.map(function (a) {
+        return '<button type="button" class="chip' + (a.id === atual.id ? ' on' : '') +
+          '" data-resf="' + a.id + '">' + a.nome + ' · ' + a.lista.length + '</button>';
+      }).join('') + '</div></div>' +
+    (atual.lista.length
+      ? '<div class="pessoas">' + atual.lista.map(linha).join('') + '</div>'
+      : '<div class="cx" style="margin-top:0"><p>' + atual.vazio + '</p></div>')
+  ));
+
+  raiz.querySelectorAll('[data-resf]').forEach(function (b) {
+    b.onclick = function () { resFiltro = b.dataset.resf; B12.admDesenhar('reservas'); };
+  });
+  raiz.querySelectorAll('[data-res]').forEach(function (b) {
+    b.onclick = function (ev) {
+      /* o WhatsApp mora dentro do botão da linha: o clique dele não pode
+         abrir a ficha junto */
+      var z = ev.target.closest('[data-zap]');
+      if (z) {
+        ev.preventDefault();
+        var txt = 'Olá, ' + String(z.dataset.nome || '').split(' ')[0] + '! Aqui é a Estação B12, ' +
+          'sobre a sua reserva ' + z.dataset.cod + '.';
+        window.open('https://wa.me/' + z.dataset.zap + '?text=' + encodeURIComponent(txt), '_blank');
+        return;
+      }
+      B12.fichaReserva(b.dataset.res, function () { B12.admDesenhar('reservas'); });
+    };
+  });
+}
+
+
 function pNaIlha(raiz) {
   var d = B12.naIlha(), E = B12.EMPRESA;
 
@@ -2916,8 +3024,70 @@ function pSobre(raiz) {
             '<div class="d"><b>' + esc(x.t) + '</b><small>' + esc(x.d) + '</small></div>' +
             '<button type="button" class="mini-btn" data-ponto-fora="' + i + '">Tirar</button></div>';
         }).join('') + '</div>'
-      : '<div class="cx" style="margin-top:0"><p>Nenhum destaque. Toque em “+ Novo”.</p></div>')
+      : '<div class="cx" style="margin-top:0"><p>Nenhum destaque. Toque em “+ Novo”.</p></div>') +
+
+    listaFrases('missao', 'Nossa missão', 'O que a B12 faz todo dia', S.missao) +
+    listaFrases('visao',  'Nossa visão',  'Onde a B12 quer chegar',   S.visao)
   ));
+
+  /* Missao e visao sao duas listas iguais, entao um molde so para as duas:
+     duplicar isto seria duplicar tambem o proximo conserto. */
+  function listaFrases(campo, titulo, sub, arr) {
+    return '<div class="faixa-sec"><div class="tit"><h2>' + titulo + '</h2>' +
+      '<button class="mini-btn" data-frase-nova="' + campo + '">+ Nova</button></div>' +
+      '<p style="font-size:12.5px;color:var(--gelo-3);padding-bottom:8px">' + sub +
+      ' · o cliente lê em “Quem somos nós”.</p></div>' +
+      ((arr || []).length
+        ? '<div class="lista">' + arr.map(function (f, i) {
+            return '<div class="linha" data-frase="' + campo + ':' + i + '">' +
+              '<div class="d"><b style="font-weight:600">' + esc(f) + '</b></div>' +
+              '<button type="button" class="mini-btn" data-frase-fora="' + campo + ':' + i + '">Tirar</button></div>';
+          }).join('') + '</div>'
+        : '<div class="cx" style="margin-top:0"><p>Nada escrito ainda. Toque em “+ Nova”.</p></div>');
+  }
+
+  raiz.querySelectorAll('[data-frase-nova]').forEach(function (b) {
+    b.onclick = function () { editarFrase(b.dataset.fraseNova, null); };
+  });
+  raiz.querySelectorAll('[data-frase]').forEach(function (el) {
+    el.onclick = function (ev) {
+      if (ev.target.closest('[data-frase-fora]')) return;
+      var q = el.dataset.frase.split(':');
+      editarFrase(q[0], +q[1]);
+    };
+  });
+  raiz.querySelectorAll('[data-frase-fora]').forEach(function (b) {
+    b.onclick = function (ev) {
+      ev.stopPropagation();
+      var q = b.dataset.fraseFora.split(':'), campo = q[0], i = +q[1];
+      if (!confirm('Tirar “' + S[campo][i] + '”?')) return;
+      S[campo].splice(i, 1); A.sobre = S; B12.salvar(); re();
+    };
+  });
+
+  function editarFrase(campo, i) {
+    var atual = (i == null) ? '' : S[campo][i];
+    B12.folha({
+      titulo: i == null ? 'Nova frase' : 'Editar frase',
+      sub: campo === 'missao' ? 'Nossa missão' : 'Nossa visão',
+      corpo: B12.f_campo('Frase', 'f', { valor: atual, max: 120, obrig: true,
+        dica: campo === 'missao' ? 'Transportar passageiros com segurança e responsabilidade.'
+                                 : 'Ser uma referência em travessias para a Ilha do Mel.' }),
+      extra: i == null ? '' : '<button type="button" class="btn sec" id="b-frase-apagar">Apagar</button>',
+      aoSalvar: function (d) {
+        var t = String(d.f || '').trim();
+        if (!t) return { erro: 'Escreva a frase.', campo: 'f' };
+        if (!Array.isArray(S[campo])) S[campo] = [];
+        if (i == null) S[campo].push(t); else S[campo][i] = t;
+        A.sobre = S; B12.salvar(); re();
+        return { ok: true };
+      }
+    });
+    var ap = document.getElementById('b-frase-apagar');
+    if (ap) ap.onclick = function () {
+      S[campo].splice(i, 1); A.sobre = S; B12.salvar(); B12.fecharFolha(); re();
+    };
+  }
 
   raiz.querySelector('#b-sobre-texto').onclick = function () {
     B12.folha({

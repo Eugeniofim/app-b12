@@ -42,6 +42,7 @@
     travessia: {
       titulo: 'A operação da lancha',
       passos: [
+        { t: 'Reservas: tudo que foi reservado, num lugar só. A primeira fatia é “para confirmar” — é o que depende de você.', a: '[data-aba=reservas]' },
         { t: 'Horários: é onde você monta as saídas e as voltas do dia. Horário que já tem gente marcada não some sem aviso.', a: '[data-aba=escala]' },
         { t: 'Na Ilha: quem está lá agora, há quantos dias, e quem ainda não marcou a volta.', a: '[data-aba=ilha]' },
         { t: 'Marinheiros: a ficha de quem pilota. O app avisa trinta dias antes da habilitação vencer, e manda a escala no WhatsApp dele.', a: '[data-aba=marinheiros]' },

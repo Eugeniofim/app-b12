@@ -104,6 +104,14 @@ B12.telaSobre = function () {
   var E = B12.EMPRESA;
   var t = document.getElementById('sobre-tit');
   if (t) t.textContent = S.titulo || 'Quem somos';
+  /* Missao e visao sao listas de frases curtas. Marcador discreto, nunca
+     numero: numero diz "ordem", e aqui nenhuma frase vem antes da outra. */
+  function listaFrases(titulo, arr) {
+    if (!arr || !arr.length) return '';
+    return '<div class="cx entra entra-2"><h3>' + titulo + '</h3>' +
+      '<ul class="frases">' + arr.map(function (f) {
+        return '<li>' + escT(f) + '</li>'; }).join('') + '</ul></div>';
+  }
   document.getElementById('sobre-corpo').innerHTML =
     '<div class="cx entra" style="margin-top:12px">' +
       '<p style="color:var(--tinta-2);line-height:1.6">' + escT(S.texto) + '</p></div>' +
@@ -113,10 +121,11 @@ B12.telaSobre = function () {
             '<div class="d"><b>' + escT(x.t) + '</b><small>' + escT(x.d) + '</small></div></div>';
         }).join('') + '</div>'
       : '') +
+    listaFrases('Nossa missão', S.missao) +
+    listaFrases('Nossa visão', S.visao) +
     '<div class="cx entra entra-2"><h3>Onde estamos</h3>' +
       '<p style="color:var(--tinta-2)">' + escT(E.endereco) + '<br>CEP ' + escT(E.cep) + '</p>' +
-      '<a class="btn pri" href="https://www.google.com/maps/search/?api=1&query=' +
-      E.lat + '%2C' + E.lon + '" target="_blank" rel="noopener">Traçar rota até a B12</a></div>';
+      '<button type="button" class="btn pri" data-como-chegar>Como chegar até a B12</button></div>';
 };
 
 /* ---------------------------------------------------------------- ondas
@@ -409,7 +418,7 @@ B12.pintarIlha = function () {
     sec('Como chegar') +
     '<div class="cx" style="margin-top:0"><p style="color:var(--tinta)">' + B12.EMPRESA.endereco + '</p>' +
       '<p style="font-size:12.5px;color:var(--tinta-3);margin-top:4px">Estacionamento na própria B12. A travessia sai do trapiche.</p>' +
-      '<a class="btn sec" href="https://www.google.com/maps/search/?api=1&query=' + B12.EMPRESA.lat + '%2C' + B12.EMPRESA.lon + '" target="_blank" rel="noopener">Traçar rota</a></div>' +
+      '<button type="button" class="btn sec" data-como-chegar>Como chegar até a B12</button></div>' +
     creditosRodape();
 };
 
@@ -429,6 +438,43 @@ B12.abrirLugar = function (id) {
     aoSalvar: function () { return {}; },
     depois: function () { if (l.passeio) B12.abrirPasseio(l.passeio); }
   });
+};
+
+/* ----------------------------------------------------------- como chegar
+   "Tracar rota" abria o Google Maps so com o pino no lugar — quem esta na
+   estrada ainda tinha que apertar "rotas". Agora abre ja navegando, e quem
+   usa Waze (a maioria na BR-277) nao precisa copiar endereco na mao. */
+B12.rotaMaps = function () {
+  return 'https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=' +
+    B12.EMPRESA.lat + '%2C' + B12.EMPRESA.lon;
+};
+B12.rotaWaze = function () {
+  return 'https://waze.com/ul?ll=' + B12.EMPRESA.lat + '%2C' + B12.EMPRESA.lon + '&navigate=yes';
+};
+B12.comoChegar = function () {
+  var E = B12.EMPRESA;
+  B12.folha({
+    titulo: 'Como chegar até a B12', sub: E.endereco,
+    corpo:
+      '<p style="font-size:13px;color:var(--tinta-2);margin-top:10px">' +
+        'Escolha o seu aplicativo e a rota já abre navegando daqui até o nosso portão. ' +
+        'O estacionamento é na própria estação, e a travessia sai do trapiche.</p>' +
+      '<a class="btn pri" href="' + B12.rotaMaps() + '" target="_blank" rel="noopener" ' +
+        'style="margin-top:12px">Abrir no Google Maps</a>' +
+      '<a class="btn sec" href="' + B12.rotaWaze() + '" target="_blank" rel="noopener">Abrir no Waze</a>' +
+      '<div class="cx" style="margin-top:12px"><h3>Endereço</h3>' +
+        '<p style="color:var(--tinta-2)">' + escT(E.endereco) + '<br>CEP ' + escT(E.cep) + '</p>' +
+        '<button type="button" class="btn sec" id="b-copiar-end">Copiar o endereço</button></div>',
+    acao: 'Fechar', aoSalvar: function () { return {}; }
+  });
+  var b = document.getElementById('b-copiar-end');
+  if (b) b.onclick = function () {
+    var txt = E.nome + ' · ' + E.endereco + ' · CEP ' + E.cep;
+    if (navigator.clipboard && navigator.clipboard.writeText)
+      navigator.clipboard.writeText(txt).then(function () { B12.aviso('Endereço copiado.', 'bom'); },
+        function () { B12.aviso(txt); });
+    else B12.aviso(txt);
+  };
 };
 
 B12.abrirCreditos = function () {
@@ -451,6 +497,7 @@ document.addEventListener('click', function (e) {
   var l = e.target.closest('[data-lugar]');
   if (l) return B12.abrirLugar(l.dataset.lugar);
   if (e.target.closest('[data-creditos]')) return B12.abrirCreditos();
+  if (e.target.closest('[data-como-chegar]')) return B12.comoChegar();
 });
 
 /* -------------------------------------------------------------- travessia */
@@ -466,12 +513,54 @@ B12.selarListas = function () {
   });
 };
 
+/* "08h30" -> 510 minutos. A tabela e escrita do jeito que o Dhalsin fala, e
+   quem compara horario precisa de numero. */
+function emMinutos(txt) {
+  var m = String(txt || '').match(/(\d{1,2})\s*[h:]\s*(\d{0,2})/);
+  if (!m) return null;
+  return (+m[1]) * 60 + (+(m[2] || 0));
+}
+/* Em que faixa da tabela cai a hora que a pessoa digitou. Fora de todas elas,
+   'fora' — que no B12.preco quer dizer "sob consulta", sem preco automatico. */
+B12.faixaDaHora = function (hhmm) {
+  var T = B12.DB.ajustes.tabela, min = emMinutos(hhmm);
+  if (min == null) return 'fora';
+  var achou = 'fora';
+  ['dia', 'tarde', 'noite'].forEach(function (k) {
+    var de = emMinutos(T[k].de), ate = emMinutos(T[k].ate);
+    if (de == null || ate == null) return;
+    /* fim de uma faixa e comeco da outra sao o mesmo minuto (18h00): quem
+       chega aos 18h00 em ponto fica na faixa que COMECA ali, nao na que acaba */
+    if (achou === 'fora' && min >= de && min <= ate) achou = k;
+    if (min === de) achou = k;
+  });
+  return achou;
+};
+
+/* Guarda a faixa no campo escondido e conta em portugues o que vai acontecer.
+   defaultValue junto com value: campo escondido mexido por codigo fica "sujo"
+   para sempre e trava a sincronia deste aparelho (peca 11 da formula). */
+B12.lerHora = function () {
+  var h = document.getElementById('f-hhmm'), esc = document.getElementById('f-hora');
+  if (!h || !esc) return 'dia';
+  var faixa = B12.faixaDaHora(h.value);
+  esc.value = faixa; esc.defaultValue = faixa;
+  var aj = document.getElementById('ajuda-hora');
+  if (aj) {
+    var T = B12.DB.ajustes.tabela;
+    aj.innerHTML = !h.value
+      ? 'Escreva a hora que vocês pretendem chegar na estação.'
+      : (faixa === 'fora'
+          ? 'Fora do nosso horário de atendimento (' + T.dia.de + ' às ' + T.noite.ate +
+            '). Dá para atender assim mesmo — a B12 confirma com você pelo WhatsApp.'
+          : 'Chegada às <b>' + h.value.replace(':', 'h') + '</b> · faixa das ' +
+            T[faixa].de + ' às ' + T[faixa].ate + '.');
+  }
+  return faixa;
+};
+
 B12.montarFaixas = function () {
-  var sel = document.getElementById('f-hora'), T = B12.DB.ajustes.tabela, atual = sel.value;
-  sel.innerHTML = ['dia','tarde','noite'].map(function (k) {
-    return '<option value="' + k + '">Entre ' + T[k].de + ' e ' + T[k].ate + '</option>'; }).join('') +
-    '<option value="fora">Outro horário (sob consulta)</option>';
-  if (atual) sel.value = atual;
+  B12.lerHora();
   var vc = document.getElementById('v-cortesia');
   if (vc) vc.textContent = B12.DB.ajustes.idadeCortesia;
   document.querySelectorAll('.v-cortesia').forEach(function (e) { e.textContent = B12.DB.ajustes.idadeCortesia; });
@@ -489,9 +578,10 @@ B12.montarFormulario = function () {
   var primeira = B12.primeiraData();          /* a política da casa: 24 h de antecedência */
   i.value = primeira; i.defaultValue = primeira; i.min = primeira;
   document.getElementById('f-volta').min = primeira;
-  ['f-ida','f-volta','f-hora','f-pag','f-pousada'].forEach(function (id) {
+  ['f-ida','f-volta','f-hhmm','f-pag','f-pousada'].forEach(function (id) {
     document.getElementById(id).onchange = B12.calcular;
   });
+  document.getElementById('f-hhmm').oninput = B12.calcular;
   document.getElementById('b-pax-menos').onclick = function () { mexer('pax', -1); };
   document.getElementById('b-pax-mais').onclick  = function () { mexer('pax', 1); };
   document.getElementById('b-cri-menos').onclick = function () { mexerCriancas(-1); };
@@ -551,7 +641,10 @@ function aplicarIdades() {
   F.idades = postas.join(', ');
   F.cri = postas.filter(function (x) { return Number(x) <= lim; }).length;
   var esc = document.getElementById('f-idades');
-  if (esc) esc.value = F.idades;
+  /* defaultValue junto: este campo e um espelho do que o codigo calculou, nao
+     algo digitado. Sem isto ele fica "sujo" para sempre depois da primeira
+     reserva e o aparelho nunca mais sincroniza. */
+  if (esc) { esc.value = F.idades; esc.defaultValue = F.idades; }
 
   var aj = document.getElementById('ajuda-idades');
   if (aj) {
@@ -588,7 +681,7 @@ function mexer(campo, d) {
 }
 
 B12.calcular = function () {
-  var faixa = document.getElementById('f-hora').value;
+  var faixa = B12.lerHora();
   var ida = document.getElementById('f-ida').value, volta = document.getElementById('f-volta').value;
   var dd = B12.diarias(ida, volta), pg = document.getElementById('f-pag').value;
 
@@ -676,7 +769,8 @@ B12.reservar = function () {
   if (zap.replace(/\D/g, '').length < 10) return erroReserva('O WhatsApp parece incompleto. Use o DDD junto.', 'f-zap');
   if (!ida) return erroReserva('Escolha a data de chegada.', 'f-ida');
   if (!termos) return erroReserva('Para reservar, marque que leu e aceita os termos de uso.', 'f-termos');
-  var faixa = document.getElementById('f-hora').value;
+  var faixa = B12.lerHora();
+  var horaChegada = document.getElementById('f-hhmm').value || '';
   var dd = B12.diarias(ida, volta);
   var p = B12.preco({ produto:F.produto, pax:F.pax, criancas:F.cri, faixa:faixa,
     diarias: F.estac ? dd : 0, pg: document.getElementById('f-pag').value });
@@ -691,6 +785,7 @@ B12.reservar = function () {
     aceites: { termos: agora, ofertas: document.getElementById('f-ofertas').checked ? agora : null, versao: 'termos-v1' },
     destino: document.getElementById('f-destino').value,
     pousada: document.getElementById('f-pousada').value,
+    horaChegada: horaChegada,
     produto: F.produto === 'nautico' ? 'Serviço Náutico Premium' : 'Táxi Náutico',
     faixa: t ? t.de + ' às ' + t.ate : 'sob consulta',
     estacionamento: F.estac ? dd : 0,
@@ -704,7 +799,8 @@ B12.reservar = function () {
     'Pessoas: ' + r.pax + (r.idades ? ' (crianças: ' + r.idades + ')' : ''),
     'Chegada: ' + B12.dataBR(r.ida)];
   if (r.volta) linhas.push('Retorno: ' + B12.dataBR(r.volta));
-  linhas.push('Horário: ' + r.faixa, 'Destino: ' + r.destino, 'Pousada: ' + r.pousada,
+  linhas.push('Chegada prevista: ' + (r.horaChegada ? r.horaChegada.replace(':', 'h') : r.faixa),
+    'Destino: ' + r.destino, 'Pousada: ' + r.pousada,
     'Serviço: ' + r.produto);
   if (r.estacionamento) linhas.push('Estacionamento: sim, ' + r.estacionamento + ' diária(s)' +
     (r.placa ? ' · placa ' + r.placa : ''));

@@ -15,7 +15,7 @@ var B12 = window.B12 || {};
 /* ---------------------------------------------------------------- identidade */
 /* o cofre: o servidor da Ti Artes que guarda a chave da IA. Vazio = assistente
    desligado (o app continua funcionando igual, só sem o chat). */
-B12.VERSAO = 'b12-v1.77.1';   /* tem que bater com o CACHE do sw.js */
+B12.VERSAO = 'b12-v1.78.1';   /* tem que bater com o CACHE do sw.js */
 
 B12.IA = { cofre: 'https://uopfqlogjzuqpabptxkb.supabase.co/functions/v1/cofre',
            modelo: 'claude-haiku-4-5' };
@@ -158,6 +158,22 @@ B12.SOBRE = {
     { t: 'Embarcação própria', d: 'Lancha com 20 lugares, revisada e com toda a documentação em dia.' },
     { t: 'Marinheiros da casa', d: 'Quem pilota conhece a baía e é habilitado pela Marinha.' },
     { t: 'Estacionamento no local', d: 'Seu carro fica na estação enquanto você está na Ilha.' }
+  ],
+  /* Missão e visão vieram do Dhalsin (12/10/2026), palavra por palavra.
+     Editáveis em Estação → A empresa, como todo o resto desta tela. */
+  missao: [
+    'Transportar passageiros com segurança e responsabilidade.',
+    'Oferecer travessias rápidas e confortáveis.',
+    'Proporcionar experiências turísticas de qualidade.',
+    'Valorizar a natureza e as comunidades locais.',
+    'Construir relações de confiança com clientes e parceiros.'
+  ],
+  visao: [
+    'Ser uma referência em travessias para a Ilha do Mel.',
+    'Tornar-se reconhecida pela qualidade e confiabilidade dos serviços.',
+    'Ampliar a oferta de passeios e experiências turísticas.',
+    'Desenvolver parcerias com pousadas, restaurantes e outros negócios locais.',
+    'Crescer de forma organizada e sustentável.'
   ],
   rascunho: true        /* vira false quando o Dhalsin salvar o texto dele */
 };

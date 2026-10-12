@@ -809,7 +809,11 @@ B12.fichaReserva = function (id, depois) {
       linha('Nome', esc(r.nome)) +
       linha('Pessoas', r.pax + (r.pax > 1 ? ' pessoas' : ' pessoa') +
         (r.criancas ? ' · ' + r.criancas + ' criança' + (r.criancas > 1 ? 's' : '') : '')) +
-      linha('Ida', B12.dataBR(r.ida) + (r.faixa ? ' · ' + esc(r.faixa) : '')) +
+      /* a hora que a pessoa escreveu vale mais que a faixa de preco: e com ela
+         que o balcao sabe quem esperar as sete da noite */
+      linha('Ida', B12.dataBR(r.ida) +
+        (r.horaChegada ? ' · chega às ' + esc(String(r.horaChegada).replace(':', 'h'))
+                       : (r.faixa ? ' · ' + esc(r.faixa) : ''))) +
       linha('Volta', r.volta ? B12.dataBR(r.volta) : '<span class="pend">sem data</span>') +
       linha('Destino', esc(r.destino)) +
       linha('Pousada', esc(r.pousada)) +

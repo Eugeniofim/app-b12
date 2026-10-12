@@ -147,6 +147,10 @@ B12.carregar = function () {
   if (!Array.isArray(B12.DB.marinheiros)) B12.DB.marinheiros = B12.MARINHEIROS.slice();
   if (!Array.isArray(A.produtos) || !A.produtos.length) A.produtos = B12.PRODUTOS.slice();
   if (!A.sobre) A.sobre = JSON.parse(JSON.stringify(B12.SOBRE));
+  /* 12/10/2026: missão e visão. Quem já tinha o app ganha as duas listas sem
+     perder o texto nem os destaques que já estavam gravados. */
+  if (!Array.isArray(A.sobre.missao)) A.sobre.missao = B12.SOBRE.missao.slice();
+  if (!Array.isArray(A.sobre.visao))  A.sobre.visao  = B12.SOBRE.visao.slice();
   /* O modo demonstração enche a tela para apresentação. Quando o cliente
      começa a usar valendo, ele some e NUNCA volta — senão o Caixa mistura
      lançamento falso com dinheiro de verdade. Ver B12.sairDaDemo(). */

@@ -163,6 +163,10 @@ p{margin:0}
   -webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-top:2px}
 .qb div{width:100%;min-width:0}
 @media (max-width:359px){ .qb b{font-size:9px;letter-spacing:0} .qb{padding-inline:2px} }
+/* "CLUBE FIDELIDADE" nao cabe numa linha de 70px. So esta carta quebra, e so
+   no espaco entre as duas palavras — no meio da palavra continua proibido. */
+.qb.dupla b{white-space:normal;line-height:1.2;overflow-wrap:normal;hyphens:none}
+.qb.dupla span{-webkit-line-clamp:4}
 .qb.b{background:linear-gradient(160deg,#15719F,#0C4A72)}
 .qb.c{background:linear-gradient(160deg,#C08A2E,#8E5F16)}
 .qb.d{background:linear-gradient(160deg,var(--turq-600),#0A5A54)}
@@ -419,25 +423,29 @@ svg.graf{width:100%;height:auto;display:block;overflow:visible}
   background:rgba(255,255,255,.96);backdrop-filter:blur(14px);
   border-top:1px solid var(--risco);padding-bottom:env(safe-area-inset-bottom)}
 body.adm .rodape-nav{background:rgba(7,26,40,.96);border-top-color:var(--noite-risco)}
-.rodape-nav .in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr);
-  align-items:end}
+/* Dois ou tres botoes, nunca cinco: flex centrado em vez de colunas fixas,
+   senao o que sobrou fica espalhado com buraco no meio. */
+.rodape-nav .in{max-width:560px;margin:0 auto;display:flex;justify-content:center;
+  align-items:end;gap:6px}
+.navb[hidden]{display:none}
 .navb{background:0;border:0;padding:8px 2px 9px;display:flex;flex-direction:column;align-items:center;
-  gap:3px;color:var(--tinta-3);font-size:9.5px;font-weight:650;transition:color .2s}
+  gap:3px;color:var(--tinta-3);font-size:9.5px;font-weight:650;transition:color .2s;
+  flex:1 1 0;max-width:150px}
 body.adm .navb{color:var(--gelo-3)}
 .navb svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.7;
   stroke-linecap:round;stroke-linejoin:round;transition:transform .2s var(--curva)}
 .navb.on{color:var(--turq-600)}
 body.adm .navb.on{color:var(--turq-300)}
 .navb.on svg{transform:translateY(-2px)}
-.navb.meio .bolha{width:54px;height:54px;border-radius:50%;
-  background:linear-gradient(150deg,var(--turq-500),var(--turq-700));display:grid;place-items:center;
-  margin-top:-23px;border:3px solid var(--carta);animation:pulso 3.4s ease-in-out infinite;
-  transition:transform .2s var(--curva)}
-body.adm .navb.meio .bolha{border-color:var(--noite)}
-.navb.meio:active .bolha{transform:scale(.93)}
-.navb.meio .bolha svg{width:25px;height:25px;stroke:#fff;transform:none}
-.navb.meio span{color:var(--turq-600);font-weight:800;font-size:9px}
-body.adm .navb.meio span{color:var(--turq-300)}
+
+/* ----------------------------------------------- missão e visão (quem somos)
+   Marcador de traço, nao bolinha nem numero: sao frases soltas, de peso igual,
+   e numero faria o leitor procurar uma ordem que nao existe. */
+.frases{list-style:none;margin-top:8px;display:flex;flex-direction:column;gap:8px}
+.frases li{position:relative;padding-left:16px;color:var(--tinta-2);font-size:13.5px;line-height:1.5}
+.frases li::before{content:"";position:absolute;left:0;top:.62em;width:8px;height:2px;
+  border-radius:2px;background:var(--turq-500)}
+body.adm .frases li{color:var(--gelo-2)}
 
 /* ------------------------------------------------------------- cabeçalhos */
 .topo-tela{background:linear-gradient(160deg,var(--azul-800),var(--azul-700));color:#fff;
@@ -666,7 +674,6 @@ body:not(.adm) .semninguem{border-color:var(--risco);color:var(--tinta-3)}
   .navb{transition:color .2s,transform .2s}
   .navb:hover{color:var(--turq-600)}
   .navb:hover svg{transform:translateY(-3px)}
-  .navb.meio:hover .bolha{transform:scale(1.08) rotate(-6deg)}
   .mais-btn:hover{transform:scale(1.08) rotate(90deg);box-shadow:0 10px 28px rgba(14,140,128,.6)}
 
   .parceiros .parc{transition:transform .2s,box-shadow .2s,color .2s}
@@ -1043,6 +1050,14 @@ body:not(.adm) .ia-ele{background:var(--carta);color:var(--tinta);box-shadow:var
 .pes-baixo{display:flex;flex-wrap:wrap;gap:6px 10px;margin-top:9px}
 .pes-baixo span{font-size:11.5px;color:var(--gelo-3);line-height:1.35}
 .pes-baixo .pend{color:var(--atencao);font-weight:700}
+/* A linha da aba Reservas e um botao: abre a ficha. Herda a cara de .pes e
+   so desmancha o que o navegador poe em button. */
+button.pes-bt{width:100%;text-align:left;font:inherit;color:var(--gelo);cursor:pointer}
+button.pes-bt:active{transform:scale(.995)}
+.pes-zap{background:#0F3B33;border:1px solid var(--turq-700);color:var(--turq-300);
+  border-radius:99px;padding:7px 12px;font-size:11.5px;font-weight:700;flex:none;
+  min-height:38px;display:inline-flex;align-items:center}
+@media (pointer:coarse){ .pes-zap{min-height:44px} }
 .pes-alerta{margin-top:9px;font-size:11.5px;font-weight:700;color:#F0A99E;
   background:#3A1B18;border-radius:8px;padding:7px 9px}
 .cons{display:flex;gap:6px;flex:none}
