@@ -49,8 +49,11 @@ function bancoFalso() {
 }
 
 /* ------------------------------------------------------------- um aparelho */
-function aparelho(banco, papel) {
-  const guardado = {};
+function aparelho(banco, papel, memoria, url) {
+  /* memoria: o localStorage de um aparelho que já existia (para simular o
+     mesmo celular reabrindo o app). url: o endereço da nuvem — é o que muda
+     quando o cliente troca de banco. */
+  const guardado = memoria || {};
   const janela = {
     localStorage: {
       getItem: k => (k in guardado ? guardado[k] : null),
@@ -70,7 +73,7 @@ function aparelho(banco, papel) {
     DB: { reservas: [], clientes: [], saidas: [], patio: [],
           lancamentos: [], contas: [], manutencoes: [], marinheiros: [],
           ajustes: { regular: 60 } },
-    NUVEM: { url: 'http://banco', chave: 'k', ligada: true },
+    NUVEM: { url: url || 'http://banco', chave: 'k', ligada: true },
     nuvLogado: () => true,
     nuvQuem: () => ({ papel: papel || 'dono', email: 'x@y', id: 'u1' }),
     nuvToken: () => 't',
@@ -82,6 +85,7 @@ function aparelho(banco, papel) {
   };
   const ctx = vm.createContext(janela);
   vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'sincronia.js'), 'utf8'), ctx);
+  janela.B12.__memoria = guardado;
   return janela.B12;
 }
 
@@ -201,6 +205,46 @@ const espera = ms => new Promise(r => setTimeout(r, ms));
     eh('mas o lançamento DE VERDADE subiu',
        !!(banco.linhas.b12_lancamentos && banco.linhas.b12_lancamentos['ln-v1']),
        'o filtro não pode engolir dado real');
+  }
+
+  console.log('\n— a nuvem mudou de endereço —');
+  {
+    /* 12/10/2026: a B12 saiu do Supabase do Dhalsin e virou sala no do
+       estúdio. A SOMBRA do aparelho dizia "o banco já tem isto" falando do
+       banco VELHO. Sem esquecer essa memória, o celular pergunta ao banco
+       novo (vazio), não recebe nada, acha tudo igual à SOMBRA e NÃO SOBE
+       NADA — a nuvem fica vazia e ninguém vê erro nenhum. */
+    const velho = bancoFalso();
+    const A = aparelho(velho, 'dono');
+    A.DB.reservas.push({ id: 'rs-mudanca', nome: 'Dhalsin', pax: 3 });
+    A.DB.clientes.push({ id: 'cl-mudanca', nome: 'Cliente antigo' });
+    await A.sincAoAbrir();
+    await espera(900);
+    eh('subiu para o banco antigo',
+       !!(velho.linhas.b12_reservas && velho.linhas.b12_reservas['rs-mudanca']));
+
+    const memoria = A.__memoria;
+    eh('e guardou qual era a casa', !!memoria.b12_casa);
+
+    /* o MESMO aparelho (mesma memória), agora apontando para outro banco */
+    const novoBanco = bancoFalso();
+    const B = aparelho(novoBanco, 'dono', memoria, 'http://banco-novo');
+    B.DB.reservas.push({ id: 'rs-mudanca', nome: 'Dhalsin', pax: 3 });
+    B.DB.clientes.push({ id: 'cl-mudanca', nome: 'Cliente antigo' });
+    await B.sincAoAbrir();
+    await espera(900);
+    eh('sobe tudo de novo para a casa nova',
+       !!(novoBanco.linhas.b12_reservas && novoBanco.linhas.b12_reservas['rs-mudanca']),
+       'a sombra velha engoliu a primeira subida');
+    eh('inclusive os clientes',
+       !!(novoBanco.linhas.b12_clientes && novoBanco.linhas.b12_clientes['cl-mudanca']));
+    eh('e nada do aparelho foi apagado pela nuvem vazia',
+       B.DB.reservas.length === 1 && B.DB.clientes.length === 1);
+
+    /* reabrir no MESMO endereço não pode zerar nada */
+    const C = aparelho(novoBanco, 'dono', B.__memoria, 'http://banco-novo');
+    eh('reabrir na mesma casa mantém a memória',
+       JSON.parse(C.__memoria.b12_emdia || 'false') === true);
   }
 
   console.log('\n— sem internet —');

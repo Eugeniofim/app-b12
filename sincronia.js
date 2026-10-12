@@ -40,7 +40,37 @@
   var COLECOES = Object.keys(MAPA);
 
   var K_SOMBRA = 'b12_sombra', K_FILA = 'b12_fila',
-      K_MARCA = 'b12_marca',   K_EMDIA = 'b12_emdia';
+      K_MARCA = 'b12_marca',   K_EMDIA = 'b12_emdia',
+      K_CASA  = 'b12_casa';
+
+  /* ======================================================= TROCOU DE BANCO
+     Pago com susto em 12/10/2026, antes de morder alguém: a B12 mudou de
+     endereço de nuvem, e a SOMBRA deste aparelho — que guarda "isto o banco
+     já tem" — continuava falando do banco ANTIGO.
+
+     O estrago seria silencioso e completo: o aparelho pergunta ao banco novo
+     (vazio), não recebe nada, então não apaga nada; depois compara o que tem
+     com a SOMBRA, acha tudo igual, e NÃO SOBE NADA. Resultado: o app diz
+     "sincronizado" e a nuvem continua vazia. Sem erro na tela, sem log.
+
+     Então o endereço do banco anda junto com a SOMBRA. Mudou o endereço, a
+     memória de sincronia é esquecida inteira: o aparelho recomeça do zero e
+     sobe tudo de novo. Os dados ficam onde sempre estiveram — no aparelho. */
+  (function trocouDeCasa() {
+    try {
+      var agora = (B12.NUVEM && B12.NUVEM.url) || '';
+      var antes = localStorage.getItem(K_CASA);
+      if (!agora) return;
+      if (antes === agora) return;
+      if (antes) {
+        [K_SOMBRA, K_FILA, K_MARCA, K_EMDIA].forEach(function (k) {
+          try { localStorage.removeItem(k); } catch (e) {}
+        });
+        console.warn('B12: a nuvem mudou de endereço. A sincronia recomeça do zero.');
+      }
+      localStorage.setItem(K_CASA, agora);
+    } catch (e) {}
+  })();
 
   var SOMBRA = ler(K_SOMBRA, {});     /* o que este aparelho sabe que já subiu */
   var FILA   = ler(K_FILA, []);       /* o que ainda não subiu */
