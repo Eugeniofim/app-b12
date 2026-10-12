@@ -1582,3 +1582,48 @@ body.adm .ca-total{border-top-color:var(--noite-risco);color:#fff}
 .canal small{display:block;font-size:11.5px;color:var(--gelo-3);margin-top:2px}
 .canal.on{border-color:var(--turq-500);background:rgba(20,169,154,.12)}
 .canal.on b{color:#fff}
+
+/* ===================================================== o tutorial que fala
+   Balão no rodapé, como alguém explicando ao lado. Acende o que está
+   falando, porque o Dhalsin precisa achar com o olho antes de entender. */
+#b-tutorial{background:var(--noite-3);border:0;border-radius:50%;width:38px;height:38px;
+  display:grid;place-items:center;color:var(--gelo-2);flex:none}
+#b-tutorial svg{width:19px;height:19px}
+#b-tutorial:active{transform:scale(.94)}
+
+.tut-balao{position:fixed;left:0;right:0;bottom:0;z-index:120;padding:0 10px
+  calc(10px + env(safe-area-inset-bottom,0px));display:flex;justify-content:center;
+  pointer-events:none;transform:translateY(14px);opacity:0;
+  transition:transform .22s var(--curva),opacity .22s}
+.tut-balao.on{transform:none;opacity:1}
+.tut-cx{pointer-events:auto;width:100%;max-width:520px;background:var(--noite-2);
+  border:1px solid var(--turq-600);border-radius:16px;padding:14px 16px 13px;
+  box-shadow:0 10px 34px rgba(0,0,0,.5)}
+.tut-topo{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.tut-tit{flex:1;min-width:0;font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;
+  font-weight:800;color:var(--turq-400)}
+.tut-conta{font-size:11.5px;color:var(--gelo-3);font-variant-numeric:tabular-nums;flex:none}
+.tut-x{background:0;border:0;color:var(--gelo-3);width:30px;height:30px;flex:none;
+  display:grid;place-items:center}
+.tut-x svg{width:15px;height:15px}
+.tut-txt{margin:0 0 13px;font-size:15.5px;line-height:1.55;color:#fff}
+.tut-pe{display:flex;gap:8px;align-items:center}
+.tut-voz{display:inline-flex;align-items:center;gap:7px;background:var(--noite-3);border:0;
+  border-radius:10px;padding:0 13px;min-height:44px;color:var(--turq-400);
+  font-size:13.5px;font-weight:700;flex:none}
+.tut-voz svg{width:17px;height:17px;flex:none}
+.tut-volta{background:0;border:0;color:var(--gelo-3);font-size:13.5px;font-weight:650;
+  min-height:44px;padding:0 10px}
+.tut-volta:disabled{opacity:.35}
+.tut-prox{flex:1;background:var(--turq-600);border:0;border-radius:10px;color:#fff;
+  min-height:44px;font-size:14.5px;font-weight:750}
+.tut-prox:active,.tut-voz:active{transform:scale(.97)}
+
+/* o que o passo está explicando acende */
+.tut-brilha{position:relative;outline:2px solid var(--turq-500);outline-offset:3px;
+  border-radius:12px;animation:tutPulso 1.6s ease-in-out infinite}
+@keyframes tutPulso{0%,100%{outline-color:var(--turq-500)}50%{outline-color:transparent}}
+@media (prefers-reduced-motion:reduce){
+  .tut-brilha{animation:none}
+  .tut-balao{transition:opacity .2s}
+}

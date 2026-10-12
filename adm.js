@@ -291,6 +291,9 @@ B12.admDesenhar = function (aba) {
   B12.animarPlacar(raiz);
   B12.ligarLupa('');
   raiz.scrollIntoView({ block:'nearest' });
+  /* primeira vez nesta aba: o tutorial se oferece. Uma vez só, e nunca por
+     cima de um formulário aberto. */
+  if (B12.tutTalvez) B12.tutTalvez(g.id);
 };
 
 /* ------------------------------------------------------------------- LUPA

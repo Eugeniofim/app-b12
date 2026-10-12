@@ -87,7 +87,7 @@ function pintar(nome) {
   if (nome === 'ondas')    B12.telaOndas();
   if (nome === 'sobre')    B12.telaSobre();
   if (nome === 'equipe')   B12.pintarEquipe();
-  if (nome === 'adm')      { B12.admDesenhar(); quemEntrou(); }
+  if (nome === 'adm')      { B12.admDesenhar(); quemEntrou(); ligarTutorial(); }
 }
 /* ------------------------------------------------- redesenhar sem atrapalhar
    A sincronia chama isto quando o outro aparelho mudou alguma coisa. Três
@@ -104,6 +104,14 @@ B12.redesenhar = function () {
   try { pintar(atual); } catch (e) { console.warn('redesenhar:', e); }
   window.scrollTo({ top: y, behavior: 'instant' });
 };
+
+/* o "?" do painel: abre a aula da aba em que ele está agora */
+function ligarTutorial() {
+  var b = document.getElementById('b-tutorial');
+  if (!b || b.dataset.ligado) return;
+  b.dataset.ligado = '1';
+  b.onclick = function () { if (B12.tutDaAba) B12.tutDaAba(); };
+}
 
 function quemEntrou() {
   var q = document.getElementById('adm-papel');
