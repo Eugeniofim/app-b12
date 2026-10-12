@@ -1,46 +1,70 @@
 # A nuvem da B12 — onde está
 
-**26/09/2026.** O banco existe, está no ar e está trancado. Ainda **não está ligado ao app**:
-o `config.js` traz `ligada: false` de propósito, para o app continuar guardando no aparelho
-até a troca do banco estar testada.
+**12/10/2026.** A B12 saiu do projeto próprio e virou uma **sala** dentro do
+Supabase pago do estúdio, igual a Mario, Mari, Dulcineia e Carol.
 
-## O que já está feito
+## Por que mudou
+
+O projeto `b12` (conta do Dhalsin, plano grátis) foi **pausado** entre 10 e 12/10,
+e nem deixava retomar. A causa não era inatividade — o despertador estava
+funcionando. Era isto, que o painel do Supabase só conta quando você tenta:
+
+> O limite de **2 projetos grátis é POR PESSOA**, somando toda organização onde
+> essa pessoa é **dona ou administradora**.
+
+O Eugênio entrou como administrador na organização da B12 e já tinha as duas
+vagas ocupadas (`confeito-por-ananda` e `emroma`). Resultado: o banco do cliente
+passou a pesar no limite dele e caiu junto.
+
+## Onde está agora
 
 | | |
 |---|---|
-| Conta | do **Dhalsin** (`luistinglin@gmail.com`) — nunca a do Eugênio |
-| Organização | Estacao B12 · plano Free |
-| Projeto | `b12` · região **South America (São Paulo)** |
-| Endereço | `https://jvvniuzwltmbhhweaoqd.supabase.co` |
-| Senha do banco | gerada pelo próprio Supabase. O app **não usa** essa senha; se precisar dela, dá para gerar outra em Settings → Database |
-| RLS automática | ligada — tabela nova já nasce trancada |
+| Conta | do **Eugênio** · organização **Ebook Premium Studio** · plano **Pro** |
+| Projeto | `APP gestão TI ARTES` (`uopfqlogjzuqpabptxkb`) · São Paulo |
+| Endereço | `https://uopfqlogjzuqpabptxkb.supabase.co` |
+| Isolamento | tabelas `public.b12_*`, cada uma com a própria RLS |
+| Custo adicional | **zero** — é o projeto que já existia |
+| Pausa | não pausa: plano pago |
 
-Rodado o `01-esquema.sql`, conferido no próprio banco:
+Rodado e conferido no próprio banco em 12/10/2026:
 
-- **9 tabelas** `b12_*`
-- **13 políticas** de acesso
-- **9 tabelas com a tranca (RLS) ligada** — todas
-- **5 tabelas no tempo real** (saídas, reservas, pátio, clientes, ajustes)
-- **6 carimbos** de `atualizado`
+- **13 tabelas** `b12_*` · **13 com a tranca (RLS) ligada** · **21 políticas**
+- **9 tabelas no tempo real**
+- As **25 tabelas das outras salas** e as **2 do cofre** ficaram intactas
 
-## O que foi testado do endereço do app
+### O que foi testado do endereço do app, sem login
 
-Com a chave pública, de `https://app.estacaob12.com.br`:
+| | |
+|---|---|
+| ler clientes | `200` com lista vazia — certo: sem login ninguém vê nada |
+| gravar lançamento | **bloqueado** pela RLS |
+| pedir reserva (`pedida` + `app`) | `201` — é o único caminho aberto, e é de propósito |
+| pedir reserva como `confirmada` | **bloqueado** — não dá para se autoconfirmar |
 
-- ler qualquer tabela → responde `200` com **lista vazia**. É o certo: sem login, ninguém vê nada.
-- gravar lançamento, criar cliente, confirmar reserva, mudar ajustes → **401, bloqueado pela RLS**.
+**Armadilha paga no caminho:** com `Prefer: return=representation` o insert do
+turista devolve erro de RLS mesmo estando certo — porque a volta exige um SELECT
+que o anônimo não tem. Sem o cabeçalho, passa. Não é bug do banco.
 
-O único caminho aberto para quem não tem conta é o desenhado: pedir uma reserva
-(`situacao = 'pedida'` e `origem = 'app'`).
+## Quem entra
 
-## O que falta, na ordem
+- `eugeniofim@gmail.com` → papel **dono** em `b12_pessoas` (para testar e dar suporte)
+- O Dhalsin ainda **não tem conta neste projeto**. Quando for usar, o caminho é
+  convite por e-mail no Authentication — ele escolhe a própria senha, ninguém
+  mais digita.
 
-1. **Criar o usuário do Dhalsin** no Authentication e marcar `papel = 'dono'` em `b12_pessoas`.
-   Ele escolhe a própria senha pelo convite por e-mail — ninguém mais digita a senha dele.
-2. **Trocar o banco do aparelho pelo banco da nuvem** dentro do `nucleo.js`, mantendo o
-   aparelho como cópia para funcionar sem internet.
-3. **Subir o que já existe** no aparelho do Dhalsin (clientes, reservas, lançamentos).
-4. **Testar com dois aparelhos** ao mesmo tempo: mexer num e ver mudar no outro.
-5. Virar `ligada: true` no `config.js`.
+## O que falta
 
-Só depois disso é que e-mail, notificação no celular e WhatsApp automático passam a ser possíveis.
+1. **Publicar as duas funções** no projeto novo: `avisar` (notificação no
+   celular) e `email`. O código está em `nuvem/funcoes/`.
+2. **Pôr os segredos** — só o Eugênio faz, são credenciais dele:
+   `VAPID_PUBLICA`, `VAPID_PRIVADA`, `VAPID_CONTATO` (estão em
+   `~/Desktop/B12/12-CHAVES-AVISOS.txt`) e `COFRE_TOKEN`.
+   Enquanto não estiverem lá, o botão de e-mail e o de notificação dão erro.
+3. **Criar a conta do Dhalsin** quando ele for começar.
+
+## A rede de segurança
+
+O projeto antigo (`jvvniuzwltmbhhweaoqd`) continua **pausado e guardado** na
+conta do Dhalsin, com todos os dados e backups, e pode ser retomado até
+**16/11/2027**. Nada foi apagado lá.
