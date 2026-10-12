@@ -32,7 +32,16 @@ const servidor = createClient(
 );
 
 const COFRE = Deno.env.get('COFRE_URL') ?? 'https://uopfqlogjzuqpabptxkb.supabase.co/functions/v1/cofre';
-const TOKEN = Deno.env.get('COFRE_TOKEN') ?? '';
+
+/* O token da B12 no cofre NÃO mora mais num segredo do painel: desde que a
+   B12 virou sala no mesmo projeto do cofre, ele está a uma consulta de
+   distância, na tabela cofre_clientes, que só a chave de serviço lê. Um
+   lugar a menos para esquecer de preencher quando o servidor muda. */
+async function tokenDoCofre() {
+  const { data } = await servidor
+    .from('cofre_clientes').select('email_token').eq('slug', 'b12').maybeSingle();
+  return (data?.email_token ?? '') as string;
+}
 
 async function quemEh(req: Request) {
   const cab = req.headers.get('Authorization') ?? '';
@@ -51,7 +60,8 @@ Deno.serve(async (req) => {
   const eu = await quemEh(req);
   if (!eu) return resposta({ erro: 'Entre na conta da B12 para mandar e-mail.' }, 401);
   if (eu.papel !== 'dono') return resposta({ erro: 'Só o proprietário manda e-mail.' }, 403);
-  if (!TOKEN) return resposta({ erro: 'Falta COFRE_TOKEN no cofre deste projeto.' }, 500);
+  const TOKEN = await tokenDoCofre();
+  if (!TOKEN) return resposta({ erro: 'A B12 não tem token de e-mail no cofre.' }, 500);
 
   const corpo = await req.json().catch(() => ({}));
   const titulo = String(corpo.titulo ?? '').slice(0, 90).trim();

@@ -1,5 +1,5 @@
 /* Estação B12 — service worker. SUBIR A VERSÃO A CADA PUBLICAÇÃO. */
-const CACHE = 'b12-v1.79.1';
+const CACHE = 'b12-v1.79.2';
 /* o index pede os arquivos carimbados (x.js?v=1.27.0); guardo os mesmos endereços */
 const V = CACHE.replace('b12-v', '');
 const ESSENCIAL = ['./', './index.html', './estilo.css?v=' + V, './marca.js?v=' + V, './dados.js?v=' + V, './nucleo.js?v=' + V,
@@ -43,13 +43,27 @@ self.addEventListener('push', e => {
   try { if (e.data) d = Object.assign(d, e.data.json()); }
   catch (err) { try { d.texto = e.data.text(); } catch (e2) {} }
 
+  /* SOM E TREMIDA. PWA não escolhe o arquivo de som — quem toca é o
+     aparelho, com o som padrão de notificação. O que dá para mandar daqui:
+       silent:false   → toca. Sem isto, o Android pode entregar mudo.
+       renotify:true  → aviso novo com a mesma etiqueta TOCA DE NOVO em vez
+                        de trocar o de baixo caladinho.
+       vibrate        → padrão de tremida no Android; o iPhone ignora e usa
+                        o dele. Um tranco curto para aviso comum, três para
+                        o importante — dá para sentir no bolso, sem olhar.
+     No iPhone, o som só existe com o app INSTALADO na tela de início: no
+     Safari solto o push nem chega. É por isso que a vitrine insiste em
+     instalar antes de pedir o aviso. */
   e.waitUntil(self.registration.showNotification(d.titulo, {
     body: d.texto,
     icon: './icon-192.png',
     badge: './icon-192.png',
     tag: d.tag || 'b12',
     renotify: !!d.tag,
+    silent: false,
+    vibrate: d.importante ? [200, 90, 200, 90, 200] : [160],
     requireInteraction: !!d.importante,
+    timestamp: Date.now(),
     data: { ir: d.ir || '/' }
   }));
 });

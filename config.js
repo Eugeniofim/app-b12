@@ -30,9 +30,11 @@ B12.NUVEM = {
   url: 'https://uopfqlogjzuqpabptxkb.supabase.co',
   chave: 'sb_publishable_VKIdd2RNpMf3e4IEDprxJw_TOKPIHT2',
 
-  /* a chave PÚBLICA dos avisos (VAPID). A privada fica só no servidor, no
-     cofre do Supabase, e existe uma cópia em ~/Desktop/B12/12-CHAVES-AVISOS.txt */
-  chavePush: 'BEodWJtTSP-0emsKuBXDZKM7MqW1mhDsX5cLYZ74bMhMOuAMNbvNaNBPfo6m-tqug93dShcIShAdvoUGfE1CbpU',
+  /* A chave PÚBLICA dos avisos (VAPID). Trocou em 12/10/2026, junto com a
+     mudança de banco: agora quem guarda o par é a própria função `avisar`,
+     numa tabela que só ela lê. Ninguém mais cola chave em campo de painel.
+     Esta linha é só um atalho — se faltar, o app pergunta ao servidor. */
+  chavePush: 'BL0-ByqF36zR6jSnhVVCOYaaoa0TvAwuHk5oKzuuCKO80C8DUx1HOUG23D8c0ovBgFTkIi6rgpN5bsr6s-uAwSM',
 
   ligada: true      /* LIGADA em 06/10/2026. Só sincroniza com alguém logado. */
 };

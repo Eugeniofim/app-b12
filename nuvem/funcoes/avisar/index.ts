@@ -15,11 +15,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const URL_SUPA = Deno.env.get('SUPABASE_URL')!;
 const CHAVE_SERVICO = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const VAPID_PUB = Deno.env.get('VAPID_PUBLICA')!;
-const VAPID_PRIV = Deno.env.get('VAPID_PRIVADA')!;
 const CONTATO = Deno.env.get('VAPID_CONTATO') ?? 'mailto:contato@estacaob12.com.br';
-
-webpush.setVapidDetails(CONTATO, VAPID_PUB, VAPID_PRIV);
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -35,6 +31,53 @@ const resposta = (corpo: unknown, status = 200) =>
 const servidor = createClient(URL_SUPA, CHAVE_SERVICO, {
   auth: { persistSession: false },
 });
+
+/* ---------------------------------------------------------------- VAPID
+   O par de chaves que assina o aviso NÃO mora mais nos segredos do painel:
+   mora na tabela b12_segredos, que tem RLS ligada e NENHUMA política — ou
+   seja, só esta função, com a chave de serviço, consegue ler.
+
+   Por quê: a B12 virou sala no projeto do estúdio, e colar chave em campo de
+   painel é trabalho manual que ninguém repete direito quando troca de
+   servidor. Na primeira chamada a função gera o par sozinha e guarda. Depois
+   disso ela só lê.
+
+   O formato é o que o web-push espera: pública = ponto da curva P-256 cru
+   (65 bytes) em base64url; privada = o "d" do JWK, que já vem em base64url. */
+function b64url(bytes: Uint8Array) {
+  let s = '';
+  for (const b of bytes) s += String.fromCharCode(b);
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+async function gerarVapid() {
+  const par = await crypto.subtle.generateKey(
+    { name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits'],
+  );
+  const pub = new Uint8Array(await crypto.subtle.exportKey('raw', par.publicKey));
+  const jwk = await crypto.subtle.exportKey('jwk', par.privateKey) as JsonWebKey;
+  return { publica: b64url(pub), privada: jwk.d as string };
+}
+
+let VAPID: { publica: string; privada: string } | null = null;
+
+async function chaves() {
+  if (VAPID) return VAPID;
+  const { data } = await servidor.from('b12_segredos').select('valor').eq('id', 'vapid').maybeSingle();
+  if (data?.valor?.publica && data?.valor?.privada) {
+    VAPID = data.valor as { publica: string; privada: string };
+  } else {
+    const novo = await gerarVapid();
+    /* upsert: se dois pedidos chegarem juntos, o segundo relê o que o
+       primeiro gravou em vez de sobrescrever e invalidar as assinaturas */
+    await servidor.from('b12_segredos').insert({ id: 'vapid', valor: novo });
+    const { data: agora } = await servidor
+      .from('b12_segredos').select('valor').eq('id', 'vapid').maybeSingle();
+    VAPID = (agora?.valor ?? novo) as { publica: string; privada: string };
+  }
+  webpush.setVapidDetails(CONTATO, VAPID.publica, VAPID.privada);
+  return VAPID;
+}
 
 /* quem está chamando? O papel sai do banco, não do que a pessoa diz. */
 async function quemChama(req: Request) {
@@ -134,13 +177,40 @@ async function varrerODia() {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
-  if (req.method !== 'POST') return resposta({ erro: 'Use POST.' }, 405);
 
+  /* GET ?chave devolve só a chave PÚBLICA. Ela não é segredo — vai no
+     navegador de todo mundo. É daqui que o app a pega, em vez de alguém ter
+     de copiar à mão para o config.js toda vez que o servidor muda. */
+  if (req.method === 'GET') {
+    const v = await chaves();
+    return resposta({ ok: true, chave: v.publica });
+  }
+  if (req.method !== 'POST') return resposta({ erro: 'Use POST.' }, 405);
+  await chaves();            /* garante o par carregado antes de assinar */
+
+  /* O RELÓGIO. Uma vez por dia (18h de Brasília) o próprio banco bate aqui
+     com {varrer:true} e o Dhalsin recebe o que precisa de atenção sem ter
+     aberto o app. Como não existe gente logada nessa hora, a chamada se
+     identifica com um segredo que o BANCO gerou e guarda em b12_segredos —
+     nunca passou por ninguém e não serve para mais nada: o relógio só varre.
+     Quem agenda é o pg_cron: job `b12-varrer-o-dia`. */
+  const selo = req.headers.get('x-b12-relogio') ?? '';
+  let ehRelogio = false;
+  if (selo) {
+    const { data: s } = await servidor
+      .from('b12_segredos').select('valor').eq('id', 'relogio').maybeSingle();
+    ehRelogio = !!s?.valor?.chave && selo === s.valor.chave;
+  }
+
+  if (!ehRelogio) {
   const eu = await quemChama(req);
-  if (!eu) return resposta({ erro: 'Precisa estar logado na B12.' }, 401);
-  if (eu.papel !== 'dono') return resposta({ erro: 'Só o proprietário manda aviso.' }, 403);
+    if (!eu) return resposta({ erro: 'Precisa estar logado na B12.' }, 401);
+    if (eu.papel !== 'dono') return resposta({ erro: 'Só o proprietário manda aviso.' }, 403);
+  }
 
   const corpo = await req.json().catch(() => ({}));
+  /* o relógio só varre: não escreve aviso à mão */
+  if (ehRelogio && !corpo.varrer) return resposta({ erro: 'O relógio só varre.' }, 403);
   const pacotes = corpo.varrer
     ? await varrerODia()
     : [{
