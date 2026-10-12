@@ -64,6 +64,22 @@ Deno.serve(async (req) => {
     const meu = String(corpo.meuEmail ?? '').trim();
     if (!meu.includes('@')) return resposta({ erro: 'Informe o e-mail para o teste.' }, 400);
     lista = [{ nome: eu.nome ?? 'você', email: meu, id: 'teste' }];
+  } else if (corpo.para === 'escolhidos') {
+    /* Aviso OPERACIONAL para quem contratou a travessia — o horário do
+       barco de volta. Não é oferta, então não exige `aceitaOfertas`: a
+       pessoa comprou a viagem e precisa saber a que horas ela sai.
+       A lista continua saindo do BANCO; do aparelho vêm só os ids. */
+    const ids = Array.isArray(corpo.ids) ? corpo.ids.slice(0, 300).map(String) : [];
+    if (!ids.length) return resposta({ erro: 'Ninguém escolhido.' }, 400);
+    const { data: linhas } = await servidor
+      .from('b12_clientes').select('id, dados').eq('apagado', false).in('id', ids);
+    lista = (linhas ?? [])
+      .map((l: any) => ({ ...(l.dados ?? {}), id: l.id }))
+      .filter((c: any) => c.email && String(c.email).includes('@'))
+      .map((c: any) => ({ nome: c.nome ?? '', email: c.email, id: c.id }));
+    if (!lista.length) {
+      return resposta({ erro: 'Nenhuma dessas pessoas tem e-mail no cadastro.' }, 400);
+    }
   } else {
     /* a lista sai do banco, nunca do aparelho: assim ninguém manda
        e-mail para quem não autorizou, mesmo mexendo no app */

@@ -376,7 +376,17 @@ body.adm .linha .d small{color:var(--gelo-3)}
 
 .placar{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--noite-risco);
   border:1px solid var(--noite-risco);border-radius:var(--r-m);overflow:hidden;margin:12px}
+/* Com quatro medidores o terceiro fecha a fileira e o quarto fica sozinho,
+   com um buraco do lado. Dois por dois no celular, quatro em linha no
+   computador. Navegador sem :has() ignora e volta ao de sempre. */
+.placar:has(> .pl:nth-child(4)):not(:has(> .pl:nth-child(5))){grid-template-columns:repeat(2,1fr)}
+@media (min-width:760px){
+  .placar:has(> .pl:nth-child(4)):not(:has(> .pl:nth-child(5))){grid-template-columns:repeat(4,1fr)}
+}
 .pl{background:var(--noite-2);padding:13px 11px}
+/* os dois caminhos de aviso, lado a lado */
+.avisar-fila{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.avisar-fila .btn{margin:0;flex:1 1 140px}
 .pl .v{font-size:19px;font-weight:750;letter-spacing:-.025em;line-height:1.05}
 .pl .k{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--gelo-3);
   margin-top:6px;font-weight:700}
@@ -437,6 +447,27 @@ body.adm .navb{color:var(--gelo-3)}
 .navb.on{color:var(--turq-600)}
 body.adm .navb.on{color:var(--turq-300)}
 .navb.on svg{transform:translateY(-2px)}
+
+/* --------------------------------------------------------- avaliações
+   A nota grande primeiro: 4,9 é o argumento, e ele tem que caber num olhar. */
+.nota-google{display:flex;align-items:center;gap:16px}
+.ng-num{font-size:44px;font-weight:800;letter-spacing:-.03em;line-height:1;
+  color:var(--azul-800);font-variant-numeric:tabular-nums}
+.ng-lado{min-width:0}
+.ng-estrelas,.depo-estrelas{display:flex;gap:2px}
+.estrela{width:17px;height:17px;fill:var(--risco);stroke:none;flex:none}
+.estrela.on{fill:#E8A61E}
+.ng-txt{font-size:13px;color:var(--tinta-2);margin-top:5px}
+.depoimentos{display:grid;gap:10px;padding:0 12px}
+.depo{background:var(--carta);border-radius:var(--r-m);padding:14px;box-shadow:var(--sombra-1)}
+.depo p{font-size:14px;line-height:1.55;color:var(--tinta-2);margin:9px 0 0}
+.depo-quem{font-size:12px;color:var(--tinta-3);margin-top:9px;font-weight:650}
+.onde-nota{font-weight:800;color:var(--turq-600)}
+body.adm .ng-num{color:var(--turq-300)}
+body.adm .depo{background:var(--noite-2);border:1px solid var(--noite-risco);box-shadow:none}
+body.adm .depo p{color:var(--gelo-2)}
+body.adm .estrela{fill:var(--noite-risco)}
+body.adm .estrela.on{fill:#E8A61E}
 
 /* ----------------------------------------------- missão e visão (quem somos)
    Marcador de traço, nao bolinha nem numero: sao frases soltas, de peso igual,

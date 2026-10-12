@@ -442,6 +442,84 @@ B12.exportarPDFContador = function (p) {
   return { ok: true, bytes: bytes.length, paginas: pdf.paginas.length };
 };
 
+/* ===================================================== LIVRO CAIXA
+   O que o contador pede de verdade.
+
+   Não existe um formulário oficial de Livro Caixa: o art. 63, I da Resolução
+   CGSN nº 140/2018 obriga a ME e a EPP do Simples Nacional a escriturar a
+   movimentação financeira e bancária, mas não desenha o papel. O que todo
+   escritório reconhece é este layout — data, histórico, documento, entrada,
+   saída e SALDO ACUMULADO, com termo de abertura e de encerramento. É o que
+   sai daqui.
+
+   A diferença para o "Relatório financeiro" (exportarPDFContador) é o saldo
+   que anda linha a linha e o saldo anterior: é isso que faz o contador
+   conseguir bater o caixa com o extrato do banco. */
+B12.exportarPDFLivroCaixa = function (p) {
+  var P = periodo(p), E = B12.EMPRESA;
+  var todos = B12.DB.lancamentos.slice().sort(porData);
+  var antes = todos.filter(function (l) { return l.data && l.data < P.de; });
+  var doMes = todos.filter(function (l) { return dentro(l.data, P); });
+
+  var saldo = antes.reduce(function (t, l) {
+    return t + (l.tipo === 'entrada' ? l.valor : -l.valor); }, 0);
+  var abertura = saldo;
+  var somaE = 0, somaS = 0, demo = 0;
+
+  var linhas = doMes.map(function (l) {
+    var ent = l.tipo === 'entrada' ? l.valor : 0;
+    var sai = l.tipo === 'entrada' ? 0 : l.valor;
+    somaE += ent; somaS += sai; saldo += ent - sai;
+    if (l.demo) demo++;
+    var hist = [l.cat, l.desc].filter(Boolean).join(' - ');
+    var quem = nomeCliente(l.clienteId);
+    if (quem) hist += ' (' + quem + ')';
+    return [B12.dataBR(l.data), hist, String(l.id || '').toUpperCase(),
+            ent ? brl2(ent) : '', sai ? brl2(sai) : '', brl2(saldo)];
+  });
+
+  var pdf = new Pdf('Livro Caixa - ' + E.nome,
+    E.nome + ' - CNPJ ' + E.cnpj + ' - ' + E.endereco);
+
+  pdf.secao('Termo de abertura');
+  pdf.paragrafo('Contém a escrituracao da movimentacao financeira e bancaria da ' + E.nome +
+    ', inscrita no CNPJ sob o no ' + E.cnpj + ', referente ao ' + P.nome +
+    ' (de ' + B12.dataBR(P.de) + ' a ' + B12.dataBR(doMes.length ? doMes[doMes.length-1].data : P.de) +
+    '), com ' + doMes.length + ' lancamento(s). Documento gerado eletronicamente pelo aplicativo ' +
+    'de gestao da empresa em ' + agoraBR() + '.');
+  if (demo) pdf.paragrafo('ATENCAO: ' + demo + ' lancamento(s) deste periodo sao de DEMONSTRACAO ' +
+    'do prototipo e nao representam movimentacao real. Eles somem quando o app entra em uso ' +
+    'valendo. Nao entregue este documento ao contador enquanto houver esta linha.', 8.5);
+
+  pdf.secao('Movimentação do período');
+  pdf.tabela(
+    [{t:'Data', w:52}, {t:'Histórico', w:193}, {t:'Doc.', w:60},
+     {t:'Entradas', w:70, dir:true}, {t:'Saídas', w:70, dir:true}, {t:'Saldo', w:70, dir:true}],
+    [['', 'SALDO ANTERIOR', '', '', '', brl2(abertura)]].concat(linhas),
+    ['', 'TOTAIS DO PERÍODO', '', brl2(somaE), brl2(somaS), brl2(saldo)]);
+
+  pdf.secao('Termo de encerramento');
+  pdf.paragrafo('Encerra-se o presente Livro Caixa referente ao ' + P.nome + ', apresentando ' +
+    'saldo anterior de ' + brl2(abertura) + ', entradas de ' + brl2(somaE) + ', saidas de ' +
+    brl2(somaS) + ' e saldo final de ' + brl2(saldo) + '.');
+  pdf.paragrafo('Base legal: art. 63, inciso I, da Resolucao CGSN no 140/2018, que obriga a ' +
+    'microempresa e a empresa de pequeno porte optantes pelo Simples Nacional a escriturar o ' +
+    'Livro Caixa com toda a movimentacao financeira e bancaria. A norma nao fixa um modelo de ' +
+    'formulario; este segue o layout usual aceito pela contabilidade.', 8);
+
+  pdf.precisa(70);
+  pdf.y -= 28;
+  pdf.linha(40, pdf.y, 280, pdf.y, [0.55, 0.67, 0.73]);
+  pdf.linha(315, pdf.y, 555, pdf.y, [0.55, 0.67, 0.73]);
+  pdf.texto(E.dono + ' - responsável pela empresa', 40, pdf.y - 12, 8, false, [0.36, 0.46, 0.53]);
+  pdf.texto('Contador(a) - CRC', 315, pdf.y - 12, 8, false, [0.36, 0.46, 0.53]);
+
+  var bytes = pdf.bytes();
+  baixar('EstacaoB12_livro-caixa_' + (p || 'tudo') + '_' + carimbo() + '.pdf', bytes, 'application/pdf');
+  return { ok: true, bytes: bytes.length, paginas: pdf.paginas.length,
+           lancamentos: doMes.length, entradas: somaE, saidas: somaS, saldo: saldo, demo: demo };
+};
+
 B12.exportarPDFClientes = function () {
   var T = tabelas(periodo('tudo'));
   var pdf = new Pdf('Clientes - Estação B12', T.clientes.linhas.length + ' clientes - gerado em ' + agoraBR() + ' - dado pessoal: guardar com cuidado (LGPD)');

@@ -128,6 +128,70 @@ B12.telaSobre = function () {
       '<button type="button" class="btn pri" data-como-chegar>Como chegar até a B12</button></div>';
 };
 
+/* ------------------------------------------------------------ avaliações
+   A B12 tem 4,9 com 242 avaliações no Google e isso não aparecia em lugar
+   nenhum do app — era a prova social mais forte que existe, atrás de um link
+   que levava a pessoa embora.
+
+   O app NÃO puxa as avaliações do Google sozinho: para isso seria preciso a
+   Places API (chave do Google Cloud, cobrança por consulta, e ela devolve no
+   máximo cinco avaliações, escolhidas por eles). Então a nota e o total são
+   um número que o Dhalsin confere no painel, e os depoimentos são os que ele
+   escolhe do próprio perfil. Quem quiser ver tudo, vai pelo botão. */
+B12.telaAvaliacoes = function () {
+  var S = (B12.DB.ajustes && B12.DB.ajustes.sobre) || B12.SOBRE;
+  var G = S.google || { nota: 0, total: 0, destaques: [] };
+  var destaques = G.destaques || [];
+
+  function estrelas(n) {
+    var cheias = Math.round(Number(n) || 0), out = '';
+    for (var i = 1; i <= 5; i++) {
+      out += '<svg class="estrela' + (i <= cheias ? ' on' : '') + '" viewBox="0 0 24 24" ' +
+        'aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8' +
+        'L3.5 9.7l5.9-.9z"/></svg>';
+    }
+    return out;
+  }
+
+  document.getElementById('aval-corpo').innerHTML =
+    '<div class="cx nota-google entra" style="margin-top:12px">' +
+      '<div class="ng-num">' + String(G.nota || '—').replace('.', ',') + '</div>' +
+      '<div class="ng-lado">' +
+        '<div class="ng-estrelas">' + estrelas(G.nota) + '</div>' +
+        '<div class="ng-txt">' + (G.total || 0) + ' avaliações no Google</div>' +
+      '</div></div>' +
+
+    (destaques.length
+      ? '<div class="faixa-sec"><div class="tit"><h2>O que escreveram</h2></div></div>' +
+        '<div class="depoimentos">' + destaques.map(function (d, i) {
+          return '<div class="depo entra entra-' + Math.min(i + 1, 6) + '">' +
+            '<div class="depo-estrelas">' + estrelas(d.nota || 5) + '</div>' +
+            '<p>' + escT(d.texto) + '</p>' +
+            '<div class="depo-quem">' + escT(d.nome) +
+            (d.quando ? ' · ' + escT(d.quando) : '') + '</div></div>';
+        }).join('') + '</div>'
+      : '<div class="cx entra entra-1"><h3>As avaliações estão no Google</h3>' +
+        '<p>Toque no botão abaixo para ler todas, uma a uma, direto no perfil da Estação B12.</p></div>') +
+
+    '<div class="cx entra entra-2">' +
+      '<a class="btn pri" href="' + B12.googleVer() + '" target="_blank" rel="noopener">' +
+      'Ver todas no Google</a>' +
+      '<a class="btn sec" href="' + B12.googleAvaliar() + '" target="_blank" rel="noopener">' +
+      'Avaliar a B12</a>' +
+      '<p class="ajuda" style="margin-top:10px">Se você já atravessou com a gente, uma ' +
+      'avaliação ajuda muito — é assim que outra família encontra a B12.</p></div>';
+};
+
+/* a nota aparece no botão da primeira tela: 4,9 convence antes do toque */
+B12.pintarNotaGoogle = function () {
+  var S = (B12.DB.ajustes && B12.DB.ajustes.sobre) || B12.SOBRE;
+  var G = S.google || {};
+  var n = document.getElementById('onde-nota');
+  if (n) n.textContent = G.nota ? ' · ' + String(G.nota).replace('.', ',') + ' ★' : '';
+  var a = document.getElementById('onde-avaliar');
+  if (a) a.href = B12.googleAvaliar();
+};
+
 /* ---------------------------------------------------------------- ondas
    Para quem surfa. A B12 não vende surf, mas quem surfa atravessa — e o
    turista que sabe que vai pegar onda boa reserva a travessia. */

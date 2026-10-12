@@ -10,7 +10,7 @@ var B12 = window.B12 || {};
 
 /* ------------------------------------------------------------------ rotas */
 var TELAS = ['inicio','travessias','passeios','passeio','ilha','previsao','ondas','sobre','promocoes',
-             'pontos','reservas','equipe','adm'];
+             'pontos','reservas','equipe','adm','avaliacoes'];
 var atual = 'inicio';
 
 B12.ir = function (nome) {
@@ -100,6 +100,7 @@ function pintar(nome) {
   if (nome === 'previsao') B12.telaPrevisao();
   if (nome === 'ondas')    B12.telaOndas();
   if (nome === 'sobre')    B12.telaSobre();
+  if (nome === 'avaliacoes') B12.telaAvaliacoes();
   if (nome === 'equipe')   B12.pintarEquipe();
   if (nome === 'adm')      { B12.admDesenhar(); quemEntrou(); ligarTutorial(); }
 }
@@ -309,6 +310,7 @@ function comecar() {
   /* conteúdo que depende de dados */
   B12.pintarPasseios();
   B12.montarFormulario();
+  B12.pintarNotaGoogle();
 
   B12.pintarIlha();
 

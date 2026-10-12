@@ -15,7 +15,7 @@ var B12 = window.B12 || {};
 /* ---------------------------------------------------------------- identidade */
 /* o cofre: o servidor da Ti Artes que guarda a chave da IA. Vazio = assistente
    desligado (o app continua funcionando igual, só sem o chat). */
-B12.VERSAO = 'b12-v1.78.1';   /* tem que bater com o CACHE do sw.js */
+B12.VERSAO = 'b12-v1.79.0';   /* tem que bater com o CACHE do sw.js */
 
 B12.IA = { cofre: 'https://uopfqlogjzuqpabptxkb.supabase.co/functions/v1/cofre',
            modelo: 'claude-haiku-4-5' };
@@ -30,7 +30,18 @@ B12.EMPRESA = {
   whats: '5541999497113',
   cnpj: '42.727.723/0001-37',
   dono: 'Dhalsin',
+  /* O perfil no Google. O placeId foi conferido no Maps em 12/10/2026 — é com
+     ele que o link de avaliar abre a caixinha direto, sem a pessoa procurar. */
+  google: {
+    nome: 'TRAVESSIA PARA ILHA DO MEL - ESTAÇÃO B12',
+    placeId: 'ChIJ_5VVwzq925QR9I28ECetcYE',
+    cid: '9327426686557130228'
+  },
 };
+/* os três links do perfil, montados num lugar só */
+B12.googleFicha  = function () { return 'https://www.google.com/maps/place/?q=place_id:' + B12.EMPRESA.google.placeId; };
+B12.googleVer    = function () { return 'https://search.google.com/local/reviews?placeid=' + B12.EMPRESA.google.placeId; };
+B12.googleAvaliar= function () { return 'https://search.google.com/local/writereview?placeid=' + B12.EMPRESA.google.placeId; };
 
 /* ------------------------------------------------------- catálogo de serviços */
 B12.PASSEIOS = [
@@ -175,6 +186,14 @@ B12.SOBRE = {
     'Desenvolver parcerias com pousadas, restaurantes e outros negócios locais.',
     'Crescer de forma organizada e sustentável.'
   ],
+  /* O que o Google mostra hoje (conferido em 12/10/2026). O Dhalsin atualiza
+     em Estação → A empresa quando quiser: número velho na vitrine é pior que
+     número nenhum. Os destaques são avaliações que ele escolhe do perfil
+     dele — o app não puxa do Google sozinho, isso exigiria a API paga. */
+  google: {
+    nota: 4.9, total: 242, verificadoEm: '2026-10-12',
+    destaques: []
+  },
   rascunho: true        /* vira false quando o Dhalsin salvar o texto dele */
 };
 

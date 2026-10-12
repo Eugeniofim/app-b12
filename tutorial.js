@@ -43,7 +43,8 @@
       titulo: 'A operação da lancha',
       passos: [
         { t: 'Reservas: tudo que foi reservado, num lugar só. A primeira fatia é “para confirmar” — é o que depende de você.', a: '[data-aba=reservas]' },
-        { t: 'Horários: é onde você monta as saídas e as voltas do dia. Horário que já tem gente marcada não some sem aviso.', a: '[data-aba=escala]' },
+        { t: 'Ida: os horários que levam para a Ilha naquele dia. Horário que já tem gente marcada não some sem aviso.', a: '[data-aba=escala]' },
+        { t: 'Volta: o app já sabe quem está na Ilha e em que dia volta. Você monta o horário do barco de volta e avisa todo mundo de uma vez, por WhatsApp ou por e-mail.', a: '[data-aba=volta]' },
         { t: 'Na Ilha: quem está lá agora, há quantos dias, e quem ainda não marcou a volta.', a: '[data-aba=ilha]' },
         { t: 'Marinheiros: a ficha de quem pilota. O app avisa trinta dias antes da habilitação vencer, e manda a escala no WhatsApp dele.', a: '[data-aba=marinheiros]' },
         { t: 'Pátio: os carros que estão dentro, desde quando, e quanto já deu de diária.', a: '[data-aba=patio]' }
@@ -58,7 +59,7 @@
       ]
     },
     avisos: {
-      titulo: 'Falar com os clientes',
+      titulo: 'Notificações',
       passos: [
         { t: 'Daqui você fala com quem já viajou com a B12. Dois caminhos: aviso no celular de quem instalou o app, ou e-mail.', a: '.canais' },
         { t: 'Escolha o motivo e o texto já nasce escrito. Previsão do fim de semana, ondas para o surf, evento na Ilha.', a: '#av-motivos' },
@@ -74,6 +75,7 @@
         { t: 'Caixa: o que entrou e o que saiu, por dia e por mês.', a: '[data-aba=caixa]' },
         { t: 'Lançamentos: cada entrada e cada despesa, uma por uma. É daqui que sai o relatório do contador.', a: '[data-aba=lanc]' },
         { t: 'Contas: o que vence, e o app te lembra antes.', a: '[data-aba=contas]' },
+        { t: 'Contador: escolhe o mês e baixa o Livro Caixa em PDF, que é o papel que o escritório pede. Guarde o e-mail dele aqui e o app escreve a mensagem pronta.', a: '[data-aba=contador]' },
         { t: 'Preços: a tabela que serve de sugestão no balcão. Mudou aqui, vale na hora.', a: '[data-aba=precos]' }
       ]
     },

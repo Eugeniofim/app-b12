@@ -149,6 +149,9 @@ B12.carregar = function () {
   if (!A.sobre) A.sobre = JSON.parse(JSON.stringify(B12.SOBRE));
   /* 12/10/2026: missão e visão. Quem já tinha o app ganha as duas listas sem
      perder o texto nem os destaques que já estavam gravados. */
+  if (!A.contador) A.contador = { nome: '', email: '', obs: '' };
+  if (!A.sobre.google) A.sobre.google = JSON.parse(JSON.stringify(B12.SOBRE.google));
+  if (!Array.isArray(A.sobre.google.destaques)) A.sobre.google.destaques = [];
   if (!Array.isArray(A.sobre.missao)) A.sobre.missao = B12.SOBRE.missao.slice();
   if (!Array.isArray(A.sobre.visao))  A.sobre.visao  = B12.SOBRE.visao.slice();
   /* O modo demonstração enche a tela para apresentação. Quando o cliente
@@ -779,7 +782,7 @@ B12.naIlha = function (iso) {
       situacao: r.situacao, ida: r.ida, volta: r.volta || '', produto: r.produto,
       pousada: r.pousada && r.pousada !== 'Ainda não escolhi' ? r.pousada : '',
       destino: r.destino, total: r.total, placa: r.placa || '',
-      carroNoPatio: !!carro, contato: contato(r, c),
+      carroNoPatio: !!carro, contato: contato(r, c), clienteId: r.clienteId || '',
       horaVolta: '', diasNaIlha: 0 };
     if (r.saidaVoltaId) {
       var sv = B12.DB.saidas.filter(function (s) { return s.id === r.saidaVoltaId; })[0];

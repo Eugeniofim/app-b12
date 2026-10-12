@@ -245,7 +245,11 @@ B12.emailEnviar = function (o) {
   return fetch(B12.NUVEM.url + '/functions/v1/email', {
     method: 'POST', signal: ctrl.signal, headers: B12.nuvCabecalho(),
     body: JSON.stringify({ titulo: o.titulo, texto: o.texto,
-                           para: o.para || 'clientes', meuEmail: o.meuEmail || '' })
+                           para: o.para || 'clientes', meuEmail: o.meuEmail || '',
+                           /* para:'escolhidos' manda só para estes clientes. Quem
+                              monta a lista de verdade continua sendo o servidor,
+                              lendo o banco — daqui só vão os ids. */
+                           ids: Array.isArray(o.ids) ? o.ids.slice(0, 300) : undefined })
   }).then(function (r) { return r.json(); })
     .then(function (j) {
       if (j && j.ok) return { ok: true, enviados: j.enviados, falhas: j.falhas, naLista: j.naLista };

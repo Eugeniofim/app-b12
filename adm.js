@@ -194,19 +194,25 @@ function grafRosca(alvo, fatias) {
    virou sub-aba. `so:'dono'` é cadeado de verdade: a funcionária não vê o
    grupo, e pedir a página pelo nome também não entra. */
 var GRUPOS = [
-  { id:'hoje',      nome:'Hoje',      sub:[['hoje','O dia'], ['volta','Quem volta']] },
+  { id:'hoje',      nome:'Hoje',      sub:[['hoje','O dia']] },
   { id:'balcao',    nome:'Cadastro',  sub:[['balcao','Cadastro']] },
-  { id:'travessia', nome:'Travessia', sub:[['reservas','Reservas'], ['escala','Horários'],
-                                           ['ilha','Na Ilha'], ['marinheiros','Marinheiros'],
-                                           ['patio','Pátio']] },
+  /* "Quem volta" morava em Hoje e o Eugênio foi procurar a criação dos
+     horários de retorno aqui, na Travessia — que é onde a cabeça dele põe
+     horário. Mudou de lugar: horário de ida e horário de volta no mesmo
+     grupo, lado a lado. */
+  { id:'travessia', nome:'Horário de travessia',
+                    sub:[['reservas','Reservas'], ['escala','Ida'], ['volta','Volta'],
+                         ['ilha','Na Ilha'], ['marinheiros','Marinheiros'],
+                         ['patio','Pátio']] },
   { id:'clientes',  nome:'Clientes',  sub:[['clientes','Fichas'], ['msgs','Mensagens'],
                                            ['prosp','Prospecção', 'dono']] },
   /* Avisos era sub-aba de Clientes e o Eugênio não achou em dois dias.
      Funcionalidade que não se acha é funcionalidade que não existe. */
-  { id:'avisos',    nome:'Avisos',    sub:[['avisos','Mandar aviso']] },
-  { id:'dinheiro',  nome:'Dinheiro',  so:'dono',
+  { id:'avisos',    nome:'Notificações', sub:[['avisos','Mandar aviso']] },
+  { id:'dinheiro',  nome:'Financeiro', so:'dono',
     sub:[['painel','Painel'], ['caixa','Caixa'], ['lanc','Lançamentos'],
-         ['contas','Contas'], ['relat','Relatórios'], ['precos','Preços']] },
+         ['contas','Contas'], ['relat','Relatórios'], ['contador','Contador'],
+         ['precos','Preços']] },
   { id:'estacao',   nome:'Estação',   so:'dono',
     sub:[['gestao','Gestão'], ['sobre','A empresa'], ['manut','Manutenção'],
          ['oper','Operação'], ['dados','Dados'], ['intel','Inteligência'],
@@ -217,7 +223,8 @@ var PAGINAS = { hoje:pHoje, volta:pVolta, painel:pPainel, caixa:pCaixa, lanc:pLa
   contas:pContas, relat:pRelat, oper:pOper, prosp:pProsp, intel:pIntel,
   clientes:pClientes, patio:pPatio, manut:pManut, gestao:pGestao, escala:pEscala,
   msgs:pMsgs, dados:pDados, precos:pPrecos, ia:pIA, ilha:pNaIlha, balcao:pBalcao,
-  marinheiros:pMarinheiros, avisos:pAvisos, sobre:pSobre, reservas:pReservas };
+  marinheiros:pMarinheiros, avisos:pAvisos, sobre:pSobre, reservas:pReservas,
+  contador:pContador };
 
 /* Grupos e sub-abas que este papel pode ver. Nunca confie na tela: quem pedir
    uma página fechada cai no primeiro grupo que ele pode abrir. */
@@ -1952,6 +1959,155 @@ function blocoDemo(raiz) {
   };
 }
 
+/* ====================================================== CONTADOR
+   O Dhalsin manda as entradas e as saídas para o escritório toda virada de
+   mês. Isso vivia escondido em Estação -> Dados, no meio do backup; agora
+   tem uma aba só, dentro do Financeiro, que é onde ele pensa em dinheiro.
+
+   O documento principal é o LIVRO CAIXA (ver exportarPDFLivroCaixa): não
+   existe formulário oficial, mas é esse o layout que todo escritório
+   reconhece, com saldo acumulado linha a linha. */
+function pContador(raiz) {
+  var A = B12.DB.ajustes, C = A.contador || { nome:'', email:'', obs:'' };
+  var opcoes = [['mesPassado','Mês passado'], ['mes','Este mês'],
+                ['ano','Este ano'], ['tudo','Tudo, desde o começo']];
+  function re() { B12.admDesenhar('contador'); }
+
+  /* o mesmo cálculo do PDF, para a tela não dizer um número e o papel outro */
+  function contas(p) {
+    var hoje = B12.hoje(), ym = B12.mesAtual(), de, ate, nome;
+    if (p === 'mes')        { de = ym + '-01'; ate = ym + '-31'; nome = 'mês de ' + B12.mesBR(ym); }
+    else if (p === 'mesPassado') { var m = B12.mesMais(ym, -1); de = m + '-01'; ate = m + '-31'; nome = 'mês de ' + B12.mesBR(m); }
+    else if (p === 'ano')   { de = hoje.slice(0,4) + '-01-01'; ate = hoje.slice(0,4) + '-12-31'; nome = 'ano de ' + hoje.slice(0,4); }
+    else                    { de = '0000-00-00'; ate = '9999-99-99'; nome = 'todo o período'; }
+    var L = B12.DB.lancamentos.filter(function (l) { return l.data && l.data >= de && l.data <= ate; });
+    var e = 0, s = 0, demo = 0;
+    L.forEach(function (l) {
+      if (l.demo) demo++;
+      if (l.tipo === 'entrada') e += l.valor; else s += l.valor;
+    });
+    return { nome:nome, n:L.length, entradas:e, saidas:s, resultado:e - s, demo:demo };
+  }
+
+  var escolhido = pContador.periodo || 'mesPassado';
+  var k = contas(escolhido);
+
+  raiz.appendChild(bloco(
+    '<div class="cx entra"><h3>Mandar as entradas e saídas para o contador</h3>' +
+    '<p>Escolha o período, baixe o <b>Livro Caixa</b> e mande para o escritório. ' +
+    'É o documento que o contador espera: data, histórico, entrada, saída e o saldo ' +
+    'andando linha a linha.</p>' +
+    '<label for="ct-periodo" style="margin-top:12px">Período</label>' +
+    '<select id="ct-periodo">' + opcoes.map(function (o) {
+      return '<option value="' + o[0] + '"' + (o[0] === escolhido ? ' selected' : '') + '>' +
+        o[1] + '</option>'; }).join('') + '</select></div>' +
+
+    '<div class="placar entra entra-1">' +
+      tile(k.entradas, 'Entradas', 'brl', 'destaque') +
+      tile(k.saidas, 'Saídas', 'brl') +
+      tile(k.resultado, 'Resultado', 'brl', k.resultado < 0 ? 'alerta' : '') +
+      tile(k.n, 'Lançamentos', 'n') +
+    '</div>' +
+
+    (k.demo
+      ? '<div class="cx aviso entra entra-2"><h3>' + k.demo + ' lançamento' +
+        (k.demo > 1 ? 's são' : ' é') + ' de demonstração</h3>' +
+        '<p>Não mande este período para o contador ainda. Em <b>Estação → Dados</b> existe o ' +
+        'botão “Começar a usar valendo”: ele tira todos os números falsos de uma vez.</p></div>'
+      : '') +
+
+    '<div class="cx entra entra-2"><h3>Os papéis</h3>' +
+    '<button type="button" class="btn pri" id="b-ct-caixa">Livro Caixa em PDF</button>' +
+    '<div class="ajuda">O documento principal. Art. 63, I da Resolução CGSN nº 140/2018 — ' +
+    'a lei obriga a escriturar toda a movimentação, mas não fixa um modelo de formulário; ' +
+    'este é o layout que a contabilidade reconhece.</div>' +
+    '<button type="button" class="btn sec" id="b-ct-relat" style="margin-top:12px">' +
+    'Relatório financeiro em PDF</button>' +
+    '<div class="ajuda">O mesmo período visto por categoria e por forma de pagamento. ' +
+    'Vai junto quando o contador pede o detalhe.</div>' +
+    '<button type="button" class="btn sec" id="b-ct-xlsx" style="margin-top:12px">' +
+    'Planilha Excel (.xlsx)</button>' +
+    '<div class="ajuda">Oito abas, com data e valor como número — é o que ele filtra e soma.</div>' +
+    '<div id="ct-aviso" class="ajuda" style="margin-top:12px"></div></div>' +
+
+    '<div class="cx entra entra-3"><h3>Seu contador</h3>' +
+    (C.email
+      ? '<p><b>' + esc(C.nome || C.email) + '</b><br>' +
+        '<span style="color:var(--gelo-3)">' + esc(C.email) + '</span></p>' +
+        (C.obs ? '<p class="ajuda" style="margin-top:6px">' + esc(C.obs) + '</p>' : '') +
+        '<button type="button" class="btn pri" id="b-ct-mandar">Escrever o e-mail para ele</button>' +
+        '<div class="ajuda">O app abre o e-mail já escrito com os números do período. ' +
+        'Anexe os arquivos que você baixou — o navegador não deixa um site anexar sozinho.</div>' +
+        '<button type="button" class="btn sec" id="b-ct-editar" style="margin-top:12px">' +
+        'Trocar os dados do contador</button>'
+      : '<p>Guarde aqui o e-mail do escritório e o app escreve a mensagem pronta todo mês.</p>' +
+        '<button type="button" class="btn pri" id="b-ct-editar">Cadastrar o contador</button>') +
+    '</div>'
+  ));
+
+  function avisar(t, ok) {
+    var a = raiz.querySelector('#ct-aviso');
+    if (a) { a.textContent = t; a.style.color = ok ? 'var(--bom)' : 'var(--ruim)';
+             a.setAttribute('role', ok ? 'status' : 'alert'); }
+    B12.aviso(t, ok ? 'bom' : 'ruim');
+  }
+  raiz.querySelector('#ct-periodo').onchange = function () {
+    pContador.periodo = this.value; re();
+  };
+  raiz.querySelector('#b-ct-caixa').onclick = function () {
+    var r = B12.exportarPDFLivroCaixa(escolhido);
+    avisar('Livro Caixa gerado: ' + r.lancamentos + ' lançamento' + (r.lancamentos === 1 ? '' : 's') +
+      ', ' + r.paginas + ' página' + (r.paginas > 1 ? 's' : '') + ', saldo final ' +
+      B12.brl(r.saldo, 2) + '. Procure na pasta de downloads.', true);
+  };
+  raiz.querySelector('#b-ct-relat').onclick = function () {
+    var r = B12.exportarPDFContador(escolhido);
+    avisar('Relatório gerado: ' + r.paginas + ' página' + (r.paginas > 1 ? 's' : '') + '.', true);
+  };
+  raiz.querySelector('#b-ct-xlsx').onclick = function () {
+    var r = B12.exportarExcel(escolhido);
+    avisar('Excel gerado: ' + r.linhas + ' lançamentos, ' + Math.round(r.bytes/1024) + ' KB.', true);
+  };
+
+  var ed = raiz.querySelector('#b-ct-editar');
+  if (ed) ed.onclick = function () {
+    B12.folha({
+      titulo: 'Seu contador', sub: 'Fica guardado só neste app',
+      corpo:
+        B12.f_campo('Nome ou escritório', 'nome', { valor: C.nome, max: 60,
+          dica: 'Contabilidade Beira-Mar' }) +
+        B12.f_campo('E-mail', 'email', { tipo:'email', valor: C.email, max: 90, obrig: true,
+          dica: 'contato@escritorio.com.br' }) +
+        B12.f_campo('Observação', 'obs', { valor: C.obs, max: 120,
+          dica: 'mandar até o dia 5 de cada mês' }),
+      aoSalvar: function (d) {
+        var em = String(d.email || '').trim();
+        if (em.indexOf('@') < 1) return { erro: 'Escreva um e-mail válido.', campo: 'email' };
+        A.contador = { nome: String(d.nome || '').trim(), email: em,
+                       obs: String(d.obs || '').trim() };
+        B12.salvar(); re();
+        return { ok: true };
+      }
+    });
+  };
+
+  var mandar = raiz.querySelector('#b-ct-mandar');
+  if (mandar) mandar.onclick = function () {
+    var corpo = 'Olá!\n\nSeguem as entradas e saídas da Estação B12 referentes ao ' +
+      k.nome + '.\n\n' +
+      'Entradas: ' + B12.brl(k.entradas, 2) + '\n' +
+      'Saídas: ' + B12.brl(k.saidas, 2) + '\n' +
+      'Resultado: ' + B12.brl(k.resultado, 2) + '\n' +
+      'Lançamentos: ' + k.n + '\n\n' +
+      'Em anexo o Livro Caixa do período.\n\n' +
+      B12.EMPRESA.dono + '\n' + B12.EMPRESA.nome + ' — CNPJ ' + B12.EMPRESA.cnpj;
+    window.location.href = 'mailto:' + encodeURIComponent(C.email) +
+      '?subject=' + encodeURIComponent('Estação B12 — movimento do ' + k.nome) +
+      '&body=' + encodeURIComponent(corpo);
+  };
+}
+
+
 function pDados(raiz) {
   blocoDemo(raiz);
   var n = B12.contagens(), cofre = B12.cofreCopias();
@@ -2577,6 +2733,15 @@ function pVolta(raiz) {
       tile(dias.length, 'Dias com volta', 'n') +
       tile(semHorario, 'Dias sem horário', 'n', semHorario ? 'alerta' : '') +
     '</div>' +
+    '<div class="cx entra entra-1"><h3>Como funciona esta tela</h3>' +
+    '<p><b>1.</b> O app já sabe quem está na Ilha e em que dia volta. ' +
+    '<b>2.</b> Você monta os horários do barco de volta daquele dia. ' +
+    '<b>3.</b> Avisa todo mundo de uma vez, por WhatsApp ou por e-mail, com a hora dentro ' +
+    'da mensagem.</p>' +
+    '<p class="ajuda" style="margin-top:8px">Notificação no celular fica na aba ' +
+    '<b>Notificações</b>: ela vai para todos os aparelhos com o app instalado, porque ' +
+    'o app não sabe de quem é cada aparelho — serve para previsão e evento, não para ' +
+    'o horário de uma pessoa.</p></div>' +
     (semHorario
       ? '<div class="cx aviso entra entra-1"><h3>Falta montar horário</h3>' +
         '<p>Tem gente com volta marcada em <b>' + semHorario + ' dia' + (semHorario > 1 ? 's' : '') +
@@ -2589,6 +2754,9 @@ function pVolta(raiz) {
       ? dias.map(function (x, i) {
           var zaps = x.gente.map(function (p) { return p.contato && p.contato.whats; })
                             .filter(Boolean);
+          var mails = x.gente.filter(function (p) {
+            return p.clienteId && p.contato && p.contato.email &&
+                   p.contato.email.indexOf('@') > 0; });
           return '<div class="cx entra entra-' + Math.min(i + 2, 6) + '">' +
             '<div class="cx-topo"><h3>' + quando(x.dia) + ' · ' + x.pessoas + ' pessoa' +
             (x.pessoas > 1 ? 's' : '') + '</h3>' +
@@ -2612,10 +2780,20 @@ function pVolta(raiz) {
                 (p.placa ? '<span>' + esc(p.placa) + '</span>' : '') +
                 (p.horaVolta ? '<span>volta ' + p.horaVolta + '</span>' : '') +
                 '</div></div>'; }).join('') + '</div>' +
-            (zaps.length && x.temHorario
-              ? '<button type="button" class="btn sec peq" data-avisar="' + x.dia + '" ' +
-                'style="margin-top:10px">Avisar os ' + zaps.length + ' por WhatsApp</button>'
-              : '') +
+            (x.temHorario
+              ? '<div class="avisar-fila">' +
+                  (zaps.length
+                    ? '<button type="button" class="btn sec peq" data-avisar="' + x.dia + '">' +
+                      'WhatsApp · ' + zaps.length + '</button>' : '') +
+                  (mails.length
+                    ? '<button type="button" class="btn sec peq" data-mail="' + x.dia + '">' +
+                      'E-mail · ' + mails.length + '</button>' : '') +
+                '</div>' +
+                (!zaps.length && !mails.length
+                  ? '<div class="ajuda" style="margin-top:8px">Ninguém deste dia tem ' +
+                    'WhatsApp nem e-mail no cadastro.</div>' : '')
+              : '<div class="ajuda" style="margin-top:8px">Monte os horários primeiro — ' +
+                'o aviso leva a hora do barco dentro.</div>') +
             '</div>'; }).join('')
       : '<div class="cx entra entra-2"><h3>Ninguém volta nos próximos 10 dias</h3>' +
         '<p>Quando alguém viajar com data de volta marcada, o dia aparece aqui sozinho.</p></div>')
@@ -2629,6 +2807,50 @@ function pVolta(raiz) {
   raiz.querySelectorAll('[data-vzap]').forEach(function (b) {
     b.onclick = function () {
       B12.abrirWhats(b.dataset.vzap, textoVolta(b.dataset.nome, b.dataset.dia));
+    };
+  });
+  raiz.querySelectorAll('[data-mail]').forEach(function (b) {
+    b.onclick = function () {
+      var dia = b.dataset.mail;
+      var gente = ((B12.naIlha(dia) || {}).voltam || []).filter(function (p) {
+        return p.clienteId && p.contato && p.contato.email &&
+               p.contato.email.indexOf('@') > 0; });
+      if (!gente.length) return B12.aviso('Ninguém deste dia tem e-mail no cadastro.');
+      var horas = B12.saidasDoDia(dia, 'volta').map(function (s) { return s.hora; });
+      var qd = dia === B12.hoje() ? 'hoje'
+             : dia === B12.diaMais(B12.hoje(), 1) ? 'amanhã' : 'dia ' + B12.dataBR(dia);
+      B12.folha({
+        titulo: 'E-mail para quem volta ' + qd,
+        sub: gente.length + (gente.length > 1 ? ' pessoas com e-mail' : ' pessoa com e-mail'),
+        corpo:
+          B12.f_campo('Assunto', 'titulo', { valor: 'Seu retorno da Ilha do Mel · ' +
+            B12.dataBR(dia), max: 90, obrig: true }) +
+          '<label for="c-texto">Mensagem</label>' +
+          '<textarea id="c-texto" name="texto" rows="7" maxlength="1200">' +
+          esc('Os horários de retorno ' + qd + ' são: ' +
+            (horas.length ? horas.join(' · ') : 'a confirmar') + '.\n\n' +
+            'Esteja no trapiche uns 10 minutos antes do horário escolhido. ' +
+            'Qualquer coisa, é só falar com a gente.') + '</textarea>' +
+          '<div class="ajuda">Cada pessoa recebe com o próprio nome. Vai só para quem ' +
+          'está voltando neste dia.</div>' +
+          '<div class="lista" style="margin-top:10px">' + gente.map(function (p) {
+            return '<div class="linha"><div class="d"><b>' + esc(p.nome) + '</b>' +
+              '<small>' + esc(p.contato.email) + '</small></div></div>'; }).join('') + '</div>',
+        acao: 'Mandar o e-mail',
+        aoSalvar: function (d) {
+          var t = String(d.titulo || '').trim(), m = String(d.texto || '').trim();
+          if (!t) return { erro: 'Escreva o assunto.', campo: 'titulo' };
+          if (!m) return { erro: 'Escreva a mensagem.', campo: 'texto' };
+          B12.emailEnviar({ titulo: t, texto: m, para: 'escolhidos',
+            ids: gente.map(function (p) { return p.clienteId; }) })
+            .then(function (r) {
+              if (r.erro) return B12.aviso(r.erro, 'ruim');
+              B12.aviso(r.enviados + (r.enviados === 1 ? ' e-mail enviado.' : ' e-mails enviados.') +
+                (r.falhas ? ' ' + r.falhas + ' não saíram.' : ''), 'bom');
+            });
+          return { ok: true };
+        }
+      });
     };
   });
   raiz.querySelectorAll('[data-avisar]').forEach(function (b) {
@@ -3000,6 +3222,7 @@ B12.textoAviso = function (motivo, extra) {
    dele, o rascunho fica marcado — no painel, nunca na tela do cliente. */
 function pSobre(raiz) {
   var A = B12.DB.ajustes, S = A.sobre || B12.SOBRE;
+  var G = S.google || (S.google = JSON.parse(JSON.stringify(B12.SOBRE.google)));
   function re() { B12.admDesenhar('sobre'); }
 
   raiz.appendChild(bloco(
@@ -3027,8 +3250,108 @@ function pSobre(raiz) {
       : '<div class="cx" style="margin-top:0"><p>Nenhum destaque. Toque em “+ Novo”.</p></div>') +
 
     listaFrases('missao', 'Nossa missão', 'O que a B12 faz todo dia', S.missao) +
-    listaFrases('visao',  'Nossa visão',  'Onde a B12 quer chegar',   S.visao)
+    listaFrases('visao',  'Nossa visão',  'Onde a B12 quer chegar',   S.visao) +
+
+    /* ---- avaliações do Google ---- */
+    '<div class="faixa-sec"><div class="tit"><h2>Avaliações</h2>' +
+    '<button class="mini-btn" id="b-google-nota">Mudar a nota</button></div></div>' +
+    '<div class="cx" style="margin-top:0"><div class="nota-google">' +
+      '<div class="ng-num">' + String(G.nota || '—').replace('.', ',') + '</div>' +
+      '<div class="ng-lado"><div class="ng-txt"><b>' + (G.total || 0) +
+      '</b> avaliações no Google</div>' +
+      '<div class="ajuda" style="margin-top:4px">conferido em ' +
+      (G.verificadoEm ? B12.dataBR(G.verificadoEm) : 'nunca') + '</div></div></div>' +
+      '<p class="ajuda" style="margin-top:10px">O app não lê o Google sozinho: para isso ' +
+      'seria preciso a API paga do Google, que ainda devolve só cinco avaliações. ' +
+      'Confira a nota no seu perfil de vez em quando e atualize aqui — número velho na ' +
+      'vitrine é pior do que número nenhum.</p>' +
+      '<a class="btn sec" href="' + B12.googleFicha() + '" target="_blank" rel="noopener">' +
+      'Abrir meu perfil no Google</a></div>' +
+
+    '<div class="faixa-sec"><div class="tit"><h2>Depoimentos em destaque</h2>' +
+    '<button class="mini-btn" id="b-depo-novo">+ Novo</button></div>' +
+    '<p style="font-size:12.5px;color:var(--gelo-3);padding-bottom:8px">Copie do seu perfil ' +
+    'as avaliações que você quer mostrar primeiro. Sem nenhuma, a tela leva direto ao ' +
+    'Google.</p></div>' +
+    ((G.destaques || []).length
+      ? '<div class="lista">' + G.destaques.map(function (d, i) {
+          return '<div class="linha" data-depo="' + i + '">' +
+            '<span class="tag">' + (d.nota || 5) + '★</span>' +
+            '<div class="d"><b>' + esc(d.nome) + '</b><small>' + esc(d.texto) + '</small></div>' +
+            '<button type="button" class="mini-btn" data-depo-fora="' + i + '">Tirar</button></div>';
+        }).join('') + '</div>'
+      : '<div class="cx" style="margin-top:0"><p>Nenhum depoimento em destaque.</p></div>')
   ));
+
+  raiz.querySelector('#b-google-nota').onclick = function () {
+    B12.folha({
+      titulo: 'Avaliações no Google', sub: 'O que aparece na vitrine',
+      corpo:
+        B12.f_campo('Nota', 'nota', { tipo:'number', modo:'decimal', passo:'0.1',
+          valor: G.nota, obrig: true, dica: '4.9' }) +
+        B12.f_campo('Quantas avaliações', 'total', { tipo:'number', modo:'numeric',
+          passo:'1', valor: G.total, obrig: true, dica: '242' }) +
+        '<div class="ajuda">Abra o seu perfil no Google, olhe o número do lado das ' +
+        'estrelas e copie para cá.</div>',
+      aoSalvar: function (d) {
+        var n = Number(String(d.nota).replace(',', '.'));
+        if (!(n > 0 && n <= 5)) return { erro: 'A nota vai de 0 a 5.', campo: 'nota' };
+        var t = Math.max(0, parseInt(d.total, 10) || 0);
+        G.nota = Math.round(n * 10) / 10; G.total = t; G.verificadoEm = B12.hoje();
+        S.google = G; A.sobre = S; B12.salvar(); re();
+        return { ok: true };
+      }
+    });
+  };
+  raiz.querySelector('#b-depo-novo').onclick = function () { editarDepo(null); };
+  raiz.querySelectorAll('[data-depo]').forEach(function (el) {
+    el.onclick = function (ev) {
+      if (ev.target.closest('[data-depo-fora]')) return;
+      editarDepo(+el.dataset.depo);
+    };
+  });
+  raiz.querySelectorAll('[data-depo-fora]').forEach(function (b) {
+    b.onclick = function (ev) {
+      ev.stopPropagation();
+      var i = +b.dataset.depoFora;
+      if (!confirm('Tirar o depoimento de “' + G.destaques[i].nome + '”?')) return;
+      G.destaques.splice(i, 1); S.google = G; A.sobre = S; B12.salvar(); re();
+    };
+  });
+
+  function editarDepo(i) {
+    var d0 = (i == null) ? { nome:'', nota:5, texto:'', quando:'' } : G.destaques[i];
+    B12.folha({
+      titulo: i == null ? 'Novo depoimento' : d0.nome,
+      sub: 'Copiado do seu perfil no Google',
+      corpo:
+        B12.f_campo('Quem escreveu', 'nome', { valor: d0.nome, max: 40, obrig: true,
+          dica: 'Mariana Campos' }) +
+        B12.f_campo('Nota', 'nota', { tipo:'number', modo:'numeric', passo:'1',
+          valor: d0.nota || 5 }) +
+        '<label for="c-texto">O que a pessoa escreveu</label>' +
+        '<textarea id="c-texto" name="texto" rows="5" maxlength="400">' +
+        esc(d0.texto || '') + '</textarea>' +
+        B12.f_campo('Quando', 'quando', { valor: d0.quando, max: 24, dica: 'há 2 meses' }),
+      extra: i == null ? '' : '<button type="button" class="btn sec" id="b-depo-apagar">Apagar</button>',
+      aoSalvar: function (d) {
+        var nome = String(d.nome || '').trim(), txt = String(d.texto || '').trim();
+        if (!nome) return { erro: 'Escreva quem avaliou.', campo: 'nome' };
+        if (!txt) return { erro: 'Cole o que a pessoa escreveu.', campo: 'texto' };
+        var novo = { nome: nome, nota: Math.min(5, Math.max(1, parseInt(d.nota, 10) || 5)),
+                     texto: txt, quando: String(d.quando || '').trim() };
+        if (!Array.isArray(G.destaques)) G.destaques = [];
+        if (i == null) G.destaques.push(novo); else G.destaques[i] = novo;
+        S.google = G; A.sobre = S; B12.salvar(); re();
+        return { ok: true };
+      }
+    });
+    var ap = document.getElementById('b-depo-apagar');
+    if (ap) ap.onclick = function () {
+      G.destaques.splice(i, 1); S.google = G; A.sobre = S; B12.salvar();
+      B12.fecharFolha(); re();
+    };
+  }
 
   /* Missao e visao sao duas listas iguais, entao um molde so para as duas:
      duplicar isto seria duplicar tambem o proximo conserto. */
