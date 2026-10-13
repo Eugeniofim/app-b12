@@ -462,6 +462,31 @@ body.adm .navb.on{color:var(--turq-300)}
 .aviso-convite{background:linear-gradient(135deg,#0A5A54,var(--turq-600));animation-delay:.5s}
 .aviso-convite .instalar-ico svg{stroke:#BFF3EC;fill:none;stroke-width:1.9}
 
+/* ------------------------------------------------------------- agenda
+   Linha larga e de dedo: a bolinha de "feito" tem 40px porque é o que mais
+   se toca aqui, e errar nela marca o compromisso errado como resolvido. */
+.tarefas{display:grid;gap:8px;padding:0 12px}
+.tarefa{display:flex;align-items:flex-start;gap:11px;background:var(--noite-2);
+  border:1px solid var(--noite-risco);border-left:3px solid var(--turq-600);
+  border-radius:var(--r-m);padding:12px 13px;cursor:pointer;text-align:left}
+.tarefa.atrasada{border-left-color:var(--ruim)}
+.tarefa.feita{opacity:.55;border-left-color:var(--gelo-3)}
+.tarefa.feita .tf-meio b{text-decoration:line-through}
+.tf-check{width:40px;height:40px;flex:none;border-radius:50%;background:transparent;
+  border:2px solid var(--noite-risco);display:grid;place-items:center;margin-top:-2px}
+.tarefa.feita .tf-check{background:var(--turq-700);border-color:var(--turq-600)}
+.tf-check svg{width:19px;height:19px;fill:none;stroke:#fff;stroke-width:2.6;
+  stroke-linecap:round;stroke-linejoin:round}
+.tf-meio{flex:1;min-width:0}
+.tf-meio b{font-size:14.5px;display:block;line-height:1.3;color:var(--gelo)}
+.tf-sub{font-size:12px;color:var(--gelo-3);margin-top:3px}
+.tarefa.atrasada .tf-sub{color:var(--ruim);font-weight:650}
+.tf-obs{font-size:12.5px;color:var(--gelo-2);margin-top:6px;line-height:1.45}
+.tf-gc{width:40px;height:40px;flex:none;border-radius:11px;background:var(--noite);
+  border:1px solid var(--noite-risco);display:grid;place-items:center}
+.tf-gc svg{width:19px;height:19px;fill:none;stroke:var(--turq-300);stroke-width:1.8;
+  stroke-linecap:round;stroke-linejoin:round}
+
 /* ---------------------------------------------- onde comer (do painel)
    Sem foto: o Dhalsin cadastra pelo celular, e obrigar foto significaria ou
    ele não cadastrar, ou entrar foto de banco de imagem que não é da casa. */

@@ -473,7 +473,10 @@ B12.pintarIlha = function () {
         (c.vila ? '<span class="vila-txt">' + c.vila + '</span>' : '') +
         '<small>' + c.txt + '</small>' +
         (c.insta ? '<span class="parc-ig">' + IG_SVG + '@' + c.insta + '</span>' : '') + '</div>';
-      var corpo = '<div class="fcard-foto" style="background-image:url(' + c.foto + ')"></div>' + miolo;
+      /* `pos` existe porque foto de casa tem assunto fora do centro: sem isso
+         o corte pega o telhado e as folhas, e a casa fica escondida */
+      var corpo = '<div class="fcard-foto" style="background-image:url(' + c.foto + ')' +
+        (c.pos ? ';background-position:' + c.pos : '') + '"></div>' + miolo;
       return c.insta
         ? '<a class="fcard" href="https://instagram.com/' + c.insta + '" target="_blank" rel="noopener">' + corpo + '</a>'
         : '<div class="fcard">' + corpo + '</div>';
@@ -709,10 +712,11 @@ B12.montarFaixas = function () {
   document.querySelectorAll('.v-cortesia').forEach(function (e) { e.textContent = B12.DB.ajustes.idadeCortesia; });
 };
 B12.montarFormulario = function () {
-  var sel = document.getElementById('f-pousada');
-  sel.innerHTML = '<option>Ainda não escolhi</option>' +
-    B12.PARCEIROS.map(function (p) { return '<option>' + p.nome + '</option>'; }).join('') +
-    '<option>Outra</option>';
+  /* as sugestões de pousada: lista pendurada num campo de texto, para quem
+     fica numa pousada que a B12 ainda não cadastrou poder escrever o nome */
+  var sel = document.getElementById('f-pousada-op');
+  sel.innerHTML = B12.PARCEIROS.map(function (p) {
+    return '<option value="' + escT(p.nome) + '"></option>'; }).join('');
   document.getElementById('f-destino').innerHTML =
     B12.DESTINOS.map(function (d) { return '<option>' + d + '</option>'; }).join('');
   B12.montarFaixas();

@@ -132,6 +132,21 @@ function lista(rot, nome, itens, sel) {
       return '<option value="' + v + '"' + (v === sel ? ' selected' : '') + '>' + t + '</option>';
     }).join('') + '</select>';
 }
+/* LISTA EM QUE DÁ PARA ESCREVER.
+   Pedido do Eugênio em 13/10: a pousada vinha como lista fechada, e pousada
+   que não está cadastrada ficava de fora. Isto é um campo de texto comum com
+   as sugestões penduradas (<datalist>): toca e vê a lista, ou escreve o nome
+   na mão. Nativo do navegador, funciona no celular, e o que sai é texto —
+   quem lê o formulário não muda nada. */
+function listaLivre(rot, nome, itens, valor, dica) {
+  var id = 'c-' + nome;
+  return '<label for="' + id + '">' + rot + '</label>' +
+    '<input id="' + id + '" name="' + nome + '" list="' + id + '-op" autocomplete="off" ' +
+    'value="' + esc(valor || '') + '" placeholder="' + esc(dica || 'escolha ou escreva') + '">' +
+    '<datalist id="' + id + '-op">' + itens.map(function (i) {
+      return '<option value="' + esc(i) + '"></option>'; }).join('') + '</datalist>';
+}
+
 function marca(rot, nome, ligado, ajuda) {
   return '<label class="aceite"><input type="checkbox" name="' + nome + '"' +
     (ligado ? ' checked' : '') + '><span><b>' + rot + '</b>' +
@@ -139,6 +154,7 @@ function marca(rot, nome, ligado, ajuda) {
 }
 function grupo(titulo) { return '<div class="grupo">' + titulo + '</div>'; }
 B12.f_campo = campo; B12.f_lista = lista; B12.f_marca = marca;
+B12.f_listaLivre = listaLivre;
 
 var PAGAMENTOS = [['pix','Pix'],['dinheiro','Dinheiro'],['credito','Cartão de crédito'],
                   ['debito','Cartão de débito'],['transferencia','Transferência']];
@@ -226,9 +242,9 @@ B12.formCliente = function (cliente, depois) {
         ajuda:'Opcional. Só serve para divulgação, então só faz sentido com o aceite abaixo.' }) +
       campo('CPF', 'cpf', { modo:'numeric', max:14, valor: c.cpf ? B12.cpfBonito(c.cpf) : '',
         dica:'só se pedir nota', ajuda:'Não é obrigatório para viajar. Guarde só se a pessoa pedir nota fiscal: pela lei, cada dado a mais é responsabilidade a mais.' }) +
-      lista('Ficou em qual pousada', 'pousada',
-        ['', 'Direto (sem pousada)'].concat(B12.PARCEIROS.map(function (p) { return p.nome; }))
-          .concat(['Outra']), c.pousada || '') +
+      listaLivre('Ficou em qual pousada', 'pousada',
+        ['Direto (sem pousada)'].concat(B12.PARCEIROS.map(function (p) { return p.nome; })),
+        c.pousada || '') +
       campo('Cidade de origem', 'cidade', { valor: c.cidade || '', dica:'opcional', max:40,
         ajuda:'Alimenta o relatório de onde vêm os clientes.' }) +
       campo('Observação', 'obs', { valor: c.obs || '', dica:'opcional', max:120 }) +
@@ -374,13 +390,12 @@ B12.formBalcao = function (depois, dentro) {
           dica:'quanto foi combinado' }) + '</div>' +
         '<div>' + lista('Pagamento', 'pg', PAGAMENTOS, 'pix') + '</div>' +
       '</div>' +
-      /* O preço é de quem atende, não do código. A tabela aparece como
-         referência, com um toque para usar — e ninguém é obrigado. */
-      '<div class="sugestao" id="sug-balcao" hidden>' +
-        '<span id="sug-txt"></span>' +
-        '<button type="button" class="mini-btn" id="sug-usar">Usar</button></div>' +
-      lista('Pousada', 'pousada', ['', 'Direto (sem pousada)']
-        .concat(B12.PARCEIROS.map(function (p) { return p.nome; })).concat(['Outra']), '') +
+      /* 13/10: saiu a faixa "Pela tabela daria R$ X". O preço aqui é de quem
+         atende, e uma sugestão pulando na tela a cada tecla atrapalhava mais
+         do que ajudava. A tabela continua viva em Financeiro → Preços, para
+         consulta. */
+      listaLivre('Pousada', 'pousada', ['Direto (sem pousada)']
+        .concat(B12.PARCEIROS.map(function (p) { return p.nome; })), '') +
       /* ---- o que a pessoa consumiu esperando a lancha ---- */
       '<button type="button" class="btn sec dobra-btn" id="b-consumo" style="margin-top:14px" ' +
       'aria-expanded="false" aria-controls="cx-consumo">' +
@@ -477,15 +492,6 @@ B12.formBalcao = function (depois, dentro) {
         var nota = naoPag > 0 ? ' · ' + naoPag + (naoPag > 1 ? ' não pagam' : ' não paga') : '';
         var travessia = manual > 0 ? manual : (pr ? pr.travessia : 0);
 
-        /* a referência da tabela, só como sugestão */
-        var sug = form.querySelector('#sug-balcao'), sugT = form.querySelector('#sug-txt');
-        if (pr && Math.round(pr.travessia) !== Math.round(manual)) {
-          sug.hidden = false;
-          sugT.innerHTML = 'Pela tabela daria <b>' + B12.brl(pr.travessia) + '</b>' +
-            (pr.faixaTxt ? ' · ' + pr.faixaTxt : '') + ' · ' + pag + (pag > 1 ? ' pagantes' : ' pagante');
-          sug.dataset.valor = pr.travessia;
-        } else { sug.hidden = true; }
-
         if (!travessia) {
           el.innerHTML = '<span>Falta o valor' + nota + '</span><b>combine e digite</b>';
         } else {
@@ -500,11 +506,6 @@ B12.formBalcao = function (depois, dentro) {
       }
       form.querySelectorAll('[name=produto],[name=faixa],[name=pg],[name=valorManual],[name^=qtd_]')
         .forEach(function (c) { c.oninput = calcular; c.onchange = calcular; });
-      form.querySelector('#sug-usar').onclick = function () {
-        var sug = form.querySelector('#sug-balcao');
-        form.querySelector('[name=valorManual]').value = sug.dataset.valor || '';
-        calcular();
-      };
       calcular();
     },
     aoSalvar: function (d) {

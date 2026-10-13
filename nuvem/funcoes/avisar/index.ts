@@ -175,6 +175,43 @@ async function varrerODia() {
   return avisos;
 }
 
+/* ------------------------------------------------------- A AGENDA DELE
+   De dez em dez minutos o banco pergunta: tem compromisso cujo aviso
+   venceu? A hora de bater foi calculada quando ele salvou (data e hora do
+   compromisso menos o aviso prévio) e está na coluna avisa_em, com índice.
+   Depois de mandar, a linha é marcada como avisada — aviso repetido a cada
+   dez minutos seria o jeito mais rápido de ele desligar a notificação. */
+async function avisosDaAgenda() {
+  const agora = new Date().toISOString();
+  const { data: tarefas } = await servidor
+    .from('b12_tarefas').select('id, dados')
+    .eq('apagado', false).eq('avisado', false)
+    .not('avisa_em', 'is', null).lte('avisa_em', agora)
+    .limit(40);
+  const avisos: any[] = [];
+  const ids: string[] = [];
+  for (const t of tarefas ?? []) {
+    const d = (t.dados ?? {}) as any;
+    if (d.feita) continue;
+    const min = Number(d.aviso) || 0;
+    const antes = min === 0 ? 'Agora'
+      : min < 60 ? 'Em ' + min + ' minutos'
+      : min < 1440 ? 'Em ' + Math.round(min / 60) + (min < 120 ? ' hora' : ' horas')
+      : min < 2880 ? 'Amanhã'
+      : 'Em ' + Math.round(min / 1440) + ' dias';
+    const partes = [antes + (d.hora ? ', às ' + d.hora : '')];
+    if (d.onde) partes.push(d.onde);
+    avisos.push({
+      papel: 'dono', tag: 'tarefa-' + t.id,
+      titulo: String(d.titulo || 'Compromisso').slice(0, 70),
+      texto: partes.join(' · ').slice(0, 180),
+      ir: '/#/adm', importante: true,
+    });
+    ids.push(t.id);
+  }
+  return { avisos, ids };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
 
@@ -210,7 +247,26 @@ Deno.serve(async (req) => {
 
   const corpo = await req.json().catch(() => ({}));
   /* o relógio só varre: não escreve aviso à mão */
-  if (ehRelogio && !corpo.varrer) return resposta({ erro: 'O relógio só varre.' }, 403);
+  if (ehRelogio && !corpo.varrer && !corpo.agenda)
+    return resposta({ erro: 'O relógio só varre o dia e a agenda.' }, 403);
+
+  /* a agenda tem caminho próprio: manda e marca como avisado */
+  if (corpo.agenda) {
+    const { avisos, ids } = await avisosDaAgenda();
+    if (!avisos.length) return resposta({ ok: true, agenda: true, mandados: 0, nada: true });
+    let n = 0, f = 0;
+    const { data: inscritos } = await servidor
+      .from('b12_avisos').select('id, endpoint, p256dh, auth').eq('papel', 'dono').eq('ativo', true);
+    for (const a of avisos) {
+      for (const i of inscritos ?? []) {
+        const r = await empurrar(i, a);
+        if (r.ok) n++; else f++;
+      }
+    }
+    await servidor.from('b12_tarefas').update({ avisado: true }).in('id', ids);
+    return resposta({ ok: true, agenda: true, compromissos: avisos.length, mandados: n, falhas: f });
+  }
+
   const pacotes = corpo.varrer
     ? await varrerODia()
     : [{

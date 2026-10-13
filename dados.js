@@ -15,7 +15,7 @@ var B12 = window.B12 || {};
 /* ---------------------------------------------------------------- identidade */
 /* o cofre: o servidor da Ti Artes que guarda a chave da IA. Vazio = assistente
    desligado (o app continua funcionando igual, só sem o chat). */
-B12.VERSAO = 'b12-v1.81.3';   /* tem que bater com o CACHE do sw.js */
+B12.VERSAO = 'b12-v1.82.1';   /* tem que bater com o CACHE do sw.js */
 
 B12.IA = { cofre: 'https://uopfqlogjzuqpabptxkb.supabase.co/functions/v1/cofre',
            modelo: 'claude-haiku-4-5' };
@@ -366,8 +366,14 @@ B12.DICAS = [
 
 B12.FICAR = [
   /* 13/10: trocou para a casa amarela — é frente de pousada de verdade, na
-     areia, com sol. A anterior (ilha-ficar-2) era um portão fechado. */
-  { nome:'Hospedagem parceira', foto:'fotos/ilha-ficar-1.jpg',
+     areia, com sol. A anterior (ilha-ficar-2) era um portão fechado.
+     13/10, 2ª volta: o Eugênio ainda não gostou. Procurei de novo no acervo
+     livre e NÃO EXISTE foto decente de frente de pousada da Ilha com licença
+     aberta — o que há é Street View borrado ou pousada do continente. O que
+     estragava mesmo era o CORTE: o cartão pegava o telhado e as folhas. Com
+     `pos` a casa aparece inteira. A foto definitiva tem de vir do Dhalsin,
+     de uma pousada parceira de verdade. */
+  { nome:'Hospedagem parceira', foto:'fotos/ilha-ficar-1.jpg', pos:'center 58%',
     txt:'A B12 trabalha com as pousadas abaixo. Quem reserva pelo app pode escolher a pousada na hora.' },
 ];
 

@@ -34,9 +34,11 @@
     lancamentos: 'b12_lancamentos',
     contas:      'b12_contas',
     manutencoes: 'b12_manutencoes',
-    marinheiros: 'b12_marinheiros'
+    marinheiros: 'b12_marinheiros',
+    tarefas:     'b12_tarefas'
   };
-  var SO_DO_DONO = { lancamentos: 1, contas: 1, manutencoes: 1 };
+  /* a agenda é dele: a funcionária não enxerga compromisso do dono */
+  var SO_DO_DONO = { lancamentos: 1, contas: 1, manutencoes: 1, tarefas: 1 };
   var COLECOES = Object.keys(MAPA);
 
   var K_SOMBRA = 'b12_sombra', K_FILA = 'b12_fila',

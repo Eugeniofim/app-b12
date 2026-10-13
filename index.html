@@ -25,7 +25,7 @@
 <meta name="twitter:image" content="https://app.estacaob12.com.br/compartilhar.jpg">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="estilo.css?v=1.81.3">
+<link rel="stylesheet" href="estilo.css?v=1.82.1">
 </head>
 <body>
 
@@ -240,8 +240,13 @@
     <input type="time" id="f-hhmm" step="300" value="09:00">
     <input type="hidden" id="f-hora" value="dia">
     <div class="ajuda" id="ajuda-hora"></div>
-    <label>6 · Ficarão em qual pousada?</label>
-    <select id="f-pousada"></select>
+    <!-- 13/10: era lista fechada e pousada fora da lista ficava de fora.
+         Agora é campo de texto com as sugestões penduradas: toca e vê a
+         lista, ou escreve o nome na mão. -->
+    <label for="f-pousada">6 · Ficarão em qual pousada?</label>
+    <input id="f-pousada" list="f-pousada-op" autocomplete="off"
+      placeholder="escolha ou escreva o nome">
+    <datalist id="f-pousada-op"></datalist>
     <label>7 · Para onde vão?</label>
     <select id="f-destino"></select>
   </div>
@@ -455,23 +460,24 @@
     <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></svg><span>Mais</span></button>
 </div></nav>
 
-<script src="config.js?v=1.81.3"></script>
-<script src="marca.js?v=1.81.3"></script>
-<script src="dados.js?v=1.81.3"></script>
-<script src="nucleo.js?v=1.81.3"></script>
-<script src="exportar.js?v=1.81.3"></script>
-<script src="oceano.js?v=1.81.3"></script>
-<script src="formularios.js?v=1.81.3"></script>
-<script src="acesso.js?v=1.81.3"></script>
-<script src="mensagens.js?v=1.81.3"></script>
-<script src="turista.js?v=1.81.3"></script>
-<script src="assistente.js?v=1.81.3"></script>
-<script src="adm.js?v=1.81.3"></script>
-<script src="nuvemlogin.js?v=1.81.3"></script>
-<script src="avisos.js?v=1.81.3"></script>
-<script src="aparelhos.js?v=1.81.3"></script>
-<script src="sincronia.js?v=1.81.3"></script>
-<script src="tutorial.js?v=1.81.3"></script>
-<script src="app.js?v=1.81.3"></script>
+<script src="config.js?v=1.82.1"></script>
+<script src="marca.js?v=1.82.1"></script>
+<script src="dados.js?v=1.82.1"></script>
+<script src="nucleo.js?v=1.82.1"></script>
+<script src="exportar.js?v=1.82.1"></script>
+<script src="oceano.js?v=1.82.1"></script>
+<script src="formularios.js?v=1.82.1"></script>
+<script src="acesso.js?v=1.82.1"></script>
+<script src="mensagens.js?v=1.82.1"></script>
+<script src="turista.js?v=1.82.1"></script>
+<script src="assistente.js?v=1.82.1"></script>
+<script src="adm.js?v=1.82.1"></script>
+<script src="nuvemlogin.js?v=1.82.1"></script>
+<script src="avisos.js?v=1.82.1"></script>
+<script src="agenda.js?v=1.82.1"></script>
+<script src="aparelhos.js?v=1.82.1"></script>
+<script src="sincronia.js?v=1.82.1"></script>
+<script src="tutorial.js?v=1.82.1"></script>
+<script src="app.js?v=1.82.1"></script>
 </body>
 </html>

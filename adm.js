@@ -194,7 +194,7 @@ function grafRosca(alvo, fatias) {
    virou sub-aba. `so:'dono'` é cadeado de verdade: a funcionária não vê o
    grupo, e pedir a página pelo nome também não entra. */
 var GRUPOS = [
-  { id:'hoje',      nome:'Hoje',      sub:[['hoje','O dia']] },
+  { id:'hoje',      nome:'Hoje',      sub:[['hoje','O dia'], ['agenda','Agenda', 'dono']] },
   { id:'balcao',    nome:'Cadastro',  sub:[['balcao','Cadastro']] },
   /* "Quem volta" morava em Hoje e o Eugênio foi procurar a criação dos
      horários de retorno aqui, na Travessia — que é onde a cabeça dele põe
@@ -224,7 +224,7 @@ var PAGINAS = { hoje:pHoje, volta:pVolta, painel:pPainel, caixa:pCaixa, lanc:pLa
   clientes:pClientes, patio:pPatio, manut:pManut, gestao:pGestao, escala:pEscala,
   msgs:pMsgs, dados:pDados, precos:pPrecos, ia:pIA, ilha:pNaIlha, balcao:pBalcao,
   marinheiros:pMarinheiros, avisos:pAvisos, sobre:pSobre, reservas:pReservas,
-  contador:pContador };
+  contador:pContador, agenda:pAgenda };
 
 /* Grupos e sub-abas que este papel pode ver. Nunca confie na tela: quem pedir
    uma página fechada cai no primeiro grupo que ele pode abrir. */
@@ -739,8 +739,111 @@ function pContas(raiz) {
 }
 
 /* ------------------------------------------------------------- RELATÓRIOS */
+/* ======================================== RELATÓRIO POR MÊS, ANO E PERÍODO
+   13/10/2026. Antes esta aba só mostrava o mês corrente e os gráficos da
+   planilha. O Dhalsin pediu para escolher o recorte — e para ver o
+   HISTÓRICO separado do que o app registra.
+
+   Separado, e não somado, porque são duas contabilidades diferentes: a
+   planilha tem 12.267 lançamentos de 2015 a 2025, com 45 meses em branco e
+   913 linhas sem data; o app tem o que foi digitado desde que ele começou.
+   Juntar os dois num número só esconderia os buracos da planilha. */
+var relRecorte = { modo:'mes', de:'', ate:'' };
+
+function blocoRelatorio(raiz) {
+  var hoje = B12.hoje(), ym = B12.mesAtual();
+  function limites() {
+    if (relRecorte.modo === 'mes')  return [ym + '-01', ym + '-31', 'mês de ' + B12.mesBR(ym)];
+    if (relRecorte.modo === 'ano')  return [hoje.slice(0,4) + '-01-01', hoje.slice(0,4) + '-12-31',
+                                            'ano de ' + hoje.slice(0,4)];
+    if (relRecorte.modo === 'tudo') return ['2000-01-01', '2099-12-31', 'tudo que existe'];
+    var de = relRecorte.de || (hoje.slice(0,4) + '-01-01'), ate = relRecorte.ate || hoje;
+    return [de, ate, B12.dataBR(de) + ' a ' + B12.dataBR(ate)];
+  }
+  var L = limites(), de = L[0], ate = L[1], nome = L[2];
+  var r = B12.relatorio(de, ate), h = B12.historico(de, ate);
+  var cats = Object.keys(r.porCat).map(function (k) { return [k, r.porCat[k]]; })
+    .sort(function (a, b) { return b[1] - a[1]; }).slice(0, 12);
+  var anos = Object.keys(h.porAno).sort();
+
+  var b = bloco(
+    '<div class="cx entra"><h3>Relatório</h3>' +
+    '<p>Escolha o recorte. O que o app registrou e o que está na planilha ' +
+    'antiga aparecem <b>separados</b> — são duas contabilidades, e somar as duas ' +
+    'esconderia os buracos da planilha.</p>' +
+    '<div class="chips" style="margin-top:12px" id="rel-modos">' +
+      [['mes','Este mês'], ['ano','Este ano'], ['periodo','Escolher período'], ['tudo','Tudo']]
+        .map(function (o) {
+          return '<button type="button" class="chip' + (o[0] === relRecorte.modo ? ' on' : '') +
+            '" data-relmodo="' + o[0] + '">' + o[1] + '</button>'; }).join('') +
+    '</div>' +
+    (relRecorte.modo === 'periodo'
+      ? '<div class="par" style="margin-top:12px">' +
+        '<div><label for="rel-de">De</label><input type="date" id="rel-de" value="' + de + '"></div>' +
+        '<div><label for="rel-ate">Até</label><input type="date" id="rel-ate" value="' + ate + '"></div>' +
+        '</div>' : '') +
+    '<p class="ajuda" style="margin-top:10px">Mostrando: <b>' + esc(nome) + '</b></p></div>' +
+
+    '<div class="faixa-sec"><div class="tit"><h2>No app</h2>' +
+    '<span style="font-size:11.5px;color:var(--gelo-3)">' + r.lancamentos + ' lançamentos</span>' +
+    '</div></div>' +
+    '<div class="placar entra entra-1" style="margin-top:0">' +
+      tile(r.entradas, 'Entradas', 'brl', 'destaque') +
+      tile(r.saidas, 'Saídas', 'brl') +
+      tile(r.resultado, 'Resultado', 'brl', r.resultado < 0 ? 'alerta' : '') +
+      tile(r.passageiros, 'Passageiros', 'n') +
+    '</div>' +
+    (r.demo ? '<div class="cx aviso entra" style="margin-top:0"><h3>' + r.demo +
+      ' deste período são de demonstração</h3><p>Some tudo em Estação → Dados, no botão ' +
+      '“Começar a usar valendo”.</p></div>' : '') +
+    (cats.length
+      ? '<div class="cx entra entra-2"><h3>Por categoria</h3><div class="rolagem">' +
+        '<table class="tabela" style="margin-top:8px">' + cats.map(function (c) {
+          return '<tr><td>' + esc(c[0]) + '</td><td class="n">' + B12.brl(c[1]) + '</td></tr>';
+        }).join('') + '</table></div></div>'
+      : '<div class="cx entra entra-2"><p>Nenhum lançamento neste recorte.</p></div>') +
+
+    '<div class="faixa-sec"><div class="tit"><h2>Na planilha antiga</h2>' +
+    '<span style="font-size:11.5px;color:var(--gelo-3)">' + h.meses +
+    (h.meses === 1 ? ' mês' : ' meses') + '</span></div></div>' +
+    (h.meses
+      ? '<div class="placar entra entra-3" style="margin-top:0">' +
+          tile(h.total, 'Receita', 'brl', 'destaque') +
+          tile(h.passageiros, 'Passageiros', 'n') +
+          tile(h.viagens, 'Viagens', 'n') +
+          tile(h.estacionamento, 'Estacionamento', 'brl') +
+        '</div>' +
+        '<div class="cx entra entra-4"><h3>Ano a ano</h3><div class="rolagem">' +
+        '<table class="tabela" style="margin-top:8px">' +
+        '<tr><th>Ano</th><th class="n">Meses</th><th class="n">Passageiros</th><th class="n">Receita</th></tr>' +
+        anos.map(function (a) {
+          var x = h.porAno[a];
+          return '<tr><td>' + a + '</td><td class="n">' + x.meses + '</td><td class="n">' +
+            B12.n(x.passageiros) + '</td><td class="n">' +
+            B12.brl(x.receita + x.estacionamento) + '</td></tr>'; }).join('') +
+        '</table></div>' +
+        '<p class="ajuda" style="margin-top:9px">Da planilha de 2015 a 2025: ' +
+        B12.n(B12.HIST_RESUMO.lancamentos) + ' lançamentos, ' +
+        B12.HIST_RESUMO.mesesEmBranco + ' meses sem registro nenhum e ' +
+        B12.n(B12.HIST_RESUMO.semDataValida) + ' linhas sem data válida. ' +
+        'Por isso ela não entra na conta do app.</p></div>'
+      : '<div class="cx entra entra-3"><p>A planilha antiga não tem nada neste recorte ' +
+        '(ela vai de ' + B12.mesBR(B12.HIST_RESUMO.primeiro) + ' a ' +
+        B12.mesBR(B12.HIST_RESUMO.ultimo) + ').</p></div>')
+  );
+  raiz.appendChild(b);
+
+  b.querySelectorAll('[data-relmodo]').forEach(function (x) {
+    x.onclick = function () { relRecorte.modo = x.dataset.relmodo; B12.admDesenhar('relat'); };
+  });
+  var cde = b.querySelector('#rel-de'), cate = b.querySelector('#rel-ate');
+  if (cde) cde.onchange = function () { relRecorte.de = cde.value; B12.admDesenhar('relat'); };
+  if (cate) cate.onchange = function () { relRecorte.ate = cate.value; B12.admDesenhar('relat'); };
+}
+
 function pRelat(raiz) {
   var ym = B12.mesAtual(), r = B12.resumoMes(ym);
+  blocoRelatorio(raiz);
   blocoAparelhos(raiz);
   /* taxa de cartão por forma */
   var formas = Object.keys(r.porPg).map(function (p) {
@@ -2030,6 +2133,32 @@ function pContador(raiz) {
     '<div class="ajuda">Oito abas, com data e valor como número — é o que ele filtra e soma.</div>' +
     '<div id="ct-aviso" class="ajuda" style="margin-top:12px"></div></div>' +
 
+    /* 13/10: o contador também precisa do que veio antes do app. Fica num
+       bloco à parte e NÃO entra no Livro Caixa: aquele papel é a escrituração
+       do app, e misturar planilha com 45 meses em branco dentro dele seria
+       entregar um livro que não fecha com o extrato. */
+    (function () {
+      var h = B12.historico(
+        escolhido === 'tudo' ? '2000-01-01' : (escolhido === 'ano' ? B12.hoje().slice(0,4) + '-01-01' : '2099-01-01'),
+        escolhido === 'tudo' ? '2099-12-31' : (escolhido === 'ano' ? B12.hoje().slice(0,4) + '-12-31' : '2000-01-01'));
+      var R = B12.HIST_RESUMO;
+      return '<div class="cx entra entra-25"><h3>A planilha de antes do app</h3>' +
+        '<p>De ' + B12.mesBR(R.primeiro) + ' a ' + B12.mesBR(R.ultimo) + ': <b>' +
+        B12.n(R.lancamentos) + '</b> lançamentos, <b>' + B12.n(R.passageiros) +
+        '</b> passageiros e <b>' + B12.brl(R.receita) + '</b> de receita.</p>' +
+        (h.meses
+          ? '<p style="margin-top:8px">Dentro do período escolhido: <b>' + h.meses +
+            (h.meses === 1 ? ' mês' : ' meses') + '</b>, ' + B12.n(h.passageiros) +
+            ' passageiros, ' + B12.brl(h.total) + '.</p>'
+          : '<p class="ajuda" style="margin-top:8px">O período escolhido não pega nada da ' +
+            'planilha — ela termina em ' + B12.mesBR(R.ultimo) + '.</p>') +
+        '<p class="ajuda" style="margin-top:9px"><b>Ela não entra no Livro Caixa.</b> São ' +
+        R.mesesEmBranco + ' meses sem registro nenhum e ' + B12.n(R.semDataValida) +
+        ' linhas sem data válida: um livro feito com isso não fecharia com o extrato do ' +
+        'banco. Para ver ano a ano, use <b>Relatórios</b>.</p>' +
+        '<button type="button" class="btn sec" data-ir-aba="relat">Abrir Relatórios</button></div>';
+    })() +
+
     '<div class="cx entra entra-3"><h3>Seu contador</h3>' +
     (C.email
       ? '<p><b>' + esc(C.nome || C.email) + '</b><br>' +
@@ -2051,6 +2180,9 @@ function pContador(raiz) {
              a.setAttribute('role', ok ? 'status' : 'alert'); }
     B12.aviso(t, ok ? 'bom' : 'ruim');
   }
+  raiz.querySelectorAll('[data-ir-aba]').forEach(function (b) {
+    b.onclick = function () { B12.admDesenhar(b.dataset.irAba); };
+  });
   raiz.querySelector('#ct-periodo').onchange = function () {
     pContador.periodo = this.value; re();
   };
@@ -2705,6 +2837,172 @@ function pBalcao(raiz) {
       window.open('https://wa.me/' + b.dataset.bzap + '?text=' + encodeURIComponent(txt), '_blank');
     };
   });
+}
+
+
+/* ===================================================== AGENDA (aba Hoje)
+   13/10/2026. O Dhalsin anota tudo no papel e pediu um lugar para se
+   organizar, com aviso no celular ANTES da hora e o compromisso indo parar
+   no Google Agenda dele.
+
+   A tela segue a cabeça de quem abre o app de manhã: primeiro o que está
+   atrasado (porque isso dói), depois hoje, depois a semana. O que é "mais
+   para a frente" fica recolhido — se aparecesse tudo, a lista de hoje
+   sumiria no meio.
+
+   É só do dono: a aba tem `'dono'` no grupo e a coleção está em SO_DO_DONO
+   na sincronia. A funcionária não vê compromisso dele nem por engano. */
+function pAgenda(raiz) {
+  var d = B12.agendaDoDia();
+  var hoje = B12.hoje();
+  function re() { B12.admDesenhar('agenda'); }
+
+  function quando(t) {
+    if (!t.data) return 'sem data';
+    var q = t.data === hoje ? 'hoje'
+          : t.data === B12.diaMais(hoje, 1) ? 'amanhã'
+          : t.data === B12.diaMais(hoje, -1) ? 'ontem'
+          : B12.dataBR(t.data);
+    return q + (t.hora ? ' às ' + t.hora : '');
+  }
+  function linha(t, atrasada) {
+    return '<div class="tarefa' + (atrasada ? ' atrasada' : '') + (t.feita ? ' feita' : '') +
+      '" data-tarefa="' + t.id + '">' +
+      '<button type="button" class="tf-check" data-feita="' + t.id + '" ' +
+      'aria-label="' + (t.feita ? 'Desmarcar' : 'Marcar como feito') + '">' +
+      (t.feita
+        ? '<svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>'
+        : '') + '</button>' +
+      '<div class="tf-meio">' +
+        '<b>' + esc(t.titulo) + '</b>' +
+        '<div class="tf-sub">' + quando(t) +
+          (t.aviso ? ' · avisa ' + esc(B12.avisoTexto(t.aviso).toLowerCase()) : '') +
+          (t.onde ? ' · ' + esc(t.onde) : '') + '</div>' +
+        (t.obs ? '<div class="tf-obs">' + esc(t.obs) + '</div>' : '') +
+      '</div>' +
+      (t.data && !t.feita
+        ? '<a class="tf-gc" href="' + B12.tarefaGoogle(t) + '" target="_blank" rel="noopener" ' +
+          'title="Pôr no Google Agenda" aria-label="Pôr no Google Agenda">' +
+          '<svg viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="16" rx="2.5"/>' +
+          '<path d="M3 9.5h18M8 2.5v4M16 2.5v4"/><path d="M9 14.5l2 2 4-4"/></svg></a>'
+        : '') +
+      '</div>';
+  }
+  function grupo(titulo, lista, vazio, atrasada) {
+    if (!lista.length && !vazio) return '';
+    return '<div class="faixa-sec"><div class="tit"><h2>' + titulo + '</h2>' +
+      '<span style="font-size:11.5px;color:var(--gelo-3)">' + lista.length + '</span></div></div>' +
+      (lista.length
+        ? '<div class="tarefas">' + lista.map(function (t) { return linha(t, atrasada); }).join('') + '</div>'
+        : '<div class="cx" style="margin-top:0"><p>' + vazio + '</p></div>');
+  }
+
+  raiz.appendChild(bloco(
+    '<div class="placar entra">' +
+      tile(d.hoje.length, 'Hoje', 'n', 'destaque') +
+      tile(d.atrasadas.length, 'Atrasados', 'n', d.atrasadas.length ? 'alerta' : '') +
+      tile(d.semana.length, 'Nos 7 dias', 'n') +
+      tile(d.feitas.length, 'Já feitos', 'n') +
+    '</div>' +
+
+    '<div style="padding:0 12px"><button type="button" class="btn pri" style="margin-top:0" ' +
+    'id="b-tarefa-nova">+ Novo compromisso</button></div>' +
+
+    (B12.avEstado && !B12.avEstado().ligado
+      ? '<div class="cx aviso entra entra-1"><h3>O aviso no celular está desligado</h3>' +
+        '<p>Sem ele a agenda só avisa com o app aberto. Ligue em ' +
+        '<b>Notificações</b> — leva um toque, e aí o lembrete chega com o ' +
+        'celular no bolso.</p></div>'
+      : '') +
+
+    grupo('Atrasados', d.atrasadas, '', true) +
+    grupo('Hoje', d.hoje, 'Nada marcado para hoje.') +
+    grupo('Próximos 7 dias', d.semana, '') +
+    grupo('Mais para a frente', d.depois, '') +
+    (d.feitas.length
+      ? '<details class="cx entra" style="margin-top:12px"><summary style="cursor:pointer;' +
+        'font-weight:700">Já feitos (' + d.feitas.length + ')</summary>' +
+        '<div class="tarefas" style="padding:10px 0 0">' +
+        d.feitas.slice(0, 30).map(function (t) { return linha(t); }).join('') + '</div></details>'
+      : '')
+  ));
+
+  raiz.querySelector('#b-tarefa-nova').onclick = function () { editarTarefa(null); };
+  raiz.querySelectorAll('[data-feita]').forEach(function (b) {
+    b.onclick = function (ev) {
+      ev.stopPropagation();
+      var t = B12.tarefas().filter(function (x) { return x.id === b.dataset.feita; })[0];
+      B12.marcarTarefa(b.dataset.feita, !(t && t.feita));
+      re();
+    };
+  });
+  raiz.querySelectorAll('[data-tarefa]').forEach(function (el) {
+    el.onclick = function (ev) {
+      if (ev.target.closest('[data-feita]') || ev.target.closest('.tf-gc')) return;
+      editarTarefa(el.dataset.tarefa);
+    };
+  });
+
+  function editarTarefa(id) {
+    var t = id ? B12.tarefas().filter(function (x) { return x.id === id; })[0] : null;
+    var novo = !t;
+    t = t || { titulo:'', data: hoje, hora:'09:00', minutos:60, aviso:60,
+               tipo:'compromisso', onde:'', obs:'' };
+    B12.folha({
+      titulo: novo ? 'Novo compromisso' : t.titulo,
+      sub: 'Entra na sua agenda e avisa no seu celular',
+      corpo:
+        B12.f_campo('O que é', 'titulo', { valor: t.titulo, max: 70, obrig: true,
+          dica: 'Vistoria da lancha na Marinha' }) +
+        '<div class="par">' +
+          '<div>' + B12.f_campo('Dia', 'data', { tipo:'date', valor: t.data, obrig: true }) + '</div>' +
+          '<div>' + B12.f_campo('Hora', 'hora', { tipo:'time', valor: t.hora }) + '</div>' +
+        '</div>' +
+        '<div class="par">' +
+          '<div>' + B12.f_lista('Quanto dura', 'minutos',
+            [['30','30 minutos'], ['60','1 hora'], ['120','2 horas'], ['240','4 horas'],
+             ['480','o dia todo']], String(t.minutos || 60)) + '</div>' +
+          '<div>' + B12.f_lista('Avisar', 'aviso',
+            B12.AVISOS.map(function (a) { return [String(a[0]), a[1]]; }),
+            String(t.aviso == null ? 60 : t.aviso)) + '</div>' +
+        '</div>' +
+        B12.f_lista('Tipo', 'tipo', B12.TIPOS_TAREFA, t.tipo || 'compromisso') +
+        B12.f_campo('Onde', 'onde', { valor: t.onde, max: 60, dica: 'opcional' }) +
+        '<label for="c-obs">Observação</label>' +
+        '<textarea id="c-obs" name="obs" rows="3" maxlength="400">' + esc(t.obs || '') + '</textarea>' +
+        '<div class="ajuda">O aviso chega no seu celular mesmo com o app fechado, desde que ' +
+        'a notificação esteja ligada. Depois de salvar aparece o botão de pôr no Google Agenda.</div>',
+      extra: novo ? '' : '<button type="button" class="btn sec" id="b-tf-google">Pôr no Google Agenda</button>' +
+        '<button type="button" class="btn sec" id="b-tf-ics">Baixar para outro calendário</button>' +
+        '<button type="button" class="btn sec" id="b-tf-apagar">Apagar</button>',
+      aoSalvar: function (dd) {
+        var tit = String(dd.titulo || '').trim();
+        if (!tit) return { erro: 'Escreva o que é.', campo: 'titulo' };
+        if (!dd.data) return { erro: 'Escolha o dia.', campo: 'data' };
+        var salvo = {
+          id: id || '', titulo: tit, data: dd.data, hora: dd.hora || '09:00',
+          minutos: Number(dd.minutos) || 60, aviso: Number(dd.aviso) || 0,
+          tipo: dd.tipo || 'compromisso', onde: String(dd.onde || '').trim(),
+          obs: String(dd.obs || '').trim(),
+          feita: t.feita || false, criada: t.criada
+        };
+        B12.salvarTarefa(salvo);
+        re();
+        return { ok: true };
+      }
+    });
+    if (!novo) {
+      var g = document.getElementById('b-tf-google');
+      if (g) g.onclick = function () { window.open(B12.tarefaGoogle(t), '_blank'); };
+      var i = document.getElementById('b-tf-ics');
+      if (i) i.onclick = function () { B12.tarefaICS(t); };
+      var ap = document.getElementById('b-tf-apagar');
+      if (ap) ap.onclick = function () {
+        if (!confirm('Apagar “' + t.titulo + '”?')) return;
+        B12.apagarTarefa(t.id); B12.fecharFolha(); re();
+      };
+    }
+  }
 }
 
 

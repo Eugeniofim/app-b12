@@ -145,6 +145,7 @@ B12.carregar = function () {
   /* 05/10/2026: balcão com consumo e ficha de marinheiro. Quem já tinha o app
      instalado ganha as duas coisas sem perder nada do que já estava gravado. */
   if (!Array.isArray(B12.DB.marinheiros)) B12.DB.marinheiros = B12.MARINHEIROS.slice();
+  if (!Array.isArray(B12.DB.tarefas)) B12.DB.tarefas = [];   /* 13/10: a agenda do Dhalsin */
   if (!Array.isArray(A.produtos) || !A.produtos.length) A.produtos = B12.PRODUTOS.slice();
   if (!A.sobre) A.sobre = JSON.parse(JSON.stringify(B12.SOBRE));
   /* 12/10/2026: missão e visão. Quem já tinha o app ganha as duas listas sem
@@ -767,6 +768,59 @@ B12.marcarVolta = function (reservaId, saidaVoltaId) {
 /* ============================================== quem está na Ilha agora
    O Dhalsin precisa saber, a qualquer hora: quem foi, quando volta, e como
    falar com cada um. Isto é segurança, não relatório. */
+/* ===================================================== RELATÓRIO POR PERÍODO
+   13/10/2026. O Dhalsin pediu relatório por mês, por ano e por período
+   escolhido — e com o HISTÓRICO da planilha separado do que o app passou a
+   registrar. São duas fontes diferentes e somar as duas seria mentira:
+   a planilha tem 12.267 lançamentos de 2015 a 2025, com 45 meses em branco e
+   913 linhas sem data válida; o app tem o que foi digitado desde que ele
+   começou a usar. Por isso cada uma aparece no seu bloco, com o nome na
+   frente. */
+B12.relatorio = function (de, ate) {
+  var D = B12.DB;
+  function dentro(d) { return !!d && d >= de && d <= ate; }
+  var r = { de:de, ate:ate, entradas:0, saidas:0, lancamentos:0, porCat:{},
+            viagens:0, passageiros:0, reservas:0, demo:0 };
+
+  D.lancamentos.forEach(function (l) {
+    if (!dentro(l.data)) return;
+    r.lancamentos++;
+    if (l.demo) r.demo++;
+    if (l.tipo === 'entrada') { r.entradas += l.valor; }
+    else { r.saidas += l.valor; }
+    var k = (l.tipo === 'entrada' ? '+ ' : '− ') + (l.cat || 'sem categoria');
+    r.porCat[k] = (r.porCat[k] || 0) + l.valor;
+  });
+  D.saidas.forEach(function (sa) { if (dentro(sa.data)) r.viagens++; });
+  D.reservas.forEach(function (x) {
+    if (x.situacao === 'cancelada' || !dentro(x.ida)) return;
+    r.reservas++; r.passageiros += (x.pax || 1);
+  });
+  r.resultado = r.entradas - r.saidas;
+  return r;
+};
+
+/* O mesmo recorte, mas na planilha de 2015 a 2025. Cada linha de HIST_VENDAS
+   é um MÊS inteiro: [ym, viagens, passageiros, receita, estacionamento]. */
+B12.historico = function (de, ate) {
+  var h = { de:de, ate:ate, meses:0, viagens:0, passageiros:0, receita:0,
+            estacionamento:0, porAno:{} };
+  (B12.HIST_VENDAS || []).forEach(function (l) {
+    var ym = l[0];
+    /* comparar mês com data: '2019-04' cobre de 2019-04-01 a 2019-04-31 */
+    if (ym + '-31' < de || ym + '-01' > ate) return;
+    h.meses++; h.viagens += l[1]; h.passageiros += l[2];
+    h.receita += l[3]; h.estacionamento += l[4];
+    var ano = ym.slice(0, 4);
+    h.porAno[ano] = h.porAno[ano] || { viagens:0, passageiros:0, receita:0, estacionamento:0, meses:0 };
+    h.porAno[ano].meses++; h.porAno[ano].viagens += l[1];
+    h.porAno[ano].passageiros += l[2]; h.porAno[ano].receita += l[3];
+    h.porAno[ano].estacionamento += l[4];
+  });
+  h.total = h.receita + h.estacionamento;
+  return h;
+};
+
 B12.naIlha = function (iso) {
   var hoje = iso || B12.hoje();
   function contato(r, c) {
