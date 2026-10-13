@@ -13,6 +13,12 @@
 
   /* superfícies claras (turista) */
   --fundo:#EDF2F5; --carta:#FFFFFF; --carta-2:#F5F9FA;
+  /* AREIA. O Eugênio pediu em 13/10: os blocos de menu e de lista da vitrine
+     com cara de praia, não de papel branco. Um tom quente e baixo, que não
+     briga com o azul do mar nem apaga o texto escuro em cima. Fica em UMA
+     variável porque ele pediu a MESMA cor nos dois menus — e dois hex
+     parecidos em lugares diferentes é como eles deixam de ser iguais. */
+  --areia:#F2EADC; --areia-2:#EADFCB; --areia-risco:#DECFB4;
   --tinta:#0E1F2D; --tinta-2:#4A6373; --tinta-3:#5B7688; --risco:#D8E4EA;
 
   /* superfícies escuras (ADM) */
@@ -88,7 +94,10 @@ p{margin:0}
 
 /* ==================================================== HERÓI (cara do turista) */
 .heroi{position:relative;overflow:hidden;color:#fff;isolation:isolate}
-.heroi-foto{position:absolute;inset:0;background:url('fotos/heroi.jpg') center 38%/cover no-repeat;
+/* 13/10: a foto do herói virou a aérea da Ilha, onde dá para ver a praia, o
+   Farol das Conchas e a mata de uma vez. `center 42%` deixa a faixa de areia
+   no meio da tela em celular alto, que é onde o olho cai primeiro. */
+.heroi-foto{position:absolute;inset:0;background:url('fotos/ilha-aerea.jpg') center 42%/cover no-repeat;
   animation:kenburns 26s ease-in-out infinite alternate;z-index:-2}
 .heroi::before{content:'';position:absolute;inset:0;z-index:-1;
   background:linear-gradient(180deg,rgba(6,23,38,.78) 0%,rgba(6,30,50,.30) 34%,
@@ -452,6 +461,22 @@ body.adm .navb.on{color:var(--turq-300)}
    turquesa, para não parecer o mesmo cartão duas vezes seguidas */
 .aviso-convite{background:linear-gradient(135deg,#0A5A54,var(--turq-600));animation-delay:.5s}
 .aviso-convite .instalar-ico svg{stroke:#BFF3EC;fill:none;stroke-width:1.9}
+
+/* ---------------------------------------------- onde comer (do painel)
+   Sem foto: o Dhalsin cadastra pelo celular, e obrigar foto significaria ou
+   ele não cadastrar, ou entrar foto de banco de imagem que não é da casa. */
+.comer-lista{display:grid;gap:9px;padding:0 12px}
+.comer{display:block;background:var(--areia);border-radius:var(--r-m);padding:13px 14px;
+  box-shadow:var(--sombra-1);text-align:left;color:inherit;text-decoration:none}
+.comer b{font-size:15px;display:block;line-height:1.25}
+.comer small{display:block;font-size:13px;color:var(--tinta-2);line-height:1.45;margin-top:4px}
+.comer .vila-txt{display:inline-block;font-size:11px;font-weight:700;color:var(--turq-700);
+  background:#DFF1EE;border-radius:99px;padding:3px 9px;margin-top:5px}
+.comer .parc-ig{display:flex;align-items:center;gap:5px;margin-top:7px;
+  font-size:12px;color:var(--tinta-3);font-weight:650}
+/* o SVG do Instagram vem sem tamanho e, fora do cartão com foto, estica até
+   ocupar a largura inteira. Aqui ele tem o tamanho de uma letra. */
+.comer .parc-ig svg{width:14px;height:14px;flex:none}
 
 /* --------------------------------------------------------- avaliações
    A nota grande primeiro: 4,9 é o argumento, e ele tem que caber num olhar. */
@@ -1322,7 +1347,7 @@ body.adm .ficha-conta.paga{background:#0A3B37;color:var(--turq-300)}
 .fcard-in .parc-ig svg{width:13px;height:13px;flex:none}
 
 .fazer{display:grid;gap:9px;margin:0 12px}
-.fz{display:flex;gap:12px;align-items:flex-start;background:var(--carta);
+.fz{display:flex;gap:12px;align-items:flex-start;background:var(--areia);
   border-radius:var(--r-m);padding:13px 14px;box-shadow:var(--sombra-1)}
 .fz-ico{flex:none;width:38px;height:38px;border-radius:11px;display:grid;place-items:center;
   background:#EDFBF9;color:var(--turq-600)}
@@ -1331,7 +1356,7 @@ body.adm .ficha-conta.paga{background:#0A3B37;color:var(--turq-300)}
 .fz small{display:block;font-size:12.5px;color:var(--tinta-3);margin-top:4px;line-height:1.45}
 
 .dicas{display:grid;gap:8px;margin:0 12px}
-.dica{background:var(--carta);border-radius:var(--r-m);box-shadow:var(--sombra-1);overflow:hidden}
+.dica{background:var(--areia);border-radius:var(--r-m);box-shadow:var(--sombra-1);overflow:hidden}
 .dica summary{cursor:pointer;list-style:none;padding:14px 15px;font-size:13.5px;font-weight:700;
   color:var(--azul-800);display:flex;align-items:center;justify-content:space-between;gap:10px;
   min-height:44px}
@@ -1421,6 +1446,13 @@ body.ia-solta .ia-gaveta-cx::after{content:'Solta aqui — vai pro assistente';p
    Dois botoes vazados lado a lado nao dizem qual importa. Quem esta na estrada
    quer a ROTA; a avaliacao e curiosidade. Entao: um cheio, um quieto, e a seta
    avisando que o segundo sai do app. */
+/* A caixa das quatro ações da primeira tela, em areia: ela fecha a vitrine
+   logo antes do rodapé, e branco em cima de branco não separava nada. Os
+   botões secundários perdem o fundo claro e ficam contornados, senão viram
+   quatro retângulos quase da mesma cor, um colado no outro. */
+.onde{background:var(--areia)}
+.onde .btn.sec{background:transparent;border:1px solid var(--areia-risco)}
+.onde .btn.sec:active{background:var(--areia-2)}
 .onde-end{display:flex;gap:11px;align-items:flex-start;padding-bottom:2px}
 .onde-end svg{width:20px;height:20px;flex:none;margin-top:2px;fill:none;
   stroke:var(--turq-600);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}

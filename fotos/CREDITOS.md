@@ -10,6 +10,7 @@ nas versões recortadas.
 
 | Arquivo | Autor | Licença | Original |
 |---|---|---|---|
+| `ilha-aerea.jpg` | Mural Nativo | CC BY-SA 4.0 | [Vista Aérea Praia de Fora - Farol das Conchas.jpg](https://commons.wikimedia.org/wiki/File:Vista_A%C3%A9rea_Praia_de_Fora_-_Farol_das_Conchas.jpg) |
 | `ilha-heroi.jpg` | Cyrus Augustus Moro Daldin | CC BY-SA 4.0 | [Ilha do Mel - Praia do Farol.jpg](https://commons.wikimedia.org/wiki/File%3AIlha_do_Mel_-_Praia_do_Farol.jpg) |
 | `farol.jpg` | Cyrus Augustus Moro Daldin | CC BY-SA 4.0 | [Ilha do Mel - Praia do Farol.jpg](https://commons.wikimedia.org/wiki/File%3AIlha_do_Mel_-_Praia_do_Farol.jpg) |
 | `ilha-farol.jpg` | Cyrus Augustus Moro Daldin | CC BY-SA 4.0 | [Ilha do Mel - Farol das Conchas.jpg](https://commons.wikimedia.org/wiki/File%3AIlha_do_Mel_-_Farol_das_Conchas.jpg) |

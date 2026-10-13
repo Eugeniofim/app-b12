@@ -3223,6 +3223,7 @@ B12.textoAviso = function (motivo, extra) {
 function pSobre(raiz) {
   var A = B12.DB.ajustes, S = A.sobre || B12.SOBRE;
   var G = S.google || (S.google = JSON.parse(JSON.stringify(B12.SOBRE.google)));
+  if (!Array.isArray(S.gastronomia)) S.gastronomia = [];
   function re() { B12.admDesenhar('sobre'); }
 
   raiz.appendChild(bloco(
@@ -3251,6 +3252,23 @@ function pSobre(raiz) {
 
     listaFrases('missao', 'Nossa missão', 'O que a B12 faz todo dia', S.missao) +
     listaFrases('visao',  'Nossa visão',  'Onde a B12 quer chegar',   S.visao) +
+
+    /* ---- onde comer ---- */
+    '<div class="faixa-sec"><div class="tit"><h2>Onde comer</h2>' +
+    '<button class="mini-btn" id="b-comer-novo">+ Novo</button></div>' +
+    '<p style="font-size:12.5px;color:var(--gelo-3);padding-bottom:8px">Os restaurantes que ' +
+    'você indica na Ilha. <b>Enquanto estiver vazio, a seção não aparece para o cliente</b> — ' +
+    'nada de “em breve” na cara dele.</p></div>' +
+    ((S.gastronomia || []).length
+      ? '<div class="lista">' + S.gastronomia.map(function (c, i) {
+          return '<div class="linha" data-comer="' + i + '">' +
+            '<div class="d"><b>' + esc(c.nome) + '</b><small>' +
+            esc([c.vila, c.insta ? '@' + c.insta : '', c.txt].filter(Boolean).join(' · ')) +
+            '</small></div>' +
+            '<button type="button" class="mini-btn" data-comer-fora="' + i + '">Tirar</button></div>';
+        }).join('') + '</div>'
+      : '<div class="cx" style="margin-top:0"><p>Nenhum restaurante cadastrado. ' +
+        'A seção “Onde comer” está escondida do cliente.</p></div>') +
 
     /* ---- avaliações do Google ---- */
     '<div class="faixa-sec"><div class="tit"><h2>Avaliações</h2>' +
@@ -3282,6 +3300,53 @@ function pSobre(raiz) {
         }).join('') + '</div>'
       : '<div class="cx" style="margin-top:0"><p>Nenhum depoimento em destaque.</p></div>')
   ));
+
+  raiz.querySelector('#b-comer-novo').onclick = function () { editarComer(null); };
+  raiz.querySelectorAll('[data-comer]').forEach(function (el) {
+    el.onclick = function (ev) {
+      if (ev.target.closest('[data-comer-fora]')) return;
+      editarComer(+el.dataset.comer);
+    };
+  });
+  raiz.querySelectorAll('[data-comer-fora]').forEach(function (b) {
+    b.onclick = function (ev) {
+      ev.stopPropagation();
+      var i = +b.dataset.comerFora;
+      if (!confirm('Tirar “' + S.gastronomia[i].nome + '” da lista?')) return;
+      S.gastronomia.splice(i, 1); A.sobre = S; B12.salvar(); re();
+    };
+  });
+
+  function editarComer(i) {
+    var c = (i == null) ? { nome:'', vila:'', insta:'', txt:'' } : S.gastronomia[i];
+    B12.folha({
+      titulo: i == null ? 'Novo restaurante' : c.nome,
+      sub: 'Aparece na tela Ilha do Mel, em “Onde comer”',
+      corpo:
+        B12.f_campo('Nome', 'nome', { valor: c.nome, max: 40, obrig: true,
+          dica: 'Fim da Trilha' }) +
+        B12.f_lista('Onde fica', 'vila', ['Encantadas', 'Brasília'], c.vila || 'Encantadas') +
+        B12.f_campo('Instagram', 'insta', { valor: c.insta, max: 40, dica: 'sem o @' }) +
+        B12.f_campo('O que é', 'txt', { valor: c.txt, max: 120,
+          dica: 'Peixe do dia e mesa na areia, a dois minutos do trapiche' }),
+      extra: i == null ? '' : '<button type="button" class="btn sec" id="b-comer-apagar">Apagar</button>',
+      aoSalvar: function (d) {
+        var nome = String(d.nome || '').trim();
+        if (!nome) return { erro: 'Escreva o nome.', campo: 'nome' };
+        var novo = { nome: nome, vila: String(d.vila || '').trim(),
+                     insta: String(d.insta || '').trim().replace(/^@/, ''),
+                     txt: String(d.txt || '').trim() };
+        if (!Array.isArray(S.gastronomia)) S.gastronomia = [];
+        if (i == null) S.gastronomia.push(novo); else S.gastronomia[i] = novo;
+        A.sobre = S; B12.salvar(); re();
+        return { ok: true };
+      }
+    });
+    var ap = document.getElementById('b-comer-apagar');
+    if (ap) ap.onclick = function () {
+      S.gastronomia.splice(i, 1); A.sobre = S; B12.salvar(); B12.fecharFolha(); re();
+    };
+  }
 
   raiz.querySelector('#b-google-nota').onclick = function () {
     B12.folha({

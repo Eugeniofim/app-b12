@@ -152,6 +152,7 @@ B12.carregar = function () {
   if (!A.contador) A.contador = { nome: '', email: '', obs: '' };
   if (!A.sobre.google) A.sobre.google = JSON.parse(JSON.stringify(B12.SOBRE.google));
   if (!Array.isArray(A.sobre.google.destaques)) A.sobre.google.destaques = [];
+  if (!Array.isArray(A.sobre.gastronomia)) A.sobre.gastronomia = [];
   if (!Array.isArray(A.sobre.missao)) A.sobre.missao = B12.SOBRE.missao.slice();
   if (!Array.isArray(A.sobre.visao))  A.sobre.visao  = B12.SOBRE.visao.slice();
   /* O modo demonstração enche a tela para apresentação. Quando o cliente

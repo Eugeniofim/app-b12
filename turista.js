@@ -479,6 +479,26 @@ B12.pintarIlha = function () {
         : '<div class="fcard">' + corpo + '</div>';
     }).join('') + '</div>';
   }
+  /* Os restaurantes que o Dhalsin indica, cadastrados em Estação → A empresa.
+     Cartão sem foto de propósito: foto genérica de prato não é daquela casa,
+     e o que vale ali é o nome, onde fica e o @ para a pessoa ir ver. */
+  function gastronomia() {
+    var S = (B12.DB.ajustes && B12.DB.ajustes.sobre) || {};
+    var lista = (S.gastronomia || []).filter(function (c) { return c && c.nome; });
+    if (!lista.length) return '';
+    return sec('Onde comer') +
+      '<div class="comer-lista">' + lista.map(function (c, i) {
+        var miolo = '<b>' + escT(c.nome) + '</b>' +
+          (c.vila ? '<span class="vila-txt">' + escT(c.vila) + '</span>' : '') +
+          (c.txt ? '<small>' + escT(c.txt) + '</small>' : '') +
+          (c.insta ? '<span class="parc-ig">' + IG_SVG + '@' + escT(c.insta) + '</span>' : '');
+        return c.insta
+          ? '<a class="comer entra entra-' + Math.min(i + 1, 6) + '" href="https://instagram.com/' +
+            encodeURIComponent(c.insta) + '" target="_blank" rel="noopener">' + miolo + '</a>'
+          : '<div class="comer entra entra-' + Math.min(i + 1, 6) + '">' + miolo + '</div>';
+      }).join('') + '</div>';
+  }
+
   var parceiros = B12.PARCEIROS.map(function (p) {
     var miolo = p.nome + '<small>' + p.tipo + '</small>' +
       (p.insta ? '<span class="parc-ig">' + IG_SVG + '@' + p.insta + '</span>' : '');
@@ -494,7 +514,7 @@ B12.pintarIlha = function () {
       'O que fazer, praias, gastronomia, hospedagem e pontos turísticos', 'inicio', true) +
 
     '<div class="chips-info entra entra-1">' +
-      '<div class="chip-info"><small>Vilas</small><b>2</b><small class="sub">Brasília e Encantadas</small></div>' +
+      '<div class="chip-info"><small>Onde a lancha chega</small><b>2</b><small class="sub">Brasília e Encantadas</small></div>' +
       '<div class="chip-info"><small>Carros</small><b>0</b><small class="sub">só a pé ou de barco</small></div>' +
       '<div class="chip-info"><small>Visitantes</small><b>5 mil</b><small class="sub">limite por dia</small></div>' +
     '</div>' +
@@ -519,24 +539,19 @@ B12.pintarIlha = function () {
     sec('Pontos turísticos', 'toque para ver a história') +
     '<div class="lugares">' + cartoesLugar('atracao') + '</div>' +
 
-    sec('As duas vilas') +
+    /* "vila" não se fala aqui: é Encantadas e é Brasília */
+    sec('Encantadas e Brasília') +
     '<div class="lugares">' + cartoesLugar('vila') + '</div>' +
 
-    sec('Gastronomia') +
-    faixa(B12.COMER) +
-    '<div class="cx nota" style="margin-top:10px"><p>Casas de família, peixe do dia e mesa na areia. ' +
-    'Fora da alta temporada, confirme o horário antes de subir a trilha.</p></div>' +
+    /* Gastronomia só existe quando o Dhalsin cadastrar alguém no painel.
+       Lista vazia não vira "em breve" na cara do turista: some. */
+    gastronomia() +
 
     sec('Onde ficar') + faixa(B12.FICAR) +
     '<div class="faixa-sec" style="padding-top:12px"><div class="parceiros">' + parceiros + '</div></div>' +
 
-    sec('A travessia com a B12') +
-    '<div class="cx foto-cx entra" style="margin-top:0">' +
-      '<div class="foto-cx-foto" style="background-image:url(fotos/travessia.jpg)"></div>' +
-      '<div class="foto-cx-in"><h3>Conheça nossas embarcações</h3>' +
-      '<p>Embarcação nova, equipe experiente e atendimento personalizado. Segurança e pontualidade ' +
-      'garantidas, com roteiros sob medida pela baía de Paranaguá.</p>' +
-      '<button type="button" class="btn pri" data-ir="travessias">Reservar a travessia</button></div></div>' +
+    /* 13/10: saiu o bloco "A travessia com a B12". Esta tela é sobre a Ilha;
+       a travessia tem carta própria na primeira tela e aba inteira só dela. */
 
     sec('Antes de ir') +
     '<div class="dicas">' + B12.DICAS.map(function (d) {

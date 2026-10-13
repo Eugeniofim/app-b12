@@ -15,7 +15,7 @@ var B12 = window.B12 || {};
 /* ---------------------------------------------------------------- identidade */
 /* o cofre: o servidor da Ti Artes que guarda a chave da IA. Vazio = assistente
    desligado (o app continua funcionando igual, só sem o chat). */
-B12.VERSAO = 'b12-v1.80.1';   /* tem que bater com o CACHE do sw.js */
+B12.VERSAO = 'b12-v1.81.3';   /* tem que bater com o CACHE do sw.js */
 
 B12.IA = { cofre: 'https://uopfqlogjzuqpabptxkb.supabase.co/functions/v1/cofre',
            modelo: 'claude-haiku-4-5' };
@@ -112,9 +112,9 @@ B12.PASSEIOS = [
         hist:'Da Praia Grande se caminha a pé até as Encantadas, na maré baixa. Pelo mar a mesma distância leva minutos.' },
       { t:'A ponta das Encantadas e a Gruta', foto:'fotos/p-tour360-4.jpg',
         txt:'Na ponta sul, o morro da Gruta das Encantadas cai direto no mar. A lancha se aproxima da gruta, que só se vê inteira por fora, do barco.',
-        hist:'A lenda diz que sereias cantam na gruta nas noites de lua e encantam os pescadores. O nome da vila vem daí.' },
+        hist:'A lenda diz que sereias cantam na gruta nas noites de lua e encantam os pescadores. O nome de Encantadas vem daí.' },
       { t:'Parada nas Encantadas', foto:'fotos/p-tour360-5.jpg',
-        txt:'Tempo em terra na vila: praia de água calma, trapiche, bares na areia. Depois a lancha volta pela baía, fechando a volta completa na Ilha.',
+        txt:'Tempo em terra em Encantadas: praia de água calma, trapiche, bares na areia. Depois a lancha volta pela baía, fechando a volta completa na Ilha.',
         hist:'' }],
     saber:['O trecho de mar aberto pode balançar; em dias de ressaca a B12 faz o roteiro só pelo lado da baía.',
            'É o passeio mais fotogênico: leve o celular carregado.',
@@ -194,6 +194,8 @@ B12.SOBRE = {
     nota: 4.9, total: 242, verificadoEm: '2026-10-12',
     destaques: []
   },
+  /* os restaurantes que o Dhalsin indicar. Vazio = a seção some da vitrine. */
+  gastronomia: [],
   rascunho: true        /* vira false quando o Dhalsin salvar o texto dele */
 };
 
@@ -254,7 +256,10 @@ B12.PARCEIROS = [
 
 /* ------------------------------------------- a Ilha do Mel, lugar por lugar
    Fotos ilustrativas do Wikimedia Commons (créditos em B12.CREDITOS) até a
-   B12 mandar as dela. 'vila' diz de que lado da Ilha o lugar fica. */
+   B12 mandar as dela. O campo 'vila' é só a etiqueta de que lado da Ilha o
+   lugar fica — na TELA o turista lê Encantadas ou Brasília, nunca a palavra
+   "vila": 13/10, o Eugênio contou que ali ninguém fala assim. Fora da Ilha do
+   Mel a palavra continua (a Ilha das Peças é vila caiçara mesmo). */
 B12.LUGARES = [
   { id:'farol', tipo:'atracao', nome:'Farol das Conchas', vila:'Brasília', foto:'fotos/ilha-farol.jpg', foto2:'fotos/ilha-trilha.jpg',
     resumo:'O cartão-postal da Ilha, com vista dos dois lados.',
@@ -269,16 +274,16 @@ B12.LUGARES = [
   { id:'gruta', tipo:'atracao', nome:'Gruta das Encantadas', vila:'Encantadas', foto:'fotos/ilha-gruta.jpg', foto2:'fotos/ilha-gruta-2.jpg',
     resumo:'A lenda das sereias, na ponta sul.',
     texto:'Uma gruta aberta pelo mar na pedra, na ponta sul da Ilha. Uma passarela de madeira leva até a entrada; o mar bate lá dentro e o eco faz o resto.',
-    hist:'A lenda diz que sereias cantam na gruta nas noites de lua e encantam os pescadores, que nunca mais voltam. Foi essa história que deu nome à vila das Encantadas.',
-    como:'Trilha curta a partir da vila das Encantadas, 10 minutos. Não se entra na gruta: o mar é traiçoeiro.' },
+    hist:'A lenda diz que sereias cantam na gruta nas noites de lua e encantam os pescadores, que nunca mais voltam. Foi essa história que deu nome a Encantadas.',
+    como:'Trilha curta a partir de Encantadas, 10 minutos. Não se entra na gruta: o mar é traiçoeiro.' },
   { id:'praiadefora', tipo:'praia', nome:'Praia de Fora', vila:'Brasília', foto:'fotos/ilha-praiadefora.jpg',
     resumo:'A praia aberta, boa para surfe.',
     texto:'Do lado do oceano, logo depois do farol: areia larga, ondas e quase ninguém. É a praia dos surfistas e de quem quer caminhar sem encontrar gente.',
     hist:'',
     como:'10 minutos a pé da Praia do Farol, contornando o morro. Cuidado com a correnteza.' },
-  { id:'praiagrande', tipo:'praia', nome:'Praia Grande', vila:'as duas vilas', foto:'fotos/ilha-praiagrande.jpg',
+  { id:'praiagrande', tipo:'praia', nome:'Praia Grande', vila:'Encantadas e Brasília', foto:'fotos/ilha-praiagrande.jpg',
     resumo:'A praia que liga Brasília às Encantadas.',
-    texto:'A maior praia da Ilha, de mar aberto, ligando as duas vilas. Na maré baixa a caminhada de uma vila à outra leva cerca de uma hora, com o pé na água.',
+    texto:'A maior praia da Ilha, de mar aberto, ligando Encantadas e Brasília. Na maré baixa a caminhada de uma ponta à outra leva cerca de uma hora, com o pé na água.',
     hist:'',
     como:'A pé, na maré baixa. Na maré alta, alguns trechos ficam sem areia: consulte a tábua de marés no app.' },
   { id:'limoeiro', tipo:'praia', nome:'Praia do Limoeiro', vila:'Brasília', foto:'fotos/ilha-limoeiro.jpg',
@@ -296,19 +301,24 @@ B12.LUGARES = [
     texto:'Ilhota de pedra e mata na ponta sul, sem moradores. Entre as pedras o mar forma uma piscina de água clara e sem onda, ótima para ver peixes de máscara.',
     hist:'',
     como:'Só de barco. A B12 faz o passeio de 3 horas, com horário pela maré.', passeio:'galheta' },
-  { id:'encantadas', tipo:'vila', nome:'Vila das Encantadas', vila:'Encantadas', foto:'fotos/ilha-encantadas.jpg',
+  { id:'encantadas', tipo:'vila', nome:'Encantadas', vila:'Encantadas', foto:'fotos/ilha-encantadas.jpg',
     resumo:'Trapiche, bares na areia e praia calma.',
-    texto:'A vila do sul: menor e mais tranquila, com casas coloridas entre a mata, bares com mesa na areia e a praia de água calma de frente para o trapiche.',
+    texto:'A do sul: menor e mais tranquila, com casas coloridas entre a mata, bares com mesa na areia e a praia de água calma de frente para o trapiche.',
     hist:'',
     como:'É um dos dois destinos da travessia da B12.' },
-  { id:'brasilia', tipo:'vila', nome:'Vila de Brasília', vila:'Brasília', foto:'fotos/ilha-brasilia.jpg',
-    resumo:'A vila maior, com o trapiche principal.',
+  { id:'brasilia', tipo:'vila', nome:'Brasília', vila:'Brasília', foto:'fotos/ilha-brasilia.jpg',
+    resumo:'A maior, com o trapiche principal.',
     texto:'Onde a maioria chega: pousadas, restaurantes, o posto de saúde e o começo das trilhas para o Farol e para a Fortaleza. Os barcos de pesca ficam na areia, em frente ao trapiche.',
-    hist:'Não entram carros na Ilha, e o número de visitantes por dia é limitado. É por isso que ela continua assim.',
+    hist:'Não entram carros na Ilha, e o número de visitantes por dia é limitado. É por isso que ela continua assim.',  /* 13/10: "vila" saiu de todo texto que o turista lê — na Ilha se diz só Encantadas e Brasília */
     como:'É o outro destino da travessia da B12.' },
 ];
 
-/* onde comer e onde ficar: textos de exemplo, editáveis pela B12 no painel */
+/* GASTRONOMIA — 13/10/2026.
+   Saiu da vitrine a pedido do Eugênio: os quatro nomes abaixo eram exemplo
+   nosso, e o cliente não confirmou nenhum. Agora quem manda é a lista que o
+   Dhalsin cadastra em Estação → A empresa (ajustes.sobre.gastronomia). Sem
+   ninguém cadastrado, a seção inteira não aparece — não existe "em breve" na
+   cara do turista. Esta lista fica aqui só como modelo do formato. */
 B12.COMER = [
   { nome:'Fim da Trilha', vila:'Encantadas', insta:'fimdatrilha', foto:'fotos/ilha-comer-1.jpg',
     txt:'Peixe, moqueca, ceviche e a lasanha de camarão da casa. A dois minutos do trapiche.' },
@@ -329,13 +339,13 @@ B12.FAZER = [
   { ico:'forte', nome:'Caminhar até a Fortaleza',
     txt:'Quarenta minutos pela praia até as muralhas de 1769, com os canhões virados para a baía.' },
   { ico:'onda', nome:'Surfar na Praia Grande e na Praia de Fora',
-    txt:'Mar aberto, ondas boas e pouca gente. Tem escola de surfe nas duas vilas.' },
+    txt:'Mar aberto, ondas boas e pouca gente. Tem escola de surfe nos dois lados da Ilha.' },
   { ico:'peixe', nome:'Mergulhar de máscara na Galheta',
     txt:'Piscina natural entre as pedras, água clara e peixe à vista. Só se chega de barco.' },
   { ico:'barco', nome:'Passear de barco pela baía',
     txt:'Baía dos Golfinhos, Ilha das Peças, tour 360° e pôr do sol. A B12 leva.' },
   { ico:'gruta', nome:'Conhecer a Gruta das Encantadas',
-    txt:'Dez minutos de trilha da vila. A lenda das sereias nasceu ali.' },
+    txt:'Dez minutos de trilha, saindo de Encantadas. A lenda das sereias nasceu ali.' },
   { ico:'sol', nome:'Ver o sol se pôr no Limoeiro',
     txt:'Água morna, sem onda, e o sol descendo atrás da serra do continente.' },
   { ico:'estrela', nome:'Olhar o céu à noite',
@@ -347,18 +357,22 @@ B12.FAZER = [
 B12.DICAS = [
   { q:'Não entram carros na Ilha', a:'Tudo se faz a pé, de bicicleta ou de barco. Deixe o carro no estacionamento da B12, no continente, e leve só o necessário.' },
   { q:'O número de visitantes é limitado', a:'A Ilha recebe até cinco mil pessoas por dia. Em feriado e alta temporada, reserve com antecedência.' },
-  { q:'Leve mochila, não mala de rodinha', a:'As ruas são de areia e trilha. Mala de rodinha não anda na Ilha.' },
-  { q:'O que levar', a:'Protetor solar, repelente, lanterna para a noite, calçado que pode molhar e uma garrafa de água.' },
+  /* 13/10: a mala de rodinha era um item só para ela. Virou a primeira frase
+     de "O que levar", que é onde a pessoa está pensando no assunto. */
+  { q:'O que levar', a:'Mochila, nunca mala de rodinha: as ruas são de areia e trilha, e rodinha não anda na Ilha. Leve protetor solar, repelente, lanterna para a noite, calçado que pode molhar e uma garrafa de água.' },
   { q:'A maré manda', a:'Algumas caminhadas e alguns passeios só acontecem na maré certa. A B12 confirma o horário no dia.' },
   { q:'Leve seu lixo de volta', a:'A coleta na Ilha é limitada. O que entra com você sai com você.' },
 ];
 
 B12.FICAR = [
-  { nome:'Hospedagem parceira', foto:'fotos/ilha-ficar-2.jpg',
+  /* 13/10: trocou para a casa amarela — é frente de pousada de verdade, na
+     areia, com sol. A anterior (ilha-ficar-2) era um portão fechado. */
+  { nome:'Hospedagem parceira', foto:'fotos/ilha-ficar-1.jpg',
     txt:'A B12 trabalha com as pousadas abaixo. Quem reserva pelo app pode escolher a pousada na hora.' },
 ];
 
 B12.CREDITOS = [
+  {a:"ilha-aerea.jpg", autor:"Mural Nativo", lic:"CC BY-SA 4.0", url:"https://commons.wikimedia.org/wiki/File:Vista_A%C3%A9rea_Praia_de_Fora_-_Farol_das_Conchas.jpg"},
   {a:"ilha-heroi.jpg", autor:"Cyrus Augustus Moro Daldin", lic:"CC BY-SA 4.0", url:"https://commons.wikimedia.org/wiki/File%3AIlha_do_Mel_-_Praia_do_Farol.jpg"},
   {a:"farol.jpg", autor:"Cyrus Augustus Moro Daldin", lic:"CC BY-SA 4.0", url:"https://commons.wikimedia.org/wiki/File%3AIlha_do_Mel_-_Praia_do_Farol.jpg"},
   {a:"ilha-farol.jpg", autor:"Cyrus Augustus Moro Daldin", lic:"CC BY-SA 4.0", url:"https://commons.wikimedia.org/wiki/File%3AIlha_do_Mel_-_Farol_das_Conchas.jpg"},
