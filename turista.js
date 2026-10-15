@@ -27,6 +27,10 @@ var MAR = null;
 B12.buscarMar = function () {
   var u = 'https://marine-api.open-meteo.com/v1/marine?latitude=' + B12.EMPRESA.lat +
     '&longitude=' + B12.EMPRESA.lon +
+    /* `current` é o que o cartão da primeira tela mostra: a onda DESTA hora.
+       O `daily` traz o máximo do dia, que serve para a semana e para o surf —
+       misturar os dois foi o que fez o app discordar do Windy. */
+    '&current=wave_height,wave_period,wave_direction' +
     '&daily=wave_height_max,wave_period_max,wave_direction_dominant' +
     '&timezone=America%2FSao_Paulo&forecast_days=7';
   var ctrl = new AbortController(), corta = setTimeout(function () { ctrl.abort(); }, 12000);
@@ -35,6 +39,19 @@ B12.buscarMar = function () {
     .then(function (d) { clearTimeout(corta); MAR = d; return d; })
     .catch(function () { clearTimeout(corta); return null; });
 };
+/* a onda desta hora */
+B12.marAgora = function () {
+  if (!MAR || !MAR.current) return null;
+  return { altura: MAR.current.wave_height, periodo: MAR.current.wave_period,
+           direcao: MAR.current.wave_direction };
+};
+/* a onda máxima de um dia, por data — para a lista dos 7 dias */
+B12.marDoDia = function (iso) {
+  if (!MAR || !MAR.daily || !MAR.daily.time) return null;
+  var i = MAR.daily.time.indexOf(iso);
+  return i < 0 ? null : MAR.daily.wave_height_max[i];
+};
+
 B12.mar7 = function () {
   if (!MAR || !MAR.daily) return null;
   var d = MAR.daily;
@@ -66,13 +83,64 @@ B12.codTempo = function (c) {
   if (c < 83) return 'Pancadas';
   return 'Tempestade';
 };
-function mar(vento) {
+/* =================================================== ESTADO DO MAR E VENTO
+   15/10/2026. O Eugênio notou que o Windy mostrava uma coisa e o app outra.
+   Fui medir e o defeito era nosso: o app dizia "Mar: Calmo" olhando o VENTO
+   local, não a ONDA — que a gente já buscava e só usava na tela de surf.
+
+   Por que isso é grave num app de travessia: marulho de 2 metros chega de um
+   ciclone a mil quilômetros daqui, com vento fraco na praia. Pelo vento, o
+   app diria "calmo"; o mar estaria grosso.
+
+   Agora o mar sai da altura da onda, na escala DOUGLAS, e o vento na escala
+   BEAUFORT — que são as escalas que a Marinha usa nos avisos. Quando o aviso
+   dela diz "MAR GROSSO" ou "VENTO FORÇA 7", o app está falando a mesma
+   língua, e não uma invenção nossa. */
+function estadoDoMar(m) {
+  if (m == null) return '—';
+  if (m < 0.1)  return 'Espelhado';
+  if (m < 0.5)  return 'Calmo';
+  if (m < 1.25) return 'Leve';
+  if (m < 2.5)  return 'Moderado';
+  if (m < 4)    return 'Grosso';
+  if (m < 6)    return 'Muito grosso';
+  return 'Tempestuoso';
+}
+/* Beaufort a partir de km/h, com o número — é por ele que o aviso da Marinha
+   fala ("VENTO E/NE FORÇA 7 COM RAJADAS"). */
+function forcaBeaufort(kmh) {
+  var lim = [1, 5, 11, 19, 28, 38, 49, 61, 74, 88, 102, 117];
+  for (var i = 0; i < lim.length; i++) if (kmh < lim[i]) return i;
+  return 12;
+}
+function forcaVento(v) {
+  var b = forcaBeaufort(v);
+  return b <= 1 ? 'Calmo' : b <= 3 ? 'Fraco' : b <= 4 ? 'Moderado'
+       : b <= 5 ? 'Fresco' : b <= 7 ? 'Forte' : b <= 9 ? 'Muito forte' : 'Temporal';
+}
+B12.estadoDoMar = estadoDoMar;
+B12.forcaVento = forcaVento;
+B12.forcaBeaufort = forcaBeaufort;
+
+/* o mar pelo vento continua existindo SÓ para o caso de a previsão de onda
+   não responder — e aí a tela diz que é estimativa, não finge que mediu */
+function marPeloVento(vento) {
   if (vento < 12) return 'Calmo';
   if (vento < 22) return 'Leve';
   if (vento < 32) return 'Agitado';
   return 'Forte';
 }
-function forcaVento(v) { return v < 12 ? 'Fraco' : v < 22 ? 'Moderado' : v < 32 ? 'Forte' : 'Muito forte'; }
+
+/* o mar de um dia da lista: onda de verdade quando existe, e só então o
+   vento como plano B — sempre dizendo qual dos dois está na tela */
+function marDoDia(iso, ventoMax) {
+  /* sem o prefixo "mar": quem chama já escreveu a palavra. Pôr de novo aqui
+     deu "mar mar leve" na tela. */
+  var h = B12.marDoDia(iso);
+  if (h != null) return estadoDoMar(h).toLowerCase() + ' · ' +
+    h.toFixed(1).replace('.', ',') + ' m';
+  return marPeloVento(ventoMax).toLowerCase() + ' (pelo vento)';
+}
 
 B12.pintarClima = function () {
   var g = document.getElementById('cl-grau'), c = document.getElementById('cl-cond');
@@ -84,8 +152,25 @@ B12.pintarClima = function () {
   var a = CLIMA.current;
   g.textContent = Math.round(a.temperature_2m) + '°';
   c.textContent = B12.codTempo(a.weather_code);
-  document.getElementById('cl-mar').textContent = mar(a.wind_speed_10m);
-  document.getElementById('cl-vento').textContent = forcaVento(a.wind_speed_10m);
+  /* o número vai junto da palavra: é com ele que dá para conferir no Windy
+     ou em qualquer outro app, em vez de discutir adjetivo */
+  var elMar = document.getElementById('cl-mar');
+  var onda = B12.ondaAgora();
+  if (onda != null) {
+    elMar.textContent = estadoDoMar(onda) + ' · ' + onda.toFixed(1).replace('.', ',') + ' m';
+    elMar.title = 'Altura da onda prevista agora';
+  } else {
+    elMar.textContent = marPeloVento(a.wind_speed_10m) + ' (pelo vento)';
+    elMar.title = 'A previsão de onda não respondeu; esta é uma estimativa pelo vento';
+  }
+  document.getElementById('cl-vento').textContent =
+    forcaVento(a.wind_speed_10m) + ' · ' + Math.round(a.wind_speed_10m) + ' km/h';
+};
+
+/* a onda desta hora, se a previsão de mar já chegou */
+B12.ondaAgora = function () {
+  var m = B12.marAgora && B12.marAgora();
+  return (m && m.altura != null) ? m.altura : null;
 };
 
 /* cada arquivo tem o seu: adm.js e assistente.js fecham o escopo e os deles
@@ -327,7 +412,7 @@ B12.telaPrevisao = function () {
       '<div class="d"><b>' + Math.round(d.temperature_2m_max[i]) + '° · ' +
       B12.codTempo(d.weather_code[i]) + '</b>' +
       '<small>mínima ' + Math.round(d.temperature_2m_min[i]) + '° · mar ' +
-      mar(d.wind_speed_10m_max[i]).toLowerCase() + '</small></div>' +
+      marDoDia(d.time[i], d.wind_speed_10m_max[i]) + '</small></div>' +
       (abreFds ? '<span class="selo-fds">fim de semana</span>' : '') + '</div>';
   }
   alvo.innerHTML = B12.cartaoMarinha() + h + B12.fonteDoTempo();

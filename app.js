@@ -346,7 +346,10 @@ function comecar() {
     'Olá! Vi o app da Estação B12 e quero saber sobre a travessia para a Ilha do Mel.');
 
   B12.buscarClima();
-  B12.buscarMar();
+  /* o mar chega depois do tempo e o cartão já está na tela: redesenha quando
+     a onda chegar, senão a primeira pintura fica com a estimativa pelo vento
+     e nunca corrige */
+  B12.buscarMar().then(function (d) { if (d && B12.pintarClima) B12.pintarClima(); });
   if (B12.iaBolhaFlutuante) B12.iaBolhaFlutuante();
   ligarAtualizacao();
   convite();
