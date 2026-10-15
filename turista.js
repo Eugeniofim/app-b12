@@ -294,7 +294,7 @@ B12.telaOndas = function () {
         ' · ' + B12.rumo(d.direcao) + '</small>' +
         '<div class="medidor" style="margin-top:6px"><i style="width:' + larg + '%"' +
         (d.nota.bom ? ' class="bom"' : '') + '></i></div></div></div>';
-    }).join('') + '</div>';
+    }).join('') + '</div>' + B12.fonteDoTempo();
 };
 
 /* De onde a onda vem, em palavra. Grau sozinho não serve para ninguém. */
@@ -330,7 +330,32 @@ B12.telaPrevisao = function () {
       mar(d.wind_speed_10m_max[i]).toLowerCase() + '</small></div>' +
       (abreFds ? '<span class="selo-fds">fim de semana</span>' : '') + '</div>';
   }
-  alvo.innerHTML = h;
+  alvo.innerHTML = h + B12.fonteDoTempo();
+};
+
+/* ---------------------------------------------------------- de onde vem
+   15/10/2026. A previsão não sai de um site de previsão: sai dos MODELOS
+   oficiais — ECMWF (centro europeu), ICON (serviço alemão), GFS (serviço
+   americano) — servidos pelo Open-Meteo, que escolhe o de maior resolução
+   para a coordenada da B12. É a mesma origem que o Windy desenha nos mapas
+   dele; o Windy é visualizador, não fonte.
+
+   Dizer isso na tela não é enfeite: os dados são CC BY 4.0, e a licença
+   OBRIGA a creditar. Era uma falha nossa, e é o tipo de coisa que só
+   aparece quando alguém pergunta de onde vêm os números.
+
+   O link do Windy fica junto porque, para OLHAR o mapa — a frente chegando,
+   o vento girando —, ele é melhor que qualquer tela que a gente faça. */
+B12.fonteDoTempo = function () {
+  var E = B12.EMPRESA;
+  return '<p class="fonte-tempo">Previsão dos modelos ECMWF, ICON e GFS, pelo ' +
+    '<a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> ' +
+    '(CC BY 4.0). Para ver no mapa: ' +
+    '<a href="https://www.windy.com/' + E.lat + '/' + E.lon +
+    '?' + E.lat + ',' + E.lon + ',11" target="_blank" rel="noopener">abrir no Windy</a>.<br>' +
+    '<b>Para navegar, vale o aviso da Marinha</b> — ' +
+    '<a href="https://www.marinha.mil.br/chm/dados-do-smm-avisos-de-mau-tempo/avisos-de-mau-tempo" ' +
+    'target="_blank" rel="noopener">avisos de mau tempo do CHM</a>.</p>';
 };
 
 /* -------------------------------------------------------------- passeios */
