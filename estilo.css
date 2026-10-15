@@ -462,6 +462,13 @@ body.adm .navb.on{color:var(--turq-300)}
 .aviso-convite{background:linear-gradient(135deg,#0A5A54,var(--turq-600));animation-delay:.5s}
 .aviso-convite .instalar-ico svg{stroke:#BFF3EC;fill:none;stroke-width:1.9}
 
+/* o cartão do aviso da Marinha: vermelho porque é o único lugar do app que
+   fala de risco de verdade, e tem de doer na vista */
+.cx.ruim{border-left:4px solid var(--ruim);background:#FFF4F2}
+.cx.ruim h3{color:#8C2A1C}
+body.adm .cx.ruim{background:#2A1512;border-color:var(--ruim)}
+body.adm .cx.ruim h3{color:#FFB3A5}
+
 /* a assinatura da fonte da previsão: discreta, mas sempre visível — a
    licença dos dados obriga a creditar, e quem pergunta "de onde vem isso?"
    merece a resposta na própria tela */

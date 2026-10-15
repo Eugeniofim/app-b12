@@ -330,7 +330,78 @@ B12.telaPrevisao = function () {
       mar(d.wind_speed_10m_max[i]).toLowerCase() + '</small></div>' +
       (abreFds ? '<span class="selo-fds">fim de semana</span>' : '') + '</div>';
   }
-  alvo.innerHTML = h + B12.fonteDoTempo();
+  alvo.innerHTML = B12.cartaoMarinha() + h + B12.fonteDoTempo();
+  /* chega depois? redesenha só esta tela, sem mexer no resto */
+  B12.buscarMarinha().then(function (d) {
+    if (d && alvo.innerHTML.indexOf('Marinha emitiu') < 0 &&
+        alvo.innerHTML.indexOf('Confira o aviso') < 0) {
+      alvo.innerHTML = B12.cartaoMarinha() + h + B12.fonteDoTempo();
+    }
+  });
+};
+
+/* ------------------------------------------------ o aviso da Marinha
+   15/10/2026. O Dhalsin usa Windy e MarineTraffic no celular. Mas quem
+   MANDA no mar é o Centro de Hidrografia da Marinha: é ele que emite o
+   aviso de mau tempo da METAREA V, que cobre a costa do Paraná.
+
+   O CHM não tem API — é um site, atrás de Cloudflare. Quem lê é a função
+   `marinha` no servidor, que separa aviso por aviso e decide se a área
+   alcança a coordenada da B12. Daqui a gente só pergunta e mostra.
+
+   O app NUNCA diz que dá para sair. Ele mostra o que a Marinha publicou e
+   o link do original. Quem decide é o comandante. */
+var MARINHA = null, marinhaEm = 0;
+B12.buscarMarinha = function () {
+  if (!B12.NUVEM || !B12.NUVEM.url) return Promise.resolve(null);
+  /* uma consulta por hora basta: o CHM publica algumas vezes ao dia, e
+     bater no site da Marinha a cada abertura de app seria falta de educação */
+  if (MARINHA && Date.now() - marinhaEm < 3600000) return Promise.resolve(MARINHA);
+  var ctrl = new AbortController();
+  var corta = setTimeout(function () { ctrl.abort(); }, 20000);
+  return fetch(B12.NUVEM.url + '/functions/v1/marinha', {
+    signal: ctrl.signal,
+    headers: { apikey: B12.NUVEM.chave, Authorization: 'Bearer ' + B12.NUVEM.chave }
+  }).then(function (r) { return r.json(); })
+    .then(function (d) {
+      clearTimeout(corta);
+      if (d && d.ok) { MARINHA = d; marinhaEm = Date.now(); }
+      return MARINHA;
+    })
+    .catch(function () { clearTimeout(corta); return null; });
+};
+
+/* O cartão só existe quando existe aviso. Sem aviso, nada na tela: um
+   "nenhum aviso" permanente vira ruído e some da vista justo no dia em
+   que virar aviso de verdade. */
+B12.cartaoMarinha = function (dados) {
+  /* o argumento existe para dar para TESTAR o desenho sem depender de a
+     Marinha estar com aviso no ar hoje */
+  var d = dados || MARINHA;
+  if (!d || !d.ok) return '';
+  var n = (d.aqui || []).length, dv = (d.duvida || []).length;
+  if (!n && !dv) return '';
+  var cx = '';
+  if (n) {
+    cx = '<div class="cx ruim entra" style="margin:12px"><h3>' +
+      (n === 1 ? 'A Marinha emitiu um aviso para esta costa'
+               : 'A Marinha emitiu ' + n + ' avisos para esta costa') + '</h3>' +
+      (d.aqui || []).map(function (a) {
+        return '<p style="margin-top:8px"><b>' + escT(a.tipo) + '</b><br>' +
+          '<span style="font-size:12.5px">' + escT(a.texto) + '</span></p>';
+      }).join('') +
+      '<a class="btn sec" href="' + d.fonte + '" target="_blank" rel="noopener" ' +
+      'style="margin-top:10px">Ler no site da Marinha</a></div>';
+  } else {
+    /* o leitor não entendeu algum aviso: ISSO SE DIZ. Calar seria o mesmo
+       que afirmar que está tudo bem sem ter conferido. */
+    cx = '<div class="cx aviso entra" style="margin:12px"><h3>Confira o aviso da Marinha</h3>' +
+      '<p>Há ' + dv + (dv === 1 ? ' aviso publicado que o app não' : ' avisos publicados que o app não') +
+      ' conseguiu interpretar. Antes de sair, leia no site oficial.</p>' +
+      '<a class="btn sec" href="' + d.fonte + '" target="_blank" rel="noopener">' +
+      'Abrir os avisos de mau tempo</a></div>';
+  }
+  return cx;
 };
 
 /* ---------------------------------------------------------- de onde vem
