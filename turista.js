@@ -11,7 +11,12 @@ B12.buscarClima = function () {
   var u = 'https://api.open-meteo.com/v1/forecast?latitude=' + B12.EMPRESA.lat +
     '&longitude=' + B12.EMPRESA.lon +
     '&current=temperature_2m,weather_code,wind_speed_10m' +
-    '&daily=weather_code,temperature_2m_max,temperature_2m_min,wind_speed_10m_max' +
+    /* 16/10: chance e quantidade de chuva entram no pedido. Os modelos
+       concordam QUE vai chover e discordam no nome ("Pancadas", "Garoa",
+       "Tempestade" para a mesma água). Palavra não se compara com outro
+       app; "80% · 9 mm" se compara. */
+    '&daily=weather_code,temperature_2m_max,temperature_2m_min,wind_speed_10m_max,' +
+    'precipitation_probability_max,precipitation_sum' +
     '&timezone=America%2FSao_Paulo&forecast_days=7';
   var ctrl = new AbortController(), corta = setTimeout(function () { ctrl.abort(); }, 12000);
   return fetch(u, { signal: ctrl.signal })
@@ -133,6 +138,19 @@ function marPeloVento(vento) {
 
 /* o mar de um dia da lista: onda de verdade quando existe, e só então o
    vento como plano B — sempre dizendo qual dos dois está na tela */
+/* A chuva em número. Só aparece quando há chance de verdade: pôr "0% · 0 mm"
+   em todo dia de sol é ruído, e ruído é o que faz a pessoa parar de ler. */
+function chuvaDoDia(d, i) {
+  var ch = d.precipitation_probability_max && d.precipitation_probability_max[i];
+  var mm = d.precipitation_sum && d.precipitation_sum[i];
+  if (ch == null && mm == null) return '';
+  if ((ch || 0) < 20 && (mm || 0) < 0.5) return '';
+  var p = [];
+  if (ch != null) p.push(Math.round(ch) + '% de chuva');
+  if (mm) p.push(mm.toFixed(mm < 10 ? 1 : 0).replace('.', ',') + ' mm');
+  return p.length ? ' · ' + p.join(' · ') : '';
+}
+
 function marDoDia(iso, ventoMax) {
   /* sem o prefixo "mar": quem chama já escreveu a palavra. Pôr de novo aqui
      deu "mar mar leve" na tela. */
@@ -412,7 +430,7 @@ B12.telaPrevisao = function () {
       '<div class="d"><b>' + Math.round(d.temperature_2m_max[i]) + '° · ' +
       B12.codTempo(d.weather_code[i]) + '</b>' +
       '<small>mínima ' + Math.round(d.temperature_2m_min[i]) + '° · mar ' +
-      marDoDia(d.time[i], d.wind_speed_10m_max[i]) + '</small></div>' +
+      marDoDia(d.time[i], d.wind_speed_10m_max[i]) + chuvaDoDia(d, i) + '</small></div>' +
       (abreFds ? '<span class="selo-fds">fim de semana</span>' : '') + '</div>';
   }
   alvo.innerHTML = B12.cartaoMarinha() + h + B12.fonteDoTempo();
