@@ -169,7 +169,16 @@ B12.carregar = function () {
 
 B12.salvar = function () {
   try { localStorage.setItem(CHAVE, JSON.stringify(B12.DB)); }
-  catch (e) { console.warn('não coube no aparelho', e); }
+  catch (e) {
+    /* aparelho cheio: o que mais pesa é o cofre local (12 cópias inteiras).
+       Fica só a mais nova — o cofre de verdade agora mora na nuvem — e tenta
+       de novo. Sem isso a mudança morria no próximo fechar do app. */
+    try {
+      var cc = cofreLer(); cc.copias = cc.copias.slice(0, 1);
+      localStorage.setItem(COFRE, JSON.stringify(cc));
+      localStorage.setItem(CHAVE, JSON.stringify(B12.DB));
+    } catch (e2) { console.warn('não coube no aparelho', e2); }
+  }
   B12.cofreGuardar('auto');
   /* o aparelho continua guardando (é o que faz abrir rápido e sem internet),
      mas agora a mudança também sobe. Ver sincronia.js. */
@@ -1724,6 +1733,12 @@ B12.restaurar = function (copia) {
     return { erro: 'Esse arquivo não é uma cópia do app da B12.' };
   B12.cofreGuardar('mao');                        /* dá para voltar atrás do voltar atrás */
   var pins = B12.DB.ajustes && B12.DB.ajustes.pins;
+  /* cópia antiga (de antes de 05/10 ou 13/10) não tem marinheiros nem agenda.
+     "Não tinha a lista" NÃO quer dizer "apague todos": fica o que já existe,
+     senão a sincronia mandaria apagar no banco os marinheiros e tarefas. */
+  ['marinheiros', 'tarefas'].forEach(function (k) {
+    if (!Array.isArray(d[k]) && Array.isArray(B12.DB[k])) d[k] = B12.DB[k];
+  });
   B12.DB = d;
   if (!B12.DB.ajustes) B12.DB.ajustes = vazio().ajustes;
   B12.DB.ajustes.pins = pins || null;             /* a senha é deste aparelho, não da cópia */

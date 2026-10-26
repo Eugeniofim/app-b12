@@ -79,13 +79,42 @@
   var MARCA  = ler(K_MARCA, {});      /* até que carimbo já li, por coleção */
   var EM_DIA = ler(K_EMDIA, false);   /* já fez o primeiro ritual completo? */
   var ENVIADOS = {};                  /* só na memória: o eco da própria subida */
+  /* DUAS JANELAS (26/10/2026, pago no app EmRoma): duas abas do app no mesmo
+     navegador DIVIDEM o localStorage (sombra, fila, banco do aparelho), mas
+     cada uma tem o seu B12.DB na memória. A janela velha via na sombra o que
+     a nova criou, não achava no DB dela e mandava "apagado" para o banco.
+     Agora: (1) sombra e fila são relidas do aparelho antes de mexer — nunca
+     uma janela escreve por cima da outra com a cópia velha; (2) só vira
+     "apagado" o que ESTA janela conheceu e tirou; o que ela nunca viu veio de
+     outra janela e ENTRA no DB dela; (3) o apagado leva junto o último
+     conteúdo, para dar para recuperar. */
+  var CONHECIDOS = {};                /* col → id → 1: o que esta janela já viu */
+  var gravouMal = {};                 /* chave → true: aparelho cheio, a memória vale mais que o disco */
   var enviando = false, puxando = false, orelha = null, pulso = null;
 
   function ler(k, padrao) {
     try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : padrao; }
     catch (e) { return padrao; }
   }
-  function grava(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  function grava(k, v) {
+    try { localStorage.setItem(k, JSON.stringify(v)); gravouMal[k] = false; return true; }
+    catch (e) { gravouMal[k] = true; return false; }
+  }
+  /* relê o que outra janela pode ter gravado. Se o aparelho está cheio e a
+     última gravação falhou, o disco está velho: fica a memória. */
+  function fresco() {
+    if (!gravouMal[K_SOMBRA]) SOMBRA = ler(K_SOMBRA, SOMBRA) || {};
+    if (!gravouMal[K_FILA])   FILA   = ler(K_FILA, FILA) || [];
+  }
+  function conhecer() {
+    COLECOES.forEach(function (col) {
+      var k = CONHECIDOS[col] = CONHECIDOS[col] || {};
+      ((B12.DB && B12.DB[col]) || []).forEach(function (o) { if (o && o.id) k[o.id] = 1; });
+    });
+  }
+  function ultimo(col, id) {
+    try { return JSON.parse(SOMBRA[col][id]) || {}; } catch (e) { return {}; }
+  }
 
   /* ------------------------------------------------------------ o portão
      Um lugar só decide se dá para falar com o banco. Repetir esta checagem
@@ -109,16 +138,19 @@
      Compara o que está na tela com o que subiu, e separa a diferença. */
   function enfileirar() {
     if (!B12.sincPronta() || !EM_DIA) return;
+    fresco();
+    var adotou = false;
     COLECOES.forEach(function (col) {
       if (!alcanca(col)) return;
       SOMBRA[col] = SOMBRA[col] || {};
+      var conhe = CONHECIDOS[col] = CONHECIDOS[col] || {};
       var vivos = {};
       (B12.DB[col] || []).forEach(function (o) {
         if (!o || !o.id) return;
         /* dado de demonstração NUNCA sobe: é o que enche a tela numa
            apresentação, e no banco do cliente viraria caixa falso */
         if (B12.ehDemo && B12.ehDemo(o)) return;
-        vivos[o.id] = 1;
+        vivos[o.id] = 1; conhe[o.id] = 1;
         var agora = JSON.stringify(o);
         if (SOMBRA[col][o.id] !== agora) {
           por(col, o.id, o, false);
@@ -128,7 +160,18 @@
       /* sumiu da tela: marca apagado, nunca deixa a linha viva no banco —
          senão o outro aparelho devolve na próxima leitura */
       Object.keys(SOMBRA[col]).forEach(function (id) {
-        if (!vivos[id]) { por(col, id, null, true); delete SOMBRA[col][id]; }
+        if (vivos[id]) return;
+        if (!conhe[id]) {
+          /* esta janela nunca viu: veio de outra janela. Entra, não sai. */
+          var x = ultimo(col, id);
+          if (x && x.id) {
+            B12.DB[col] = B12.DB[col] || [];
+            B12.DB[col].push(x); conhe[id] = 1; adotou = true;
+          }
+          return;
+        }
+        por(col, id, ultimo(col, id), true);   /* o apagado leva o último conteúdo */
+        delete SOMBRA[col][id]; delete conhe[id];
       });
       /* e o que vem do banco e é demo daqui não conta: a varredura diária
          recria os demos com ids novos, e eles não existem na SOMBRA */
@@ -141,6 +184,10 @@
     }
     grava(K_SOMBRA, SOMBRA);
     grava(K_FILA, FILA);
+    if (adotou) {
+      try { localStorage.setItem('b12_dados_v1', JSON.stringify(B12.DB)); } catch (e) {}
+      if (B12.redesenhar) B12.redesenhar();
+    }
   }
 
   function por(col, id, dados, apagado) {
@@ -169,7 +216,7 @@
         cab.Prefer = 'resolution=merge-duplicates,return=minimal';
         var r = await comPrazo(B12.NUVEM.url + '/rest/v1/' + tabela + '?on_conflict=id',
           { method: 'POST', headers: cab, body: JSON.stringify(corpo) });
-        if (!r.ok) { enviando = false; return; }   /* falhou: a fila fica */
+        if (!r.ok) return;   /* falhou: a fila fica (o finally solta a trava) */
 
         /* o eco da própria subida: guardar para não regredir o registro
            quando essa mesma linha voltar na leitura */
@@ -179,7 +226,14 @@
           ENVIADOS[ch] = (ENVIADOS[ch] || []).concat(JSON.stringify(f.dados)).slice(-3);
         });
         /* ARMADILHA: slice(lote.length) derrubaria o que entrou durante o POST */
-        FILA = FILA.filter(function (f) { return lote.indexOf(f) < 0; });
+        /* e relida do aparelho: outra janela pode ter posto coisa nova. Sai só
+           o que subiu IGUAL — se mudou de novo durante o POST, fica. */
+        var foi = {};
+        lote.forEach(function (f) { foi[f.col + '/' + f.id] = JSON.stringify(f); });
+        fresco();
+        FILA = FILA.filter(function (f) {
+          return lote.indexOf(f) < 0 && foi[f.col + '/' + f.id] !== JSON.stringify(f);
+        });
         grava(K_FILA, FILA);
       }
     } catch (e) {
@@ -191,7 +245,7 @@
   async function puxar() {
     if (puxando || !B12.sincPronta()) return { ok: false };
     puxando = true;
-    var mudou = false;
+    var mudou = false, falhou = false;
     try {
       var alvos = COLECOES.filter(alcanca).concat(['ajustes']);
       for (var i = 0; i < alvos.length; i++) {
@@ -202,21 +256,26 @@
           '?select=*&atualizado=gt.' + encodeURIComponent(desde) +
           '&order=atualizado.asc&limit=1000';
         var r = await comPrazo(url, { headers: B12.nuvCabecalho() });
-        /* 401/403 = este papel não alcança. NÃO é motivo para apagar nada. */
-        if (!r.ok) continue;
+        /* o papel já foi filtrado em `alcanca`. Recusa aqui é sessão vencida
+           ou banco dormindo: NÃO é motivo para apagar nada — e também não é
+           "li tudo". Sem isso, o primeiro ritual de um aparelho novo dava por
+           lido um banco que não leu, e subia preço/marinheiro de fábrica por
+           cima do que o dono configurou. */
+        if (!r.ok) { falhou = true; continue; }
         var linhas = await r.json();
         if (!Array.isArray(linhas) || !linhas.length) continue;
+        fresco();     /* depois do await: outra janela pode ter mexido */
         linhas.forEach(function (l) { if (aplicarLinha(col, l)) mudou = true; });
         MARCA[col] = linhas[linhas.length - 1].atualizado;
+        grava(K_SOMBRA, SOMBRA);
       }
       grava(K_MARCA, MARCA);
-      grava(K_SOMBRA, SOMBRA);
       if (mudou) {
         /* DB.salvar e não B12.salvar: senão re-enfileira o que acabou de chegar */
         try { localStorage.setItem('b12_dados_v1', JSON.stringify(B12.DB)); } catch (e) {}
         if (B12.redesenhar) B12.redesenhar();
       }
-      return { ok: true, mudou: mudou };
+      return { ok: !falhou, mudou: mudou };
     } catch (e) {
       return { ok: false, erro: String(e && e.message || e) };
     } finally { puxando = false; }
@@ -252,6 +311,8 @@
       return true;
     }
 
+    CONHECIDOS[col] = CONHECIDOS[col] || {};
+    CONHECIDOS[col][l.id] = 1;
     if (i < 0) {
       B12.DB[col].push(l.dados);
     } else {
@@ -270,6 +331,7 @@
      A primeira sincronia do aparelho. Só depois dela o app pode ENVIAR. */
   B12.sincAoAbrir = async function () {
     if (!B12.sincPronta()) return { erro: 'semNuvem' };
+    conhecer();
 
     /* o banco do plano grátis dorme: a primeira chamada do dia pode falhar */
     var r = null;
@@ -378,6 +440,23 @@
   setInterval(rechecar, 5 * 60 * 1000);
   setInterval(function () { if (B12.sincPronta() && EM_DIA) B12.cofreNuvem('dia'); },
               6 * 60 * 60 * 1000);
+
+  /* outra janela gravou o banco do aparelho: esta passa a olhar o MESMO DB,
+     nunca fica com o velho (que, salvo depois, apagaria o que a outra fez) */
+  if (typeof window !== 'undefined' && window.addEventListener) {
+    window.addEventListener('storage', function (e) {
+      if (e.key !== 'b12_dados_v1' || !e.newValue) return;
+      try {
+        var novo = JSON.parse(e.newValue);
+        if (!novo || !novo.ajustes || !Array.isArray(novo.reservas)) return;
+        B12.DB = novo;
+        conhecer();
+        var ae = document.activeElement,
+            digitando = ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName);
+        if (!digitando && B12.redesenhar) B12.redesenhar();
+      } catch (err) {}
+    });
+  }
 
   /* estado para a tela de Dados dizer a verdade */
   B12.sincEstado = function () {

@@ -44,7 +44,7 @@ function bancoFalso() {
     if (atrasoEco.length) { saida = saida.concat(atrasoEco); atrasoEco = []; }
     return { ok: true, status: 200, json: async () => saida };
   }
-  return { servir, linhas, recusarTabela: t => { recusar = { [t]: 1 }; },
+  return { servir, linhas, recusarTabela: t => { recusar = t ? { [t]: 1 } : null; },
            injetarEco: l => atrasoEco.push(l) };
 }
 
@@ -54,20 +54,31 @@ function aparelho(banco, papel, memoria, url) {
      mesmo celular reabrindo o app). url: o endereço da nuvem — é o que muda
      quando o cliente troca de banco. */
   const guardado = memoria || {};
+  /* duas janelas do mesmo navegador: dividem `guardado`, e o navegador avisa
+     as OUTRAS janelas (evento 'storage') quando uma grava */
+  const ouvintes = guardado.__ouvintes || [];
+  Object.defineProperty(guardado, '__ouvintes', { value: ouvintes, enumerable: false, configurable: true });
+  const meus = [];
   const janela = {
     localStorage: {
       getItem: k => (k in guardado ? guardado[k] : null),
-      setItem: (k, v) => { guardado[k] = String(v); },
+      setItem: (k, v) => {
+        if (guardado.__cheio && k === guardado.__cheio) throw new Error('QuotaExceeded');
+        guardado[k] = String(v);
+        ouvintes.forEach(o => { if (o.dono !== janela) o.f({ key: k, newValue: String(v) }); });
+      },
       removeItem: k => { delete guardado[k]; }
     },
-    document: { addEventListener(){}, querySelector: () => null, hidden: false },
+    document: { addEventListener(){}, querySelector: () => null, hidden: false, activeElement: null },
     setTimeout, clearTimeout, setInterval: () => 0, clearInterval(){},
     fetch: banco.servir,
     AbortController: class { constructor(){ this.signal = {}; } abort(){} },
     WebSocket: class { constructor(){ setTimeout(()=>{}, 0); } send(){} close(){} },
     console,
   };
-  janela.addEventListener = function(){};
+  janela.addEventListener = function (tipo, f) {
+    if (tipo === 'storage') ouvintes.push({ dono: janela, f });
+  };
   janela.window = janela;
   janela.B12 = {
     DB: { reservas: [], clientes: [], saidas: [], patio: [],
@@ -83,8 +94,15 @@ function aparelho(banco, papel, memoria, url) {
       /^(rs-demo-|rs-app-demo-|pt-demo-|mn-demo-|cl-demo-|s\d+$|v\d+$|c\d+b?$|r[12]$)/.test(x.id || ''))),
     redesenhar: () => { janela.B12.__redesenhou = (janela.B12.__redesenhou || 0) + 1; },
   };
+  /* o app de verdade abre lendo o banco do aparelho (B12.carregar) */
+  if (guardado.b12_dados_v1) janela.B12.DB = JSON.parse(guardado.b12_dados_v1);
+  /* e o B12.salvar grava no aparelho e agenda a subida */
+  janela.B12.salvarTeste = () => {
+    janela.localStorage.setItem('b12_dados_v1', JSON.stringify(janela.B12.DB));
+    janela.B12.sincAgendar();
+  };
   const ctx = vm.createContext(janela);
-  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'sincronia.js'), 'utf8'), ctx);
+  vm.runInContext(fs.readFileSync(process.env.SINC || path.join(__dirname, '..', 'sincronia.js'), 'utf8'), ctx);
   janela.B12.__memoria = guardado;
   return janela.B12;
 }
@@ -254,6 +272,113 @@ const espera = ms => new Promise(r => setTimeout(r, ms));
     const guardado = A.sincEstado();
     eh('o estado diz a verdade sobre o papel', guardado.papel === 'dono');
     eh('e sobre já ter feito o ritual', guardado.emDia === true);
+  }
+
+
+  console.log('\n— duas janelas no mesmo navegador (o defeito do EmRoma, 26/10/2026) —');
+  {
+    const banco = bancoFalso(), M = {};
+    const A = aparelho(banco, 'dono', M);            /* a janela velha */
+    A.DB.reservas.push({ id: 'rs-velha', nome: 'Antiga', pax: 1 });
+    A.salvarTeste(); await A.sincAoAbrir(); await espera(1000);
+    const B = aparelho(banco, 'dono', M);            /* a janela nova, mesmo navegador */
+    await B.sincAoAbrir();
+    B.DB.reservas.push({ id: 'rs-nova1', nome: 'Marta', pax: 3 });
+    B.DB.clientes.push({ id: 'cl-nova1', nome: 'Luca' });
+    B.salvarTeste(); await espera(1200);
+    eh('a janela nova subiu a reserva', !!(banco.linhas.b12_reservas['rs-nova1']));
+    /* a janela velha, que ficou aberta, grava o DB DELA no aparelho — por
+       exemplo a demonstração que se renova sozinha a cada dia (não sobe nada,
+       então a janela nova não fica sabendo) */
+    A.DB.saidas.push({ id: 's1', demo: true, hora: '09:00' });
+    A.salvarTeste(); await espera(1200);
+    /* a janela nova confere o banco (5 em 5 min / ao voltar para a aba) */
+    await B.sincAoAbrir(); await espera(200);
+    /* e a pessoa recarrega uma aba */
+    const C = aparelho(banco, 'dono', M);
+    await C.sincAoAbrir(); await espera(1200);
+    await A.sincAoAbrir(); await espera(1200);
+    const lr = banco.linhas.b12_reservas['rs-nova1'], lc = banco.linhas.b12_clientes['cl-nova1'];
+    eh('a reserva da outra janela NÃO foi apagada no banco', lr && !lr.apagado,
+       JSON.stringify(lr));
+    eh('o cliente da outra janela NÃO foi apagado no banco', lc && !lc.apagado,
+       JSON.stringify(lc));
+    eh('e continua na janela recarregada', C.DB.reservas.some(r => r.id === 'rs-nova1'));
+    eh('e no aparelho (localStorage)',
+       JSON.parse(M.b12_dados_v1).reservas.some(r => r.id === 'rs-nova1'));
+    eh('e a janela velha passou a enxergar a reserva nova',
+       A.DB.reservas.some(r => r.id === 'rs-nova1'));
+  }
+
+  console.log('\n— duas janelas, sem internet: a velha salva por cima —');
+  {
+    const banco = bancoFalso(), M = {};
+    const A = aparelho(banco, 'dono', M);
+    await A.sincAoAbrir();
+    const B = aparelho(banco, 'dono', M);
+    await B.sincAoAbrir();
+    banco.recusarTabela('b12_reservas');             /* a subida não passa */
+    B.DB.reservas.push({ id: 'rs-off', nome: 'Feita sem sinal', pax: 4 });
+    B.salvarTeste(); await espera(1200);
+    A.DB.clientes.push({ id: 'cl-a', nome: 'na janela velha' });
+    A.salvarTeste(); await espera(1200);
+    eh('a reserva feita na outra janela continua no aparelho',
+       JSON.parse(M.b12_dados_v1).reservas.some(r => r.id === 'rs-off'));
+    banco.recusarTabela(null);
+    const C = aparelho(banco, 'dono', M);            /* fechou tudo, abriu de novo */
+    await C.sincAoAbrir(); await espera(1200);
+    eh('e sobe quando a internet volta',
+       !!(banco.linhas.b12_reservas && banco.linhas.b12_reservas['rs-off'] &&
+          !banco.linhas.b12_reservas['rs-off'].apagado));
+  }
+
+  console.log('\n— apagar de verdade guarda o último conteúdo —');
+  {
+    const banco = bancoFalso(), A = aparelho(banco);
+    A.DB.reservas.push({ id: 'rs-del', nome: 'Ana', pax: 2 });
+    await A.sincAoAbrir();
+    A.DB.reservas.length = 0;
+    A.sincAgendar(); await espera(1200);
+    const l = banco.linhas.b12_reservas['rs-del'];
+    eh('virou apagado no banco', l && l.apagado === true);
+    eh('mas com o conteúdo junto (dá para recuperar)', l && l.dados && l.dados.nome === 'Ana',
+       JSON.stringify(l && l.dados));
+  }
+
+  console.log('\n— aparelho novo que não conseguiu ler o banco —');
+  {
+    const banco = bancoFalso();
+    const dono = aparelho(banco, 'dono');
+    dono.DB.ajustes = { regular: 99, mensagens: ['do dono'] };
+    dono.DB.marinheiros.push({ id: 'm1', nome: 'Ismael', whats: '41999' });
+    await dono.sincAoAbrir();
+    banco.recusarTabela('b12_marinheiros');           /* sessão vencida / banco dormindo */
+    const novo = aparelho(banco, 'dono');
+    novo.DB.marinheiros.push({ id: 'm1', nome: 'Ismael', whats: '' });   /* o de fábrica */
+    await novo.sincAoAbrir(); await espera(1200);
+    banco.recusarTabela(null);
+    eh('não sobe o marinheiro de fábrica por cima do configurado',
+       banco.linhas.b12_marinheiros.m1.dados.whats === '41999',
+       JSON.stringify(banco.linhas.b12_marinheiros.m1.dados));
+    eh('nem os ajustes de fábrica', banco.linhas.b12_ajustes['1'].dados.regular === 99);
+    await novo.sincAoAbrir(); await espera(1200);
+    eh('na próxima, com o banco lendo, ele recebe o certo',
+       novo.DB.marinheiros[0].whats === '41999' && novo.DB.ajustes.regular === 99);
+  }
+
+  console.log('\n— aparelho cheio: a fila não se perde —');
+  {
+    const banco = bancoFalso(), M = {};
+    const A = aparelho(banco, 'dono', M);
+    await A.sincAoAbrir();
+    M.__cheio = 'b12_fila';                          /* não cabe mais nada na fila */
+    banco.recusarTabela('b12_reservas');
+    A.DB.reservas.push({ id: 'rs-cheio', nome: 'Cheio' });
+    A.sincAgendar(); await espera(1200);
+    banco.recusarTabela(null);
+    A.sincAgendar(); await espera(1200);
+    eh('subiu mesmo sem conseguir gravar a fila',
+       !!(banco.linhas.b12_reservas && banco.linhas.b12_reservas['rs-cheio']));
   }
 
   console.log('\n' + (falhou ? '✗ ' : '✓ ') + ok + ' passaram, ' + falhou + ' falharam\n');
