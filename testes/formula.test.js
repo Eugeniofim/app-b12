@@ -86,5 +86,17 @@ eh('19 a faixa do papel não cai em cima do logo no celular',
    /\.adm-topo > \.adm-quem\{position:static;top:auto;right:auto/.test(semCom),
    'sem `.adm-topo > .adm-quem` o seletor genérico `.adm-topo>*` ganha e volta o top:12px');
 
+console.log('\n— nenhuma tela rola de lado (12/11/2026) —');
+/* `1fr` vale `minmax(auto,1fr)`, e esse `auto` não encolhe abaixo do
+   conteúdo. Um input[type=date] tem 172px de mínimo: duas colunas não
+   cabiam em 375 e a PÁGINA é que cedia. Medido nas 26 telas. */
+const fracao = (semCom.match(/grid-template-columns:[^;}]*\b1fr\b[^;}]*/g) || [])
+  .filter(function (r) { return !/minmax\(0/.test(r) && !/auto|px|%|min-content|max-content/.test(r); });
+eh('20 todo grid de fração usa minmax(0,1fr)', fracao.length === 0,
+   'sem isso a coluna não cede e a tela rola de lado: ' + fracao.join(' | '));
+eh('21 botão solto na tela tem largura que cabe com a margem',
+   /\.btn\.solto\{width:calc\(100% - 24px\)/.test(semCom),
+   '.btn é width:100%; com margin:12px vira 100% + 24px');
+
 console.log('\n' + (falhou ? '✗ ' : '✓ ') + ok + ' passaram, ' + falhou + ' falharam\n');
 process.exit(falhou ? 1 : 0);
