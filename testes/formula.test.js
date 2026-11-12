@@ -59,10 +59,20 @@ console.log('\n— dedo e acessibilidade —');
 eh('16 alvos de 44px no toque', /pointer:\s*coarse/.test(css));
 eh('17 respeita quem pediu menos movimento', /prefers-reduced-motion/.test(css));
 eh('18 não bloqueia o zoom da pessoa', !/user-scalable=no|maximum-scale=1/.test(html));
+/* 12/11/2026 — esta verificação contava AbortController, e reprovou um
+   acerto: duas chamadas podem (e devem) dividir o MESMO prazo. O que
+   importa é que toda chamada leve um `signal`, direto ou pelo auxiliar
+   `comPrazo`. Agora é isso que ela conta. */
 eh('19 nenhum fetch solto sem prazo', (function () {
   return ['avisos.js','turista.js','aparelhos.js','assistente.js','sincronia.js']
-    .every(function (f) { var t = leia(f);
-      return (t.match(/fetch\(/g) || []).length <= (t.match(/AbortController/g) || []).length; });
+    .every(function (f) {
+      var t = leia(f);
+      var chamadas = (t.match(/fetch\(/g) || []).length;
+      var comSinal = (t.match(/signal:/g) || []).length;
+      /* o auxiliar põe o signal por dentro: um `comPrazo` cobre o fetch dele */
+      var auxiliar = /function comPrazo\([\s\S]{0,260}?signal/.test(t) ? 1 : 0;
+      return chamadas <= comSinal + auxiliar;
+    });
 })(), 'chamada sem prazo deixa a tela girando com sinal fraco');
 
 console.log('\n— letra e cabeçalho de balcão (12/11/2026) —');

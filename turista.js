@@ -363,7 +363,8 @@ var CHAVE_ADIAR = 'b12_aviso_depois';
 B12.conviteAviso = function () {
   var cx = document.getElementById('avisar-convite');
   if (!cx || !B12.avEstado) return;
-  var e = B12.avEstado();
+  /* o cartão da home é do TURISTA: pergunta pelo papel certo */
+  var e = B12.avEstado({ papel: 'turista' });
 
   var quando = 0;
   try { quando = +localStorage.getItem(CHAVE_ADIAR) || 0; } catch (err) {}

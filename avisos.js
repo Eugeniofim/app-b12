@@ -30,7 +30,8 @@ B12.avSuportado = function () {
 function ehIphone() { return /iPhone|iPad|iPod/.test(navigator.userAgent) && !window.MSStream; }
 
 /* o retrato do estado, em português, para a tela mostrar sem adivinhar */
-B12.avEstado = function () {
+B12.avEstado = function (opc) {
+  opc = opc || {};
   if (!B12.avSuportado()) {
     return { pode: false, ligado: false, motivo: 'Este navegador não recebe aviso no celular.' };
   }
@@ -45,7 +46,12 @@ B12.avEstado = function () {
   /* A tranca do banco é clara: sem conta, só dá para assinar como turista.
      Enquanto o login na nuvem não existir, o dono e a equipe não conseguem
      assinar — e é melhor dizer isso do que mostrar um botão que dá erro. */
-  var papel = (B12.pode && B12.pode('equipe')) ? 'equipe' : 'turista';
+  /* 12/11/2026 — quem pede explicitamente 'turista' (o cartão da home) não
+     pode ser barrado por falta de login de DONO. No celular do Eugênio, que
+     tem o PIN do proprietário, o cartão do turista dizia "falta o login da
+     nuvem" — uma resposta que não é a pergunta que ele fez. */
+  var papel = opc.papel === 'turista' ? 'turista'
+            : (B12.pode && B12.pode('equipe')) ? 'equipe' : 'turista';
   if (papel !== 'turista' && !B12.nuvLogado()) {
     return { pode: false, ligado: false, semLogin: true,
       motivo: 'Falta o login da nuvem. Sem ele, o banco não aceita a inscrição do dono ' +
@@ -87,7 +93,7 @@ async function digital(texto) {
 /* Liga: pede a permissão, assina no navegador e guarda no banco da B12. */
 B12.avLigar = async function (opc) {
   opc = opc || {};
-  var e = B12.avEstado();
+  var e = B12.avEstado(opc);
   if (!e.pode) return { erro: e.motivo };
 
   var permissao = await Notification.requestPermission();
@@ -108,27 +114,79 @@ B12.avLigar = async function (opc) {
   var j = assin.toJSON();
   var id = await digital(j.endpoint);
 
+  /* ================================================================
+     12/11/2026 — DOIS DEFEITOS AQUI, e o segundo impedia QUALQUER
+     turista de ligar os avisos desde sempre.
+
+     1) O papel saía do PIN local. PIN é a tranca deste aparelho, não é
+        identidade na nuvem. No celular do Eugênio, logado como dono pelo
+        PIN mas SEM conta na nuvem, o app mandava papel='dono' com a chave
+        pública — e o banco recusou, certíssimo. Agora o papel vem da
+        SESSÃO DA NUVEM; sem sessão, é turista, que é a verdade.
+
+     2) A gravação usava "inserir OU atualizar" (on_conflict), porque o
+        mesmo aparelho reassina toda vez que reabre o app. No Postgres
+        isso exige política de UPDATE **e de SELECT**, e dar SELECT ao
+        visitante vazaria o endereço e as chaves de push de todos os
+        aparelhos. Medido: INSERT puro = 201, com on_conflict = 401.
+        Agora quem não tem conta chama a função `b12_inscrever`, que faz
+        só essa operação, sempre como turista, e não devolve nada.
+
+     Dono e equipe continuam pelo caminho normal: com sessão eles têm as
+     políticas de ler e atualizar, e o on_conflict funciona.
+     ================================================================ */
+  var temSessao = !!(B12.nuvLogado && B12.nuvLogado());
+  var papelNuvem = temSessao ? ((B12.nuvQuem() || {}).papel || 'turista') : 'turista';
+  /* opc.papel só pode REBAIXAR (o cartão do turista pede 'turista'); subir
+     para dono/equipe depende da conta, nunca do que a tela pedir */
+  if (opc.papel === 'turista') papelNuvem = 'turista';
+
+  var apelido = opc.apelido || apelidoDoAparelho();
+  var clienteId = (B12.meuCadastro && B12.meuCadastro() || {}).id || null;
+  var ctrl = new AbortController();
+  /* prazo: sem isto, sinal fraco deixa o botão "ligar avisos" girando para
+     sempre — foi assim que o login da Melissa travou (app-um-so, peça 7) */
+  var corta = setTimeout(function () { ctrl.abort(); }, 12000);
+  var r;
+
+  if (!temSessao) {
+    /* ---- sem conta: a porta do visitante, pela função ---- */
+    try {
+      r = await fetch(B12.NUVEM.url + '/rest/v1/rpc/b12_inscrever', {
+        method: 'POST', signal: ctrl.signal,
+        headers: { apikey: B12.NUVEM.chave, Authorization: 'Bearer ' + B12.NUVEM.chave,
+                   'Content-Type': 'application/json' },
+        body: JSON.stringify({ p_id: id, p_endpoint: j.endpoint,
+          p_p256dh: j.keys.p256dh, p_auth: j.keys.auth,
+          p_apelido: apelido, p_cliente_id: clienteId })
+      });
+    } catch (e) {
+      clearTimeout(corta);
+      return { erro: e && e.name === 'AbortError'
+        ? 'A internet está lenta demais. Tente de novo daqui a pouco.'
+        : 'Não consegui falar com o servidor dos avisos.' };
+    }
+    clearTimeout(corta);
+    if (!r.ok) {
+      var t1 = await r.text();
+      return { erro: 'O banco recusou a inscrição (' + r.status + '). ' + t1.slice(0, 90) };
+    }
+    try { localStorage.setItem(CHAVE_LOCAL, id); } catch (er) {}
+    return { ok: true, id: id, papel: 'turista' };
+  }
+
+  /* ---- com conta: dono e equipe, pelo caminho normal ---- */
   var corpo = {
     id: id, endpoint: j.endpoint,
     p256dh: j.keys.p256dh, auth: j.keys.auth,
-    papel: opc.papel || (B12.pode && B12.pode('dono') ? 'dono'
-                        : B12.pode && B12.pode('equipe') ? 'equipe' : 'turista'),
-    apelido: opc.apelido || apelidoDoAparelho(),
-    cliente_id: (B12.meuCadastro && B12.meuCadastro() || {}).id || null,
+    papel: papelNuvem,
+    apelido: apelido,
+    cliente_id: clienteId,
+    pessoa_id: (B12.nuvQuem() || {}).id || null,
     ativo: true, erros: 0
   };
-  /* com sessão o cabeçalho leva o token; sem sessão, a chave pública — e aí o
-     banco só aceita turista, que é exatamente o desenho */
-  if (B12.nuvLogado()) corpo.pessoa_id = (B12.nuvQuem() || {}).id || null;
-  var cab = B12.nuvCabecalho ? B12.nuvCabecalho()
-          : { apikey: B12.NUVEM.chave, Authorization: 'Bearer ' + B12.NUVEM.chave,
-              'Content-Type': 'application/json' };
+  var cab = B12.nuvCabecalho();
   cab.Prefer = 'resolution=merge-duplicates,return=minimal';
-  /* prazo: sem isto, sinal fraco deixa o botão "ligar avisos" girando para
-     sempre — foi assim que o login da Melissa travou (app-um-so, peça 7) */
-  var ctrl = new AbortController();
-  var corta = setTimeout(function () { ctrl.abort(); }, 12000);
-  var r;
   try {
     r = await fetch(B12.NUVEM.url + '/rest/v1/b12_avisos?on_conflict=endpoint', {
       method: 'POST', headers: cab, body: JSON.stringify(corpo), signal: ctrl.signal

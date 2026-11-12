@@ -44,3 +44,54 @@ create policy avisos_turista_criar on public.b12_avisos for insert to anon
 drop trigger if exists b12_avisos_carimbo on public.b12_avisos;
 create trigger b12_avisos_carimbo before update on public.b12_avisos
   for each row execute function public.b12_carimbo();
+
+-- =====================================================================
+-- 12/11/2026 — A INSCRIÇÃO DO TURISTA, FEITA DO JEITO CERTO
+--
+-- Descoberto na revisão de entrega: NENHUM turista nunca conseguiu ligar
+-- os avisos. O app grava a assinatura com "inserir OU atualizar"
+-- (on_conflict=endpoint), porque o mesmo aparelho reassina toda vez que
+-- reabre. No Postgres, INSERT ... ON CONFLICT DO UPDATE exige política de
+-- UPDATE **e de SELECT**, mesmo quando não há conflito nenhum.
+--
+-- Medido contra o banco real: INSERT puro = 201, com on_conflict = 401
+-- (42501, "new row violates row-level security policy").
+--
+-- Dar SELECT ao visitante resolveria — e vazaria o endereço e as chaves de
+-- push de TODOS os aparelhos para qualquer um com a chave pública. Isso
+-- não se faz. A saída é uma função com poder próprio que faz só esta
+-- operação: grava a assinatura de UM aparelho, sempre como turista (está
+-- escrito aqui dentro; o cliente não escolhe), e não devolve nada. O
+-- visitante continua sem poder LER a tabela.
+--
+-- Dono e equipe não passam por aqui: com sessão eles têm as políticas de
+-- ler e atualizar, e o caminho normal do PostgREST funciona.
+-- =====================================================================
+create or replace function public.b12_inscrever(
+  p_id text, p_endpoint text, p_p256dh text, p_auth text,
+  p_apelido text default null, p_cliente_id text default null)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+begin
+  if p_endpoint is null or p_p256dh is null or p_auth is null then
+    raise exception 'assinatura incompleta';
+  end if;
+  insert into public.b12_avisos
+    (id, endpoint, p256dh, auth, papel, apelido, cliente_id, ativo, erros)
+  values
+    (p_id, p_endpoint, p_p256dh, p_auth, 'turista', p_apelido, p_cliente_id, true, 0)
+  on conflict (endpoint) do update set
+    p256dh = excluded.p256dh,
+    auth   = excluded.auth,
+    apelido = coalesce(excluded.apelido, public.b12_avisos.apelido),
+    cliente_id = coalesce(excluded.cliente_id, public.b12_avisos.cliente_id),
+    ativo = true, erros = 0, atualizado = now()
+  -- uma conta de verdade (dono/equipe) nunca é rebaixada por esta porta
+  where public.b12_avisos.pessoa_id is null;
+end $fn$;
+
+revoke all on function public.b12_inscrever(text,text,text,text,text,text) from public;
+grant execute on function public.b12_inscrever(text,text,text,text,text,text) to anon, authenticated;
