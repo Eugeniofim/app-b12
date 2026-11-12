@@ -2022,3 +2022,144 @@ B12.sairDaDemo = function () {
   return { ok: true, tirados: tirados };
 };
 B12.emDemo = function () { return B12.DB && B12.DB.ajustes && B12.DB.ajustes.demo !== false; };
+
+/* ====================================================================
+   VISÃO GERAL — o negócio inteiro num período
+   12/11/2026. Até aqui o app respondia bem "como está hoje" e "como
+   fechou o mês". O que faltava era a pergunta do dono: QUAL DIA ENCHE,
+   QUAL HORÁRIO ENCHE, DE ONDE VEM A GENTE, quanto é travessia e quanto
+   é pátio.
+
+   Três regras que valem para tudo aqui dentro:
+   - DINHEIRO sai dos lançamentos, nunca da reserva. A reserva registra o
+     combinado; o lançamento registra o que entrou. São coisas diferentes
+     e misturar as duas é como o relatório de uma empresa vira ficção.
+   - CONTAGEM DE GENTE sai das reservas e das saídas, que é onde ela mora.
+   - Período sem movimento devolve zero com `vazio: true`, não devolve
+     NaN nem esconde a linha. Zero é uma resposta; gráfico quebrado não.
+   ==================================================================== */
+B12.DIAS_SEMANA = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+
+/* dia da semana SEM passar por UTC: 'YYYY-MM-DD' lido como data local.
+   new Date('2026-11-12').getDay() usa UTC e no Brasil pode voltar um dia. */
+B12.diaDaSemana = function (iso) {
+  var p = String(iso).split('-');
+  return new Date(+p[0], +p[1] - 1, +p[2]).getDay();
+};
+B12.diasEntre = function (de, ate) {
+  var a = new Date(de + 'T12:00:00'), b = new Date(ate + 'T12:00:00');
+  return Math.max(1, Math.round((b - a) / 86400000) + 1);
+};
+function dentro(d, de, ate) { return !!d && d >= de && d <= ate; }
+function maiores(obj, n) {
+  return Object.keys(obj).map(function (k) { return { nome: k, v: obj[k] }; })
+    .sort(function (a, b) { return b.v - a.v; }).slice(0, n || 6);
+}
+
+B12.visaoGeral = function (de, ate) {
+  var D = B12.DB;
+  var R = (D.reservas || []).filter(function (r) { return dentro(r.ida, de, ate); });
+  var S = (D.saidas || []).filter(function (s) { return dentro(s.data, de, ate); });
+  var P = (D.patio || []).filter(function (p) { return dentro(p.entrada, de, ate); });
+  var L = (D.lancamentos || []).filter(function (l) { return dentro(l.data, de, ate); });
+
+  var v = {
+    de: de, ate: ate, dias: B12.diasEntre(de, ate),
+    pessoas: 0, criancas: 0, reservas: R.length,
+    travessias: 0, lugares: 0, ocupados: 0, ocupacao: 0,
+    entradas: 0, saidasDinheiro: 0, porCat: {}, porPg: {},
+    carros: 0, diarias: 0,
+    porDia: {}, porDiaSemana: [], porHorario: {}, porDestino: {},
+    cidades: {}, pousadas: {}, porCliente: {},
+    vazio: false
+  };
+
+  R.forEach(function (r) {
+    var pax = +r.pax || 0;
+    v.pessoas += pax;
+    v.criancas += +r.criancas || 0;
+    v.porDia[r.ida] = (v.porDia[r.ida] || 0) + pax;
+    if (r.destino) v.porDestino[r.destino] = (v.porDestino[r.destino] || 0) + pax;
+    if (r.pousada) v.pousadas[r.pousada] = (v.pousadas[r.pousada] || 0) + pax;
+    var c = r.clienteId && (D.clientes || []).filter(function (x) { return x.id === r.clienteId; })[0];
+    if (c && c.cidade) v.cidades[c.cidade] = (v.cidades[c.cidade] || 0) + pax;
+    var quem = r.nome || (c && c.nome);
+    if (quem) v.porCliente[quem] = (v.porCliente[quem] || 0) + pax;
+  });
+
+  S.forEach(function (s) {
+    var oc = +s.ocupadas || 0;
+    if (oc > 0) v.travessias++;
+    v.lugares += +s.vagas || 0;
+    v.ocupados += oc;
+    if (s.hora) {
+      var h = String(s.hora).slice(0, 2) + 'h';
+      if (!v.porHorario[h]) v.porHorario[h] = { pessoas: 0, lugares: 0, saidas: 0 };
+      v.porHorario[h].pessoas += oc;
+      v.porHorario[h].lugares += +s.vagas || 0;
+      v.porHorario[h].saidas++;
+    }
+  });
+  v.ocupacao = v.lugares ? v.ocupados / v.lugares : 0;
+
+  P.forEach(function (p) {
+    v.carros++;
+    var fim = p.saidaReal || p.saidaPrevista;
+    if (fim && fim >= p.entrada) v.diarias += B12.diasEntre(p.entrada, fim);
+  });
+
+  L.forEach(function (l) {
+    if (l.tipo === 'entrada') {
+      v.entradas += l.valor;
+      v.porPg[l.pg] = (v.porPg[l.pg] || 0) + l.valor;
+    } else { v.saidasDinheiro += l.valor; }
+    if (l.cat) v.porCat[l.cat] = (v.porCat[l.cat] || 0) + l.valor;
+  });
+
+  /* os sete dias da semana, sempre os sete — domingo vazio é informação */
+  var soma = [0,0,0,0,0,0,0], quantos = [0,0,0,0,0,0,0];
+  Object.keys(v.porDia).forEach(function (d) {
+    var s = B12.diaDaSemana(d);
+    soma[s] += v.porDia[d]; quantos[s]++;
+  });
+  v.porDiaSemana = B12.DIAS_SEMANA.map(function (nome, i) {
+    return { nome: nome, curto: nome.slice(0,3), total: soma[i],
+             media: quantos[i] ? soma[i] / quantos[i] : 0, dias: quantos[i] };
+  });
+
+  v.porPessoa = v.pessoas ? v.entradas / v.pessoas : 0;
+  v.porDiaMedia = v.pessoas / v.dias;
+  v.melhorDiaSemana = v.porDiaSemana.slice().sort(function (a,b) { return b.media - a.media; })[0];
+  v.topCidades = maiores(v.cidades);
+  v.topPousadas = maiores(v.pousadas);
+  v.topClientes = maiores(v.porCliente, 8);
+  v.vazio = !v.pessoas && !v.entradas && !v.carros;
+  return v;
+};
+
+/* a série mês a mês, para o gráfico de barras do ano */
+B12.visaoPorMes = function (quantos) {
+  var fim = B12.mesAtual(), fora = [];
+  for (var i = (quantos || 12) - 1; i >= 0; i--) {
+    var y = +fim.slice(0,4), m = +fim.slice(5,7) - i;
+    var d = new Date(y, m - 1, 1);
+    var ym = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    var ult = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    var v = B12.visaoGeral(ym + '-01', ym + '-' + ult);
+    fora.push({ ym: ym, mes: B12.MESNOME[d.getMonth()].slice(0,3), ano: d.getFullYear(),
+                pessoas: v.pessoas, entradas: v.entradas, saidas: v.saidasDinheiro,
+                carros: v.carros, ocupacao: v.ocupacao });
+  }
+  return fora;
+};
+
+/* atalhos de período que o painel oferece */
+B12.periodo = function (qual) {
+  var h = B12.hoje();
+  if (qual === 'semana') return { de: B12.diaMais(h, -6), ate: h, nome: 'Últimos 7 dias' };
+  if (qual === 'mes')    return { de: B12.mesAtual() + '-01', ate: h, nome: 'Este mês' };
+  if (qual === 'mes30')  return { de: B12.diaMais(h, -29), ate: h, nome: 'Últimos 30 dias' };
+  if (qual === 'ano')    return { de: h.slice(0,4) + '-01-01', ate: h, nome: 'Este ano' };
+  if (qual === 'tudo')   return { de: '2000-01-01', ate: h, nome: 'Desde o começo' };
+  return { de: h, ate: h, nome: 'Hoje' };
+};

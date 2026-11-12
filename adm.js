@@ -80,6 +80,10 @@ function grafBarras(alvo, dados, opc) {
   var pw = W-L-R, ph = H-T-B;
   var s = el('svg', { viewBox:'0 0 '+W+' '+H, class:'graf', role:'img' });
   var max = opc.max || Math.max.apply(null, dados.map(function(d){ return (d.a||0)+(d.b||0); })) * 1.14 || 1;
+  /* 12/11/2026 — este gráfico só sabia falar dinheiro, e o painel novo conta
+     GENTE. Barra de "quantas pessoas no sábado" vinha rotulada "R$ 30".
+     `fmt` escolhe a língua da barra; sem ele, segue sendo real. */
+  var fmt = opc.fmt || B12.brl;
   eixoY(s, L, W-R, T, ph, max, kk);
   var bw = pw / dados.length;
   dados.forEach(function (d, i) {
@@ -91,14 +95,14 @@ function grafBarras(alvo, dados, opc) {
     } else {
       var ra = el('rect', { x:x, y:y(d.a), width:w, height:Math.max(ph-(y(d.a)-T),1),
         fill:d.cor || C.turq, rx:2 });
-      dica(ra, (d.rot ? d.rot + ': ' : '') + B12.brl(d.a) + (d.b ? ' + ' + B12.brl(d.b) : ''));
+      dica(ra, (d.rot ? d.rot + ': ' : '') + fmt(d.a) + (d.b ? ' + ' + fmt(d.b) : ''));
       s.appendChild(ra);
       if (d.b) s.appendChild(dica(el('rect', { x:x, y:y(d.a+d.b), width:w,
         height:Math.max(y(d.a)-y(d.a+d.b),0), fill:C.azul, rx:2 }),
-        (d.rot ? d.rot + ': ' : '') + B12.brl(d.b) + ' (total ' + B12.brl(d.a+d.b) + ')'));
+        (d.rot ? d.rot + ': ' : '') + fmt(d.b) + ' (total ' + fmt(d.a+d.b) + ')'));
       if (d.destaque) s.appendChild(txt(el('text', { x:x+w/2, y:y(d.a+(d.b||0))-5,
         'text-anchor':'middle', fill:C.turq3, 'font-size':10, 'font-weight':'700' }),
-        B12.brl(d.a+(d.b||0))));
+        fmt(d.a+(d.b||0))));
     }
     if (d.rot) s.appendChild(txt(el('text', { x:L+i*bw+bw/2, y:H-9, 'text-anchor':'middle',
       fill:C.gelo3, 'font-size':9, 'font-family':'ui-monospace,monospace' }), d.rot));
@@ -195,6 +199,9 @@ function grafRosca(alvo, fatias) {
    grupo, e pedir a página pelo nome também não entra. */
 var GRUPOS = [
   { id:'hoje',      nome:'Hoje',      sub:[['hoje','O dia'], ['agenda','Agenda', 'dono']] },
+  { id:'visao',     nome:'Visão geral', so:'dono',
+                    sub:[['visao','O negócio'], ['vtravessia','Travessias'],
+                         ['vpatio','Estacionamento']] },
   { id:'balcao',    nome:'Cadastro',  sub:[['balcao','Cadastro']] },
   /* "Quem volta" morava em Hoje e o Eugênio foi procurar a criação dos
      horários de retorno aqui, na Travessia — que é onde a cabeça dele põe
@@ -219,12 +226,395 @@ var GRUPOS = [
          ['ia','Assistente']] },
 ];
 
+
+/* ================================================================ VISÃO GERAL
+   12/11/2026. O Dhalsin pediu "um overview legal da empresa", com gráfico e
+   relatório por semana e por mês. São três telas, e a divisão é a cabeça dele:
+   O NEGÓCIO (tudo junto) · TRAVESSIAS (o barco) · ESTACIONAMENTO (o pátio).
+
+   Regra de desenho que vale nas três: número grande em cima, gráfico embaixo,
+   e UMA frase em português dizendo o que o gráfico quer dizer. Painel que só
+   mostra barra obriga a pessoa a interpretar — e quem anota no papel não vai
+   interpretar barra, vai procurar a frase. */
+var VISAO_PER = 'mes30';
+var VISAO_ATALHOS = [['hoje','Hoje'], ['semana','7 dias'], ['mes30','30 dias'],
+                     ['mes','Este mês'], ['ano','Este ano']];
+
+function visaoPeriodo() { return B12.periodo(VISAO_PER); }
+function pessoasFmt(n) {
+  var x = Math.round(n * 10) / 10;
+  return String(x).replace('.', ',') + (x === 1 ? ' pessoa' : ' pessoas');
+}
+
+function faixaPeriodo(raiz, titulo, explica) {
+  var p = visaoPeriodo();
+  raiz.appendChild(bloco(
+    '<div class="cx entra"><h3>' + titulo + '</h3>' +
+    '<p>' + explica + '</p>' +
+    '<div class="chips" style="margin-top:11px">' +
+    VISAO_ATALHOS.map(function (a) {
+      return '<button type="button" class="chip' + (a[0] === VISAO_PER ? ' on' : '') +
+        '" data-per="' + a[0] + '">' + a[1] + '</button>'; }).join('') +
+    '</div>' +
+    '<p class="ajuda" style="margin-top:9px">' + p.nome + ' · de ' + B12.dataBR(p.de) +
+    ' a ' + B12.dataBR(p.ate) + '</p></div>'
+  ));
+  raiz.querySelectorAll('[data-per]').forEach(function (b) {
+    b.onclick = function () { VISAO_PER = b.dataset.per; B12.admDesenhar(abaAtual); };
+  });
+  return p;
+}
+
+/* "Nada neste período" dito com todas as letras, em vez de gráfico vazio */
+function nadaAqui(raiz, oque) {
+  raiz.appendChild(bloco(
+    '<div class="cx entra entra-1"><h3>Nada ' + oque + ' neste período</h3>' +
+    '<p>Não é erro do app: não há registro entre essas duas datas. ' +
+    'Escolha um período maior ali em cima.</p></div>'
+  ));
+}
+
+/* ------------------------------------------------------- O NEGÓCIO */
+function pVisao(raiz) {
+  var p = faixaPeriodo(raiz, 'O negócio',
+    'Tudo o que entrou e saiu, e quanta gente passou. O dinheiro aqui vem dos ' +
+    'lançamentos do Financeiro — não do que foi combinado na reserva.');
+  var v = B12.visaoGeral(p.de, p.ate);
+  if (v.vazio) return nadaAqui(raiz, 'aconteceu');
+
+  var lucro = v.entradas - v.saidasDinheiro;
+  raiz.appendChild(bloco(
+    '<div class="placar entra entra-1">' +
+      tile(v.pessoas, 'Pessoas levadas', 'n') +
+      tile(v.travessias, 'Travessias', 'n') +
+      tile(v.entradas, 'Entrou', 'brl') +
+      tile(lucro, 'Sobrou', 'brl', lucro < 0 ? 'ruim' : '') +
+    '</div>'
+  ));
+  raiz.appendChild(bloco(
+    '<div class="placar entra entra-1">' +
+      tile(Math.round(v.ocupacao * 100), 'Ocupação do barco %', 'n') +
+      tile(Math.round(v.porPessoa), 'Cada pessoa deixou', 'brl') +
+      tile(v.carros, 'Carros no pátio', 'n') +
+      tile(Math.round(v.porDiaMedia * 10) / 10, 'Pessoas por dia', 'n') +
+    '</div>'
+  ));
+
+  /* --- o ano mês a mês --- */
+  var meses = B12.visaoPorMes(12);
+  var temMes = meses.some(function (m) { return m.pessoas || m.entradas; });
+  var g = document.createElement('div'); g.className = 'cx entra entra-2';
+  g.innerHTML = '<h3>Os últimos 12 meses</h3><p>Quanto entrou em cada mês. ' +
+    'É aqui que a temporada aparece: a barra alta é o mês que paga o ano.</p>';
+  raiz.appendChild(g);
+  if (temMes) {
+    grafBarras(g, meses.map(function (m, i) {
+      return { a: m.entradas, rot: m.mes, destaque: i === meses.length - 1,
+               vazio: !m.entradas };
+    }), { altura: 185 });
+    var melhor = meses.slice().sort(function (a,b) { return b.entradas - a.entradas; })[0];
+    if (melhor.entradas) {
+      g.appendChild(bloco('<p class="ajuda" style="margin-top:10px">Melhor mês do período: <b>' +
+        melhor.mes + '/' + String(melhor.ano).slice(2) + '</b>, com ' + B12.brl(melhor.entradas) +
+        /* "e 0 pessoas" é a frase que faz o dono desconfiar do painel inteiro:
+           acontece quando o dinheiro do mês foi registrado e as reservas não. */
+        (melhor.pessoas ? ' e ' + B12.n(melhor.pessoas) + ' pessoas' : '') + '.</p>'));
+    }
+  } else {
+    g.appendChild(bloco('<p class="ajuda" style="margin-top:10px">Ainda não há ' +
+      'lançamento em nenhum dos 12 meses. Os números aparecem conforme ele registrar.</p>'));
+  }
+
+  /* --- dia da semana --- */
+  var d = document.createElement('div'); d.className = 'cx entra entra-3';
+  d.innerHTML = '<h3>Qual dia enche</h3><p>Média de pessoas em cada dia da semana, ' +
+    'dentro do período escolhido. Serve para decidir onde pôr marinheiro a mais.</p>';
+  raiz.appendChild(d);
+  var maxDia = Math.max.apply(null, v.porDiaSemana.map(function (x) { return x.media; }));
+  grafBarras(d, v.porDiaSemana.map(function (x) {
+    return { a: Math.round(x.media * 10) / 10, rot: x.curto, vazio: x.dias === 0,
+             destaque: maxDia > 0 && x.media === maxDia };
+  }), { altura: 160, fmt: pessoasFmt });
+  if (v.melhorDiaSemana && v.melhorDiaSemana.media > 0) {
+    d.appendChild(bloco('<p class="ajuda" style="margin-top:10px"><b>' +
+      v.melhorDiaSemana.nome + '</b> é o dia mais cheio: ' +
+      (Math.round(v.melhorDiaSemana.media * 10) / 10).toString().replace('.', ',') +
+      ' pessoas em média.</p>'));
+  }
+
+  /* --- de onde vem o dinheiro --- */
+  var cats = Object.keys(v.porCat).filter(function (c) {
+    return (B12.ENTRADAS || []).indexOf(c) >= 0 && v.porCat[c] > 0;
+  });
+  if (cats.length) {
+    var cores = [C.turq, C.azul, C.turq3, C.aten, C.gelo3];
+    var r = document.createElement('div'); r.className = 'cx entra entra-4';
+    r.innerHTML = '<h3>De onde vem o dinheiro</h3>' +
+      '<p>A travessia é o carro-chefe; o pátio é o que trabalha sozinho.</p>';
+    raiz.appendChild(r);
+    var fat = cats.map(function (c, i) {
+      return { v: v.porCat[c], cor: cores[i % cores.length], nome: c };
+    }).sort(function (a, b) { return b.v - a.v; });
+    grafRosca(r, fat);
+    var somaFat = fat.reduce(function (s, f) { return s + f.v; }, 0) || 1;
+    r.appendChild(bloco('<div class="leg">' + fat.map(function (f) {
+      return '<span><i style="background:' + f.cor + '"></i>' + esc(f.nome) + ' · ' +
+        Math.round(f.v / somaFat * 100) + '%</span>'; }).join('') + '</div>'));
+  }
+
+  /* --- de onde vem a gente --- */
+  if (v.topCidades.length || v.topPousadas.length) {
+    var o = document.createElement('div'); o.className = 'cx entra entra-5';
+    o.innerHTML = '<h3>De onde vem a gente</h3>' +
+      '<p>Cidade sai da ficha do cliente; pousada sai da reserva. ' +
+      'Os dois campos são preenchidos no cadastro do balcão.</p>';
+    raiz.appendChild(o);
+    if (v.topCidades.length) {
+      var mx = v.topCidades[0].v;
+      o.appendChild(bloco('<div class="faixa-sec" style="margin:14px 0 0"><div class="tit">' +
+        '<h2>Cidades</h2></div></div>' + v.topCidades.map(function (c) {
+          return '<div style="margin-top:9px"><div style="display:flex;' +
+            'justify-content:space-between;font-size:13px;margin-bottom:4px"><span>' +
+            esc(c.nome) + '</span><b class="num">' + B12.n(c.v) + '</b></div>' +
+            '<div class="medidor"><i style="width:' + (c.v / mx * 100).toFixed(1) +
+            '%"></i></div></div>'; }).join('')));
+    }
+    if (v.topPousadas.length) {
+      var mp = v.topPousadas[0].v;
+      o.appendChild(bloco('<div class="faixa-sec" style="margin:16px 0 0"><div class="tit">' +
+        '<h2>Pousadas que mandam gente</h2></div></div>' + v.topPousadas.map(function (c) {
+          return '<div style="margin-top:9px"><div style="display:flex;' +
+            'justify-content:space-between;font-size:13px;margin-bottom:4px"><span>' +
+            esc(c.nome) + '</span><b class="num">' + B12.n(c.v) + '</b></div>' +
+            '<div class="medidor"><i style="width:' + (c.v / mp * 100).toFixed(1) +
+            '%;background:' + C.azul + '"></i></div></div>'; }).join('') +
+        '<p class="ajuda" style="margin-top:11px">Esta é a lista da comissão de ' +
+        'hospedagem: quem aparece aqui em cima é quem vale uma conversa.</p>'));
+    }
+  }
+
+  /* --- quem mais viajou --- */
+  if (v.topClientes.length) {
+    raiz.appendChild(bloco(
+      '<div class="cx entra entra-6"><h3>Quem mais levou gente</h3>' +
+      '<p>No período escolhido, somando todas as reservas da mesma pessoa.</p>' +
+      '<div class="rolagem"><table class="tabela" style="margin-top:11px">' +
+      '<tr><th>Cliente</th><th style="text-align:right">Pessoas</th></tr>' +
+      v.topClientes.map(function (c) {
+        return '<tr><td>' + esc(c.nome) + '</td><td class="n">' + B12.n(c.v) + '</td></tr>';
+      }).join('') + '</table></div></div>'
+    ));
+  }
+
+  /* --- formas de pagamento --- */
+  var pgs = Object.keys(v.porPg).filter(function (k) { return v.porPg[k] > 0; })
+    .sort(function (a, b) { return v.porPg[b] - v.porPg[a]; });
+  if (pgs.length) {
+    raiz.appendChild(bloco(
+      '<div class="cx entra entra-6"><h3>Como as pessoas pagaram</h3>' +
+      '<p>Cada ponto de taxa de maquininha sai daqui. Pix não tem taxa.</p>' +
+      pgs.map(function (k) {
+        return linhaBarra(k, v.porPg[k], v.entradas, k === 'pix' ? C.turq : C.azul);
+      }).join('') + '</div>'
+    ));
+  }
+}
+
+/* ------------------------------------------------------- TRAVESSIAS */
+function pVTravessia(raiz) {
+  var p = faixaPeriodo(raiz, 'Travessias',
+    'O barco: quanta gente andou, em que horário, para onde, e quanto do ' +
+    'barco foi aproveitado.');
+  var v = B12.visaoGeral(p.de, p.ate);
+  if (!v.lugares && !v.pessoas) return nadaAqui(raiz, 'saiu');
+
+  var vazios = v.lugares - v.ocupados;
+  raiz.appendChild(bloco(
+    '<div class="placar entra entra-1">' +
+      tile(v.pessoas, 'Pessoas', 'n') +
+      tile(v.travessias, 'Travessias', 'n') +
+      tile(Math.round(v.ocupacao * 100), 'Barco cheio %', 'n') +
+      tile(vazios, 'Lugares vazios', 'n', vazios > v.ocupados ? 'ruim' : '') +
+    '</div>'
+  ));
+  raiz.appendChild(bloco(
+    '<div class="cx entra entra-1"><p>Foram <b>' + B12.n(v.lugares) + ' lugares</b> ' +
+    'oferecidos e <b>' + B12.n(v.ocupados) + '</b> ocupados. ' +
+    (v.ocupacao >= 0.75
+      ? 'O barco está saindo cheio — é hora de pensar em horário novo.'
+      : v.ocupacao >= 0.45
+        ? 'Dá para encaixar mais gente nos horários que saem vazios, abaixo.'
+        : 'Há muito lugar sobrando: vale concentrar as saídas em menos horários ' +
+          'e gastar menos combustível.') + '</p>' +
+    (v.criancas ? '<p class="ajuda" style="margin-top:8px">Dessas pessoas, <b>' +
+      B12.n(v.criancas) + '</b> eram crianças.</p>' : '') + '</div>'
+  ));
+
+  /* --- por horário --- */
+  var horas = Object.keys(v.porHorario).sort();
+  if (horas.length) {
+    var h = document.createElement('div'); h.className = 'cx entra entra-2';
+    h.innerHTML = '<h3>Qual horário enche</h3><p>Pessoas levadas em cada horário de ' +
+      'saída, no período. Barra baixa é horário que sai quase vazio.</p>';
+    raiz.appendChild(h);
+    var maxH = Math.max.apply(null, horas.map(function (k) { return v.porHorario[k].pessoas; }));
+    grafBarras(h, horas.map(function (k) {
+      return { a: v.porHorario[k].pessoas, rot: k, vazio: !v.porHorario[k].pessoas,
+               destaque: maxH > 0 && v.porHorario[k].pessoas === maxH };
+    }), { altura: 165, fmt: pessoasFmt });
+    h.appendChild(bloco('<div class="rolagem"><table class="tabela" style="margin-top:12px">' +
+      '<tr><th>Horário</th><th style="text-align:right">Saídas</th>' +
+      '<th style="text-align:right">Pessoas</th><th style="text-align:right">Cheio</th></tr>' +
+      horas.map(function (k) {
+        var x = v.porHorario[k], oc = x.lugares ? x.pessoas / x.lugares : 0;
+        return '<tr><td>' + k + '</td><td class="n">' + x.saidas + '</td>' +
+          '<td class="n">' + B12.n(x.pessoas) + '</td><td class="n" style="color:' +
+          (oc >= 0.7 ? C.bom : oc >= 0.35 ? C.aten : C.ruim) + '">' +
+          Math.round(oc * 100) + '%</td></tr>'; }).join('') + '</table></div>'));
+  }
+
+  /* --- por dia da semana --- */
+  var d = document.createElement('div'); d.className = 'cx entra entra-3';
+  d.innerHTML = '<h3>Qual dia enche</h3><p>Total de pessoas em cada dia da semana.</p>';
+  raiz.appendChild(d);
+  var maxD = Math.max.apply(null, v.porDiaSemana.map(function (x) { return x.total; }));
+  grafBarras(d, v.porDiaSemana.map(function (x) {
+    return { a: x.total, rot: x.curto, vazio: x.dias === 0,
+             destaque: maxD > 0 && x.total === maxD };
+  }), { altura: 160, fmt: pessoasFmt });
+
+  /* --- destino --- */
+  var dest = Object.keys(v.porDestino).filter(function (k) { return v.porDestino[k] > 0; });
+  if (dest.length) {
+    var t = document.createElement('div'); t.className = 'cx entra entra-4';
+    t.innerHTML = '<h3>Para onde a gente vai</h3>' +
+      '<p>Encantadas e Brasília são praias diferentes da mesma ilha, e quem ' +
+      'desembarca em cada uma procura coisa diferente.</p>';
+    raiz.appendChild(t);
+    var cores2 = [C.turq, C.azul, C.turq3, C.aten];
+    var fat2 = dest.map(function (k, i) {
+      return { v: v.porDestino[k], cor: cores2[i % cores2.length], nome: k };
+    }).sort(function (a, b) { return b.v - a.v; });
+    grafRosca(t, fat2);
+    var som2 = fat2.reduce(function (s, f) { return s + f.v; }, 0) || 1;
+    t.appendChild(bloco('<div class="leg">' + fat2.map(function (f) {
+      return '<span><i style="background:' + f.cor + '"></i>' + esc(f.nome) + ' · ' +
+        B12.n(f.v) + ' (' + Math.round(f.v / som2 * 100) + '%)</span>'; }).join('') + '</div>'));
+  }
+
+  /* --- os dias do período, um a um --- */
+  var dias = Object.keys(v.porDia).sort().reverse().slice(0, 30);
+  if (dias.length) {
+    var maxDd = Math.max.apply(null, dias.map(function (k) { return v.porDia[k]; }));
+    raiz.appendChild(bloco(
+      '<div class="cx entra entra-5"><h3>Dia a dia</h3>' +
+      '<p>Os últimos ' + dias.length + ' dias com movimento, do mais recente ' +
+      'para o mais antigo.</p>' +
+      dias.map(function (k) {
+        var nome = B12.DIAS_SEMANA[B12.diaDaSemana(k)].slice(0, 3);
+        return '<div style="margin-top:9px"><div style="display:flex;' +
+          'justify-content:space-between;font-size:13px;margin-bottom:4px">' +
+          '<span>' + B12.dataBR(k) + ' <span style="color:var(--gelo-3)">' + nome +
+          '</span></span><b class="num">' + B12.n(v.porDia[k]) + '</b></div>' +
+          '<div class="medidor"><i style="width:' + (v.porDia[k] / maxDd * 100).toFixed(1) +
+          '%"></i></div></div>'; }).join('') + '</div>'
+    ));
+  }
+}
+
+/* ------------------------------------------------------- ESTACIONAMENTO */
+function pVPatio(raiz) {
+  var p = faixaPeriodo(raiz, 'Estacionamento',
+    'O pátio: quantos carros entraram, quantas diárias renderam e quanto ' +
+    'isso representa ao lado da travessia.');
+  var v = B12.visaoGeral(p.de, p.ate);
+  var dentroAgora = (B12.DB.patio || []).filter(function (x) { return !x.saidaReal; });
+  var receitaPatio = v.porCat['Estacionamento'] || 0;
+  var receitaTrav = v.porCat['Travessias'] || 0;
+
+  raiz.appendChild(bloco(
+    '<div class="placar entra entra-1">' +
+      tile(v.carros, 'Carros que entraram', 'n') +
+      tile(v.diarias, 'Diárias', 'n') +
+      tile(receitaPatio, 'Rendeu', 'brl') +
+      tile(dentroAgora.length, 'No pátio agora', 'n') +
+    '</div>'
+  ));
+
+  if (!v.carros && !dentroAgora.length) return nadaAqui(raiz, 'entrou no pátio');
+
+  if (receitaTrav + receitaPatio > 0) {
+    var parte = receitaPatio / (receitaTrav + receitaPatio);
+    raiz.appendChild(bloco(
+      '<div class="cx entra entra-1"><h3>O pátio ao lado da travessia</h3>' +
+      '<p>O pátio é <b>' + Math.round(parte * 100) + '%</b> do que entra, e é a parte ' +
+      'que rende sem o barco sair do lugar.</p>' +
+      linhaBarra('Travessias', receitaTrav, receitaTrav + receitaPatio, C.turq) +
+      linhaBarra('Estacionamento', receitaPatio, receitaTrav + receitaPatio, C.azul) +
+      '</div>'
+    ));
+  }
+
+  if (v.carros) {
+    var media = v.diarias / v.carros;
+    raiz.appendChild(bloco(
+      '<div class="cx entra entra-2"><h3>Quanto tempo o carro fica</h3>' +
+      '<p>Em média <b>' + (Math.round(media * 10) / 10).toString().replace('.', ',') +
+      ' diárias</b> por carro. ' + (media >= 2
+        ? 'Quem deixa o carro costuma dormir na ilha — vale casar com a pousada parceira.'
+        : 'A maioria vai e volta no mesmo dia.') + '</p>' +
+      (receitaPatio && v.diarias
+        ? '<p class="ajuda" style="margin-top:8px">Cada diária rendeu, em média, ' +
+          B12.brl(Math.round(receitaPatio / v.diarias)) + '.</p>' : '') + '</div>'
+    ));
+  }
+
+  /* --- carros por dia da semana de entrada --- */
+  var porSem = [0,0,0,0,0,0,0];
+  (B12.DB.patio || []).forEach(function (x) {
+    if (x.entrada >= p.de && x.entrada <= p.ate) porSem[B12.diaDaSemana(x.entrada)]++;
+  });
+  if (porSem.some(function (n) { return n > 0; })) {
+    var s = document.createElement('div'); s.className = 'cx entra entra-3';
+    s.innerHTML = '<h3>Que dia o pátio enche</h3>' +
+      '<p>Dia em que o carro ENTRA. É esse dia que precisa de vaga livre.</p>';
+    raiz.appendChild(s);
+    var maxS = Math.max.apply(null, porSem);
+    grafBarras(s, B12.DIAS_SEMANA.map(function (n, i) {
+      return { a: porSem[i], rot: n.slice(0,3), vazio: !porSem[i],
+               destaque: porSem[i] === maxS, cor: C.azul };
+    }), { altura: 155, fmt: function (n) { return B12.n(n) + (n === 1 ? ' carro' : ' carros'); } });
+  }
+
+  /* --- quem está lá agora --- */
+  if (dentroAgora.length) {
+    var hoje = B12.hoje();
+    raiz.appendChild(bloco(
+      '<div class="cx entra entra-4"><h3>No pátio agora</h3>' +
+      '<p>' + dentroAgora.length + (dentroAgora.length === 1 ? ' carro' : ' carros') +
+      ' sem saída registrada. Quem passou da data prevista aparece em vermelho.</p>' +
+      '<div class="rolagem"><table class="tabela" style="margin-top:11px">' +
+      '<tr><th>Placa</th><th>Dono</th><th style="text-align:right">Entrou</th>' +
+      '<th style="text-align:right">Diárias</th></tr>' +
+      dentroAgora.slice(0, 40).map(function (x) {
+        var dd = B12.diasEntre(x.entrada, hoje);
+        var passou = x.saidaPrevista && x.saidaPrevista < hoje;
+        return '<tr><td><b>' + esc(x.placa || '—') + '</b></td><td>' + esc(x.nome || '—') +
+          '</td><td class="n">' + B12.dataBR(x.entrada) + '</td>' +
+          '<td class="n" style="color:' + (passou ? C.ruim : 'inherit') + '">' + dd +
+          (passou ? ' ⚠' : '') + '</td></tr>'; }).join('') +
+      '</table></div></div>'
+    ));
+  }
+}
+
 var PAGINAS = { hoje:pHoje, volta:pVolta, painel:pPainel, caixa:pCaixa, lanc:pLanc,
   contas:pContas, relat:pRelat, oper:pOper, prosp:pProsp, intel:pIntel,
   clientes:pClientes, patio:pPatio, manut:pManut, gestao:pGestao, escala:pEscala,
   msgs:pMsgs, dados:pDados, precos:pPrecos, ia:pIA, ilha:pNaIlha, balcao:pBalcao,
   marinheiros:pMarinheiros, avisos:pAvisos, sobre:pSobre, reservas:pReservas,
-  contador:pContador, agenda:pAgenda };
+  contador:pContador, agenda:pAgenda,
+  visao:pVisao, vtravessia:pVTravessia, vpatio:pVPatio };
 
 /* Grupos e sub-abas que este papel pode ver. Nunca confie na tela: quem pedir
    uma página fechada cai no primeiro grupo que ele pode abrir. */

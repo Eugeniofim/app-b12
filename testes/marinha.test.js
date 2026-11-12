@@ -113,10 +113,16 @@ t('leu o tipo do aviso', lidos.length === 1 && /VENTO FORTE/.test(lidos[0].tipo)
 /* --- 10. pagina vazia nao pode virar "nenhum aviso" --- */
 const paginaConfere = caixa.paginaConfere;
 t('pagina de desafio (curta) NAO passa', paginaConfere('<html>Just a moment...</html>') === false);
-t('pagina grande sem a palavra AVISO NAO passa',
-  paginaConfere('<html>' + 'x'.repeat(30000) + '</html>') === false);
+t('pagina grande mas SEM o esqueleto do mapa NAO passa',
+  paginaConfere('<html>' + 'x'.repeat(400000) + 'AVISOS DE MAU TEMPO</html>') === false);
+t('pagina com o esqueleto mas CURTA demais NAO passa',
+  paginaConfere('<html>' + 'METAREA '.repeat(50) + '</html>') === false);
 t('pagina de verdade passa',
-  paginaConfere('<html>' + 'x'.repeat(30000) + 'AVISO NR 797/2026</html>') === true);
+  paginaConfere('<html>' + 'x'.repeat(400000) + 'METAREA '.repeat(20) + '</html>') === true);
+/* dia legitimo sem aviso nenhum NAO pode virar "incerto" */
+t('pagina inteira e sem aviso nenhum continua passando',
+  paginaConfere(fs.readFileSync(__dirname + '/amostras/chm-12-11-2026.html', 'utf8')
+    .split('AVISO NR').join('AVISO XX')) === true);
 
 /* --- 11. a pagina de hoje, inteira, lida de ponta a ponta --- */
 const amostra = __dirname + '/amostras/chm-12-11-2026.html';

@@ -402,6 +402,7 @@ body.adm .linha .d small{color:var(--gelo-3)}
 .pl .dt{font-size:10px;margin-top:4px;font-weight:650}
 .pl.destaque .v{color:var(--turq-300)}
 .pl.alerta .v{color:var(--atencao)}
+.pl.ruim .v{color:var(--ruim)}
 
 .medidor{height:7px;border-radius:99px;background:var(--noite-risco);overflow:hidden;margin-top:9px}
 .medidor i{display:block;height:100%;border-radius:99px;
