@@ -43,10 +43,16 @@ const resposta = (o: unknown, s = 200) =>
    FORÇA 7/8" — e Pontal do Paraná fica BEM NO MEIO desse trecho. O app não
    soube dizer que o aviso alcançava a B12.
 
-   A regra de segurança salvou (ele mostrou "confira no site oficial" em vez
-   de dizer que estava tudo bem), mas o certo é a tabela ter a costa inteira.
-   Agora tem, do Chuí ao Oiapoque, com os nomes exatamente como a Marinha os
-   escreve nos avisos. */
+   A regra de segurança salvou (mostrou "confira no site oficial" em vez de
+   dizer que estava tudo bem), mas lista de cidade feita a mão vai ficar
+   incompleta de novo — a Marinha escolhe a referência que quiser.
+
+   Por isso agora são DUAS redes, e a segunda não tem buraco:
+     1ª  a cidade, quando está na tabela abaixo (resposta precisa);
+     2ª  o ESTADO do /UF que a Marinha SEMPRE escreve junto (tabela ESTADO).
+   Se a cidade é desconhecida, o trecho de costa daquele estado serve de
+   limite. Fica mais largo, ou seja, avisa a mais — que é o lado certo de
+   errar quando se leva gente no mar. */
 const COSTA: Record<string, number> = {
   'CHUI': -33.69, 'RIO GRANDE': -32.03, 'MOSTARDAS': -31.11, 'TRAMANDAI': -29.98,
   'TORRES': -29.33, 'ARARANGUA': -28.93, 'CABO DE SANTA MARTA': -28.60,
@@ -67,17 +73,42 @@ const COSTA: Record<string, number> = {
   'CABO NORTE': 1.80, 'CABO ORANGE': 4.40, 'OIAPOQUE': 3.84,
 };
 
+/* Trecho de litoral de cada estado da costa, do sul para o norte, em graus.
+   Usado só quando a cidade do aviso não está na tabela acima. Propositalmente
+   um pouco generoso nas pontas: largura a mais vira aviso a mais, nunca
+   aviso a menos. */
+const ESTADO: Record<string, [number, number]> = {
+  RS: [-33.75, -29.30], SC: [-29.40, -25.90], PR: [-26.00, -25.15],
+  SP: [-25.40, -23.30], RJ: [-23.45, -20.70], ES: [-21.35, -17.85],
+  BA: [-18.40, -8.50],  SE: [-11.60, -10.90], AL: [-10.55, -8.80],
+  PE: [-9.05, -7.50],   PB: [-7.55, -6.25],   RN: [-6.40, -4.80],
+  CE: [-4.95, -2.70],   PI: [-3.10, -2.70],   MA: [-3.05, -0.85],
+  PA: [-1.85, 0.05],    AP: [-0.10, 4.50],
+};
+
 function semAcento(s: string) {
   return String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
 }
-function latDaReferencia(txt: string) {
-  const alvo = semAcento(txt).replace(/\/[A-Z]{2}\b/g, '').trim();
+/* Devolve a FAIXA de latitude que a referência cobre, e por qual das duas
+   redes ela foi achada. Cidade vira faixa de largura zero. */
+function faixaDaReferencia(txt: string): { de: number; ate: number; via: string } | null {
+  const bruto = semAcento(txt);
+  const uf = (bruto.match(/\/([A-Z]{2})\b/) || [, ''])[1];
+  const alvo = bruto.replace(/\/[A-Z]{2}\b/g, '').trim();
+
+  /* 1ª rede: a cidade. Vence o nome mais longo, para "CABO DE SAO TOME" não
+     perder para "SAO TOME" nem "RIO GRANDE" para "RIO". */
   let achou: number | null = null, maior = 0;
   for (const nome in COSTA) {
     if (alvo.includes(nome) && nome.length > maior) { achou = COSTA[nome]; maior = nome.length; }
   }
-  return achou;
+  if (achou != null) return { de: achou, ate: achou, via: 'cidade' };
+
+  /* 2ª rede: o estado do /UF. */
+  if (uf && ESTADO[uf]) return { de: ESTADO[uf][0], ate: ESTADO[uf][1], via: 'estado ' + uf };
+  return null;
 }
+
 /* ponto dentro do polígono (ray casting) — para as áreas OCEÂNICAS */
 function dentroDoPoligono(lat: number, lon: number, pts: number[][]) {
   let dentro = false;
@@ -141,13 +172,32 @@ function alcancaAB12(a: any) {
     if (pts.length < 3) return { pega: null, por: 'coordenadas ilegíveis' };
     return { pega: dentroDoPoligono(B12.lat, B12.lon, pts), por: 'área oceânica' };
   }
-  const mm = T.match(/ENTRE ([A-Z\/ ]+?) E ([A-Z\/ ]+?)(?: ATE| A PARTIR|\.|,)/);
-  if (mm) {
-    const a1 = latDaReferencia(mm[1]), a2 = latDaReferencia(mm[2]);
-    if (a1 == null || a2 == null) return { pega: null, por: 'referência fora da lista' };
-    const lo = Math.min(a1, a2) - FOLGA, hi = Math.max(a1, a2) + FOLGA;
-    return { pega: B12.lat >= lo && B12.lat <= hi, por: 'área costeira' };
+
+  /* A Marinha escreve o trecho de três jeitos. Os três entram aqui. */
+  const corta = '(?: ATE| A PARTIR| ATÉ|\\.|,|$)';
+  const doisPontos = T.match(new RegExp('ENTRE ([A-Z\\/ ]+?) E ([A-Z\\/ ]+?)' + corta))
+                  || T.match(new RegExp('\\bDE ([A-Z\\/ ]+?) A(?:TE)? ([A-Z\\/ ]+?)' + corta));
+  if (doisPontos) {
+    const f1 = faixaDaReferencia(doisPontos[1]), f2 = faixaDaReferencia(doisPontos[2]);
+    if (!f1 || !f2) return { pega: null, por: 'referência fora da lista' };
+    const lo = Math.min(f1.de, f1.ate, f2.de, f2.ate) - FOLGA;
+    const hi = Math.max(f1.de, f1.ate, f2.de, f2.ate) + FOLGA;
+    const via = f1.via === 'cidade' && f2.via === 'cidade'
+      ? 'área costeira' : 'área costeira (pelo estado, a cidade não estava na lista)';
+    return { pega: B12.lat >= lo && B12.lat <= hi, por: via };
   }
+
+  /* "AO SUL DE X" / "AO NORTE DE X": meia-reta, não trecho. */
+  const meia = T.match(new RegExp('AO (SUL|NORTE) DE ([A-Z\\/ ]+?)' + corta));
+  if (meia) {
+    const f = faixaDaReferencia(meia[2]);
+    if (!f) return { pega: null, por: 'referência fora da lista' };
+    const pega = meia[1] === 'SUL'
+      ? B12.lat <= Math.max(f.de, f.ate) + FOLGA
+      : B12.lat >= Math.min(f.de, f.ate) - FOLGA;
+    return { pega, por: 'ao ' + meia[1].toLowerCase() + ' de uma referência' };
+  }
+
   return { pega: null, por: 'formato não reconhecido' };
 }
 
