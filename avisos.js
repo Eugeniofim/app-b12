@@ -198,7 +198,33 @@ B12.avLigar = async function (opc) {
   } finally { clearTimeout(corta); }
   if (!r.ok) {
     var txt = await r.text();
-    return { erro: 'O banco recusou a inscrição (' + r.status + '). ' + txt.slice(0, 90) };
+    /* 23503 = o `cliente_id` não existe na nuvem. Acontece na janela entre
+       cadastrar alguém e a sincronia subir a ficha. O laço com o cliente é
+       comodidade, não é o aviso: tenta de novo sem ele em vez de deixar a
+       pessoa sem notificação por causa disso. (Revisão de 12/11/2026.) */
+    if (txt.indexOf('23503') >= 0 && corpo.cliente_id) {
+      delete corpo.cliente_id;
+      /* prazo PRÓPRIO: o primeiro já foi encerrado no finally acima, e
+         segunda chamada sem prazo é o mesmo botão girando para sempre que a
+         peça 7 da fórmula existe para impedir (o teste 19 me pegou nisto) */
+      var ctrl2 = new AbortController();
+      var corta2 = setTimeout(function () { ctrl2.abort(); }, 12000);
+      try {
+        r = await fetch(B12.NUVEM.url + '/rest/v1/b12_avisos?on_conflict=endpoint', {
+          method: 'POST', headers: cab, body: JSON.stringify(corpo), signal: ctrl2.signal
+        });
+      } catch (e2) {
+        return { erro: e2 && e2.name === 'AbortError'
+          ? 'A internet está lenta demais. Tente de novo daqui a pouco.'
+          : 'Não consegui falar com o servidor dos avisos.' };
+      } finally { clearTimeout(corta2); }
+      if (!r.ok) {
+        var t2 = await r.text();
+        return { erro: 'O banco recusou a inscrição (' + r.status + '). ' + t2.slice(0, 90) };
+      }
+    } else {
+      return { erro: 'O banco recusou a inscrição (' + r.status + '). ' + txt.slice(0, 90) };
+    }
   }
   try { localStorage.setItem(CHAVE_LOCAL, id); } catch (er) {}
   return { ok: true, id: id, papel: corpo.papel };

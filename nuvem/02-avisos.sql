@@ -79,6 +79,25 @@ begin
   if p_endpoint is null or p_p256dh is null or p_auth is null then
     raise exception 'assinatura incompleta';
   end if;
+  -- ===================== A FICHA DO TURISTA NÃO EXISTE NA NUVEM =====================
+  -- Achado em 12/11/2026, na revisão de entrega, e era um BLOQUEIO: `cliente_id` aponta
+  -- para b12_clientes, mas a ficha do turista nasce e MORA no celular dele -- reserva de
+  -- turista não sobe para a nuvem (a sincronia exige sessão). Então o app mandava um id
+  -- que o banco não conhece, a chave estrangeira recusava, e a pessoa via
+  -- "O banco recusou a inscrição (409)".
+  --
+  -- O perverso: só acontecia com quem JÁ TINHA SE CADASTRADO -- ou seja, exatamente
+  -- quem reservou a travessia, que é quem o Dhalsin mais precisa avisar. Quem só
+  -- espiava o app conseguia ligar o aviso sem problema nenhum.
+  -- Medido: p_cliente_id nulo = 204; com ficha local = 409 (23503).
+  --
+  -- Aqui o id é CONFERIDO em vez de recusado: se existir na nuvem, o laço fica; se não
+  -- existir, entra vazio e a assinatura vale. Ninguém perde aviso por causa de um laço
+  -- que é só comodidade -- e no dia em que a ficha do turista subir, o laço se forma.
+  if p_cliente_id is not null
+     and not exists (select 1 from public.b12_clientes where id = p_cliente_id) then
+    p_cliente_id := null;
+  end if;
   insert into public.b12_avisos
     (id, endpoint, p256dh, auth, papel, apelido, cliente_id, ativo, erros)
   values

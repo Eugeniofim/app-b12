@@ -108,18 +108,44 @@ async function empurrar(inscrito: any, carga: unknown) {
   }
 }
 
-/* o que precisa de aviso hoje: a mesma varredura do painel, do lado do servidor */
+/* o que precisa de aviso hoje: a mesma varredura do painel, do lado do servidor
+
+   ================================= LEIA ANTES DE MEXER =================================
+   Em 06/10/2026 a sincronia mudou de desenho (nuvem/04-sincronia.sql): o app passou a
+   gravar o registro INTEIRO em `dados jsonb` e NAO escreve mais nas colunas antigas
+   (data, sentido, situacao, saida_id...). Elas ficaram ali, vazias, de heranca.
+
+   Esta varredura ficou para tras e continuou lendo as COLUNAS. O estrago nao era erro
+   na tela, era pior: coluna vazia nao da erro, da aviso ERRADO com cara de certo.
+     - `.in('data', [hoje, amanha])` nunca achava saida nenhuma  ->  "Faltam os horarios
+       de amanha" TODO santo dia, mesmo com a grade montada.
+     - `situacao` tem default 'pedida' e ninguem escreve nela  ->  TODA reserva que
+       existiu contava como pedido esperando, para sempre, numero so crescendo.
+     - e por isso mesmo nada era 'confirmada'  ->  "pessoas sem volta marcada" nunca saia.
+
+   Tres avisos: dois mentindo todo dia e um morto. O jeito mais rapido de alguem
+   desligar a notificacao. Achado em 12/11/2026, na revisao de entrega.
+
+   Agora tudo le de dentro de `dados`, e cada consulta carrega o proprio erro: consulta
+   que falhou NAO vira aviso. Vazio porque o banco recusou e vazio porque nao tem nada
+   sao coisas diferentes, e so uma delas merece bater no celular dele. */
 async function varrerODia() {
   const hoje = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10); // America/Sao_Paulo
   const amanha = new Date(Date.parse(hoje + 'T12:00:00Z') + 86400000).toISOString().slice(0, 10);
   const avisos: any[] = [];
+  const problemas: string[] = [];
 
-  const { data: saidas } = await servidor
-    .from('b12_saidas').select('data, sentido').in('data', [hoje, amanha]);
-  const conta = (d: string, s: string) =>
-    (saidas ?? []).filter((x: any) => x.data === d && x.sentido === s).length;
+  /* ---- a grade de amanha ja esta montada? ---- */
+  const { data: saidas, error: erroSaidas } = await servidor
+    .from('b12_saidas').select('dados').eq('apagado', false)
+    .in('dados->>data', [hoje, amanha]);
+  if (erroSaidas) problemas.push('saidas: ' + erroSaidas.message);
 
-  if (!conta(amanha, 'volta') || !conta(amanha, 'ida')) {
+  const conta = (d: string, s: string) => (saidas ?? []).filter(
+    (x: any) => (x.dados ?? {}).data === d && (x.dados ?? {}).sentido === s).length;
+
+  /* so reclama se a leitura deu certo: senao o aviso seria chute */
+  if (!erroSaidas && (!conta(amanha, 'volta') || !conta(amanha, 'ida'))) {
     avisos.push({
       papel: 'dono', tag: 'horarios',
       titulo: 'Faltam os horários de amanhã',
@@ -131,32 +157,48 @@ async function varrerODia() {
     });
   }
 
-  const { data: pedidos } = await servidor
-    .from('b12_reservas').select('id').eq('situacao', 'pedida').is('saida_id', null);
-  if ((pedidos ?? []).length) {
+  /* ---- pedido que chegou pelo app e nao entrou na escala ---- */
+  const { data: pedidas, error: erroPedidos } = await servidor
+    .from('b12_reservas').select('id, dados').eq('apagado', false)
+    .eq('dados->>situacao', 'pedida');
+  if (erroPedidos) problemas.push('pedidos: ' + erroPedidos.message);
+  const esperando = (pedidas ?? []).filter((r: any) => !(r.dados ?? {}).saidaId);
+  if (!erroPedidos && esperando.length) {
     avisos.push({
       papel: 'dono', tag: 'pedidos',
-      titulo: (pedidos!.length) + ' pedido' + (pedidos!.length > 1 ? 's' : '') + ' esperando',
+      titulo: esperando.length + ' pedido' + (esperando.length > 1 ? 's' : '') + ' esperando',
       texto: 'Chegaram pelo app e ainda não entraram na escala.',
       ir: '/#/adm',
     });
   }
 
-  const { data: naIlha } = await servidor
-    .from('b12_reservas').select('id, nome')
-    .eq('situacao', 'confirmada').lte('ida', hoje)
-    .or('volta.is.null,volta.gte.' + hoje).is('saida_volta_id', null);
-  if ((naIlha ?? []).length) {
+  /* ---- quem esta na Ilha sem horario de volta ----
+     Teto de 30 dias atras: ninguem fica um mes na Ilha esperando barco, e sem
+     teto esta consulta cresceria para sempre. */
+  const limite = new Date(Date.parse(hoje + 'T12:00:00Z') - 30 * 86400000).toISOString().slice(0, 10);
+  const { data: confirmadas, error: erroIlha } = await servidor
+    .from('b12_reservas').select('id, dados').eq('apagado', false)
+    .eq('dados->>situacao', 'confirmada').gte('dados->>ida', limite);
+  if (erroIlha) problemas.push('ilha: ' + erroIlha.message);
+  const naIlha = (confirmadas ?? []).filter((r: any) => {
+    const d = r.dados ?? {};
+    if (!d.ida || d.ida > hoje) return false;        /* ainda nao embarcou */
+    if (d.volta && d.volta < hoje) return false;     /* ja voltou */
+    return !d.saidaVoltaId;                          /* sem horario de volta */
+  });
+  if (!erroIlha && naIlha.length) {
     avisos.push({
       papel: 'equipe', tag: 'semvolta',
-      titulo: (naIlha!.length) + (naIlha!.length > 1 ? ' pessoas' : ' pessoa') + ' sem volta marcada',
+      titulo: naIlha.length + (naIlha.length > 1 ? ' pessoas' : ' pessoa') + ' sem volta marcada',
       texto: 'Estão na Ilha e ainda não escolheram horário.',
       ir: '/#/equipe', importante: true,
     });
   }
-  /* Gente nova instalou o app? É o sinal de que a divulgação pegou, e o
-     Dhalsin pediu para saber. UMA vez por dia, com o total — não um aviso por
-     aparelho, senão um feriado vira enxurrada no celular dele. */
+
+  /* Gente nova instalou o app? E o sinal de que a divulgacao pegou, e o
+     Dhalsin pediu para saber. UMA vez por dia, com o total -- nao um aviso por
+     aparelho, senao um feriado vira enxurrada no celular dele.
+     `criado` aqui E coluna de verdade: quem escreve e a funcao b12_tocar_aparelho. */
   const ontem = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
   const { count: novos } = await servidor
     .from('b12_aparelhos').select('id', { count: 'exact', head: true })
@@ -172,7 +214,7 @@ async function varrerODia() {
     });
   }
 
-  return avisos;
+  return { avisos, problemas };
 }
 
 /* ------------------------------------------------------- A AGENDA DELE
@@ -267,17 +309,27 @@ Deno.serve(async (req) => {
     return resposta({ ok: true, agenda: true, compromissos: avisos.length, mandados: n, falhas: f });
   }
 
-  const pacotes = corpo.varrer
-    ? await varrerODia()
-    : [{
+  /* a varredura agora devolve tambem o que NAO conseguiu ler: consulta que
+     falhou nao vira aviso, mas tem de aparecer na resposta -- senao o silencio
+     de um banco recusando viraria "nada a avisar", que e a mentira mais cara
+     deste app. (Licao da Marinha, 12/11/2026.) */
+  let problemas: string[] = [];
+  let pacotes: any[];
+  if (corpo.varrer) {
+    const v = await varrerODia();
+    pacotes = v.avisos; problemas = v.problemas;
+  } else {
+    pacotes = [{
         papel: corpo.papel ?? 'dono',
         titulo: String(corpo.titulo ?? 'Estação B12').slice(0, 80),
         texto: String(corpo.texto ?? '').slice(0, 200),
         ir: corpo.ir ?? '/',
-        tag: corpo.tag, importante: !!corpo.importante,
-      }];
+      tag: corpo.tag, importante: !!corpo.importante,
+    }];
+  }
 
-  if (!pacotes.length) return resposta({ ok: true, nada: true, mandados: 0 });
+  if (!pacotes.length)
+    return resposta({ ok: true, nada: true, mandados: 0, problemas });
 
   let mandados = 0, falhas = 0;
   const mortas: string[] = [];
@@ -308,5 +360,6 @@ Deno.serve(async (req) => {
       .eq('ativo', true);
   }
 
-  return resposta({ ok: true, avisos: pacotes.length, mandados, falhas, limpas: mortas.length });
+  return resposta({ ok: true, avisos: pacotes.length, mandados, falhas,
+                    limpas: mortas.length, problemas });
 });
