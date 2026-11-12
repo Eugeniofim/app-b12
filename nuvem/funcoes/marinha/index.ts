@@ -37,17 +37,34 @@ const resposta = (o: unknown, s = 200) =>
 /* Referências que a Marinha usa nos avisos COSTEIROS, com a latitude de cada
    uma, do sul para o norte. É o que permite responder "este aviso alcança
    Pontal do Paraná?" sem adivinhar. */
+/* 12/11/2026 — a tabela ficou incompleta e quase custou caro.
+   Dois avisos vieram com ARRAIAL DO CABO/RJ e SÃO MATEUS/ES, que não
+   estavam aqui. Um deles era "ENTRE LAGUNA/SC E ARRAIAL DO CABO/RJ, VENTO
+   FORÇA 7/8" — e Pontal do Paraná fica BEM NO MEIO desse trecho. O app não
+   soube dizer que o aviso alcançava a B12.
+
+   A regra de segurança salvou (ele mostrou "confira no site oficial" em vez
+   de dizer que estava tudo bem), mas o certo é a tabela ter a costa inteira.
+   Agora tem, do Chuí ao Oiapoque, com os nomes exatamente como a Marinha os
+   escreve nos avisos. */
 const COSTA: Record<string, number> = {
   'CHUI': -33.69, 'RIO GRANDE': -32.03, 'MOSTARDAS': -31.11, 'TRAMANDAI': -29.98,
   'TORRES': -29.33, 'ARARANGUA': -28.93, 'CABO DE SANTA MARTA': -28.60,
-  'LAGUNA': -28.48, 'FLORIANOPOLIS': -27.59, 'ITAJAI': -26.91,
-  'SAO FRANCISCO DO SUL': -26.24, 'PARANAGUA': -25.52, 'CANANEIA': -25.01,
-  'SANTOS': -23.96, 'SAO SEBASTIAO': -23.80, 'UBATUBA': -23.43,
-  'ANGRA DOS REIS': -23.01, 'RIO DE JANEIRO': -22.90, 'CABO FRIO': -22.88,
-  'MACAE': -22.37, 'CABO DE SAO TOME': -22.04, 'VITORIA': -20.32,
-  'CARAVELAS': -17.73, 'ILHEUS': -14.79, 'SALVADOR': -12.97, 'ARACAJU': -10.91,
-  'MACEIO': -9.67, 'RECIFE': -8.05, 'NATAL': -5.79, 'FORTALEZA': -3.73,
-  'SAO LUIS': -2.53, 'BELEM': -1.46, 'OIAPOQUE': 3.84,
+  'LAGUNA': -28.48, 'IMBITUBA': -28.24, 'FLORIANOPOLIS': -27.59,
+  'ITAJAI': -26.91, 'SAO FRANCISCO DO SUL': -26.24, 'PARANAGUA': -25.52,
+  'CANANEIA': -25.01, 'IGUAPE': -24.71, 'SANTOS': -23.96,
+  'SAO SEBASTIAO': -23.80, 'UBATUBA': -23.43, 'PARATY': -23.22,
+  'ANGRA DOS REIS': -23.01, 'ARRAIAL DO CABO': -22.97, 'RIO DE JANEIRO': -22.90,
+  'CABO FRIO': -22.88, 'MACAE': -22.37, 'CABO DE SAO TOME': -22.04,
+  'CAMPOS': -21.76, 'VITORIA': -20.32, 'BARRA DO RIACHO': -19.84,
+  'SAO MATEUS': -18.72, 'CONCEICAO DA BARRA': -18.59, 'CARAVELAS': -17.73,
+  'ABROLHOS': -17.96, 'PORTO SEGURO': -16.44, 'ILHEUS': -14.79,
+  'VALENCA': -13.37, 'SALVADOR': -12.97, 'ARACAJU': -10.91, 'MACEIO': -9.67,
+  'RECIFE': -8.05, 'CABO DE SANTO AGOSTINHO': -8.30, 'JOAO PESSOA': -7.12,
+  'CABEDELO': -6.97, 'NATAL': -5.79, 'CABO CALCANHAR': -5.16,
+  'MACAU': -5.11, 'FORTALEZA': -3.73, 'CAMOCIM': -2.90, 'PARNAIBA': -2.90,
+  'SAO LUIS': -2.53, 'TUTOIA': -2.76, 'BELEM': -1.46, 'SALINOPOLIS': -0.61,
+  'CABO NORTE': 1.80, 'CABO ORANGE': 4.40, 'OIAPOQUE': 3.84,
 };
 
 function semAcento(s: string) {

@@ -17,6 +17,21 @@ B12.buscarClima = function () {
        app; "80% · 9 mm" se compara. */
     '&daily=weather_code,temperature_2m_max,temperature_2m_min,wind_speed_10m_max,' +
     'precipitation_probability_max,precipitation_sum' +
+    /* 12/11: HORA A HORA, e é a correção mais importante que esta tela já
+       teve. O rótulo do dia que a API devolve é o PIOR momento das 24 horas:
+       uma garoa de 0,1 mm às 13h faz o dia inteiro virar "Garoa", mesmo com
+       a manhã de céu aberto. O Dhalsin olhou a tela e viu cinco dias de
+       garoa seguidos; medido hora a hora, dois deles não tinham chuva
+       nenhuma no horário em que a lancha trabalha.
+
+       Com as horas na mão o app diz o que o turista precisa saber: em que
+       PARTE do dia abre. Ver B12.comoFicaODia(). */
+    '&hourly=weather_code,precipitation,cloud_cover' +
+    /* ECMWF por escolha, não por acaso. É o modelo que o Windy abre por
+       padrão, e o Dhalsin pediu o Windy como referência: dois números
+       diferentes na mesma hora destroem a confiança na tela, mesmo quando
+       os dois estão certos. É também o melhor modelo global que existe. */
+    '&models=ecmwf_ifs025' +
     '&timezone=America%2FSao_Paulo&forecast_days=7';
   var ctrl = new AbortController(), corta = setTimeout(function () { ctrl.abort(); }, 12000);
   return fetch(u, { signal: ctrl.signal })
@@ -151,6 +166,17 @@ function chuvaDoDia(d, i) {
   return p.length ? ' · ' + p.join(' · ') : '';
 }
 
+/* A frase que diz até que horas dá para contar com o tempo. Só aparece
+   quando há uma virada clara no dia — "abre e fecha o tempo todo" não vira
+   promessa de hora nenhuma. */
+function janelaDoDia(dia) {
+  if (dia.secoAte) return 'firme até umas ' + dia.secoAte + 'h';
+  if (dia.abreAs)  return 'melhora depois das ' + dia.abreAs + 'h';
+  if (dia.abertas >= dia.horas * 0.7) return dia.abertas + 'h de céu aberto';
+  if (dia.secas >= dia.horas * 0.85)  return 'nublado, mas sem chuva';
+  return '';
+}
+
 function marDoDia(iso, ventoMax) {
   /* sem o prefixo "mar": quem chama já escreveu a palavra. Pôr de novo aqui
      deu "mar mar leve" na tela. */
@@ -159,6 +185,96 @@ function marDoDia(iso, ventoMax) {
     h.toFixed(1).replace('.', ',') + ' m';
   return marPeloVento(ventoMax).toLowerCase() + ' (pelo vento)';
 }
+
+/* ============================================= COMO FICA O DIA, DE VERDADE
+   12/11/2026. O Dhalsin abriu a tela, viu cinco dias seguidos de "Garoa" e
+   disse que a previsão estava ruim. Fui medir hora a hora e ele tinha razão
+   pelo motivo errado: os números estavam certos, o RÓTULO é que mentia.
+
+   O código de tempo que a API devolve por dia é o pior momento das 24 horas.
+   Uma garoa de 0,1 mm às 13h — vinte minutos de chuvisco — carimba "Garoa"
+   num dia com a manhã inteira de céu aberto. No dia que medi, das 7h às 12h
+   a nuvem estava em 20%, e o dia aparecia como garoa.
+
+   Para quem vende travessia isso é pior do que impreciso: é um dia de
+   trabalho que o app joga fora.
+
+   Então o dia passa a ser lido pelas horas em que a lancha trabalha (7h às
+   19h), e a tela diz em que PARTE do dia abre. Nada aqui inventa sol: se
+   chover o dia todo, a tela diz que chove o dia todo. */
+var DIA_INICIO = 7, DIA_FIM = 19;
+
+B12.comoFicaODia = function (iso) {
+  if (!CLIMA || !CLIMA.hourly || !CLIMA.hourly.time) return null;
+  var H = CLIMA.hourly, horas = [];
+  for (var i = 0; i < H.time.length; i++) {
+    if (H.time[i].slice(0, 10) !== iso) continue;
+    var h = +H.time[i].slice(11, 13);
+    if (h < DIA_INICIO || h > DIA_FIM) continue;
+    horas.push({
+      h: h,
+      chuva: H.precipitation ? (H.precipitation[i] || 0) : 0,
+      nuvem: H.cloud_cover ? (H.cloud_cover[i] == null ? 100 : H.cloud_cover[i]) : 100
+    });
+  }
+  if (!horas.length) return null;
+
+  /* 0,1 mm por hora é chuvisco que não molha ninguém de verdade — o corte
+     fica acima disso de propósito, senão volta tudo a ser "garoa". */
+  function seca(x) { return x.chuva < 0.2; }
+  function aberta(x) { return seca(x) && x.nuvem < 70; }
+
+  var secas = horas.filter(seca), abertas = horas.filter(aberta);
+  var total = horas.length;
+
+  /* em que pedaço do dia está o tempo bom */
+  var manha = horas.filter(function (x) { return x.h < 12; });
+  var tarde = horas.filter(function (x) { return x.h >= 12; });
+  function parteBoa(lista) {
+    return lista.length ? lista.filter(seca).length / lista.length : 0;
+  }
+  var bomManha = parteBoa(manha), bomTarde = parteBoa(tarde);
+
+  var r = { dia: iso, horas: total, secas: secas.length, abertas: abertas.length,
+            bomManha: bomManha, bomTarde: bomTarde };
+
+  /* O rótulo. A ordem importa: começa pelo que é melhor para quem viaja. */
+  if (abertas.length >= total * 0.7)      { r.txt = 'Sol o dia todo';    r.bom = true; }
+  else if (secas.length >= total * 0.85)  { r.txt = 'Sem chuva o dia todo'; r.bom = true; }
+  else if (secas.length <= total * 0.15)  { r.txt = 'Chuva o dia todo';  r.bom = false; }
+  else if (bomManha >= 0.75 && bomTarde < 0.5)  { r.txt = 'Manhã aberta, chuva à tarde'; r.bom = true; }
+  else if (bomTarde >= 0.75 && bomManha < 0.5)  { r.txt = 'Chuva de manhã, abre à tarde'; r.bom = true; }
+  else if (secas.length >= total * 0.6)   { r.txt = 'Mais firme que chuvoso'; r.bom = true; }
+  else                                    { r.txt = 'Chuva na maior parte'; r.bom = false; }
+
+  /* a hora em que vira, quando há uma virada clara — é o que decide se dá
+     para atravessar de manhã e voltar antes da chuva */
+  var primeiraChuva = null, ultimaChuva = null;
+  horas.forEach(function (x) {
+    if (!seca(x)) { if (primeiraChuva == null) primeiraChuva = x.h; ultimaChuva = x.h; }
+  });
+  if (primeiraChuva != null && primeiraChuva >= DIA_INICIO + 3 && ultimaChuva >= DIA_FIM - 2) {
+    r.secoAte = primeiraChuva;
+  }
+  if (ultimaChuva != null && ultimaChuva <= DIA_FIM - 3 && primeiraChuva <= DIA_INICIO + 1) {
+    r.abreAs = ultimaChuva + 1;
+  }
+  return r;
+};
+
+/* O melhor dia da semana, para a tela abrir pelo que é bom em vez de pela
+   fila de garoas. Só aparece quando existe mesmo um dia bom. */
+B12.melhorDia = function () {
+  if (!CLIMA || !CLIMA.daily) return null;
+  var melhor = null;
+  CLIMA.daily.time.forEach(function (iso) {
+    var d = B12.comoFicaODia(iso);
+    if (!d || !d.bom) return;
+    var nota = d.abertas * 2 + d.secas;
+    if (!melhor || nota > melhor.nota) { melhor = d; melhor.nota = nota; }
+  });
+  return melhor;
+};
 
 B12.pintarClima = function () {
   var g = document.getElementById('cl-grau'), c = document.getElementById('cl-cond');
@@ -423,22 +539,44 @@ B12.telaPrevisao = function () {
        seguidas vira ruído e o olho para de ler */
     var abreFds = fds && !fdsAntes;
     fdsAntes = fds;
+    /* O título da linha é como o dia FICA entre 7h e 19h, não o pior minuto
+       das 24 horas. Quando as horas não chegaram, cai no rótulo da API. */
+    var dia = B12.comoFicaODia(d.time[i]);
+    var titulo = dia ? dia.txt : B12.codTempo(d.weather_code[i]);
+
     h += '<div class="linha entra entra-' + Math.min(i+1,6) +
-      (i === 0 ? ' dia-hoje' : fds ? ' dia-fds' : '') + '">' +
+      (i === 0 ? ' dia-hoje' : fds ? ' dia-fds' : '') +
+      (dia && dia.bom ? ' dia-bom' : '') + '">' +
       '<span class="tag">' +
       (i === 0 ? 'HOJE' : dias[dt.getDay()].slice(0,3).toUpperCase()) + '</span>' +
-      '<div class="d"><b>' + Math.round(d.temperature_2m_max[i]) + '° · ' +
-      B12.codTempo(d.weather_code[i]) + '</b>' +
+      '<div class="d"><b>' + Math.round(d.temperature_2m_max[i]) + '° · ' + titulo + '</b>' +
+      (dia ? '<span class="janela">' + janelaDoDia(dia) + '</span>' : '') +
       '<small>mínima ' + Math.round(d.temperature_2m_min[i]) + '° · mar ' +
       marDoDia(d.time[i], d.wind_speed_10m_max[i]) + chuvaDoDia(d, i) + '</small></div>' +
       (abreFds ? '<span class="selo-fds">fim de semana</span>' : '') + '</div>';
   }
-  alvo.innerHTML = B12.cartaoMarinha() + h + B12.fonteDoTempo();
+
+  /* A tela abre pelo que é BOM. Não é maquiagem: é a informação que faz a
+     pessoa decidir atravessar, e que estava enterrada no meio da lista. */
+  var melhor = B12.melhorDia();
+  var topo = '';
+  if (melhor) {
+    var dM = new Date(melhor.dia + 'T12:00');
+    var quando = melhor.dia === B12.hoje() ? 'Hoje'
+      : melhor.dia === B12.diaMais(B12.hoje(), 1) ? 'Amanhã'
+      : dias[dM.getDay()].charAt(0).toUpperCase() + dias[dM.getDay()].slice(1);
+    topo = '<div class="cx bom entra" style="margin:12px"><h3>' + quando +
+      ' é o melhor dia da semana</h3><p>' + melhor.txt.toLowerCase() + ' · ' +
+      melhor.abertas + (melhor.abertas === 1 ? ' hora' : ' horas') +
+      ' de céu aberto entre as 7h e as 19h.</p></div>';
+  }
+
+  alvo.innerHTML = B12.cartaoMarinha() + topo + h + B12.fonteDoTempo();
   /* chega depois? redesenha só esta tela, sem mexer no resto */
   B12.buscarMarinha().then(function (d) {
     if (d && alvo.innerHTML.indexOf('Marinha emitiu') < 0 &&
         alvo.innerHTML.indexOf('Confira o aviso') < 0) {
-      alvo.innerHTML = B12.cartaoMarinha() + h + B12.fonteDoTempo();
+      alvo.innerHTML = B12.cartaoMarinha() + topo + h + B12.fonteDoTempo();
     }
   });
 };

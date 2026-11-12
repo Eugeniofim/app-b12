@@ -469,6 +469,14 @@ body.adm .navb.on{color:var(--turq-300)}
 body.adm .cx.ruim{background:#2A1512;border-color:var(--ruim)}
 body.adm .cx.ruim h3{color:#FFB3A5}
 
+/* a janela do dia: a linha que diz até que hora dá para contar com o tempo.
+   Fica entre o título e os detalhes porque é o que decide a travessia. */
+.janela{display:block;font-size:12.5px;font-weight:650;color:var(--turq-600);margin-top:2px}
+body.adm .janela{color:var(--turq-300)}
+/* dia bom ganha um fio turquesa à esquerda — o olho acha os dias de sol sem
+   ler a lista inteira */
+.linha.dia-bom{border-left:3px solid var(--turq-500)}
+
 /* a assinatura da fonte da previsão: discreta, mas sempre visível — a
    licença dos dados obriga a creditar, e quem pergunta "de onde vem isso?"
    merece a resposta na própria tela */
