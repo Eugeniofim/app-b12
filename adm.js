@@ -876,8 +876,13 @@ function pendenciasDeConfig(raiz) {
     falta.push({ t: 'Sair do modo demonstração', d: 'os números na tela são inventados', aba: 'dados' });
   if (!B12.nuvLogado || !B12.nuvLogado())
     falta.push({ t: 'Entrar na nuvem', d: 'sem isso os dados ficam só neste aparelho', aba: 'dados' });
-  if (B12.avEstado && B12.avEstado() !== 'ligado')
-    falta.push({ t: 'Ligar os avisos no celular', d: 'para saber sem abrir o app', aba: 'dados' });
+  /* 12/11/2026 — este if comparava o OBJETO devolvido por avEstado() com o
+     TEXTO 'ligado'. Objeto nunca é igual a texto, então a linha "Ligar os
+     avisos" NUNCA saía da lista: o Dhalsin ligaria o aviso e o app seguiria
+     cobrando dele para sempre. O resto do app já lia .ligado (ver pAgenda).
+     E a aba certa é Notificações, que é onde mora o botão. */
+  if (B12.avEstado && !B12.avEstado().ligado)
+    falta.push({ t: 'Ligar os avisos no celular', d: 'para saber sem abrir o app', aba: 'avisos' });
   if (!falta.length) return;
 
   var b = bloco(
@@ -2611,6 +2616,10 @@ function pContador(raiz) {
 
 function pDados(raiz) {
   blocoDemo(raiz);
+  /* 12/11/2026 — blocoNuvem existia pronto e NINGUÉM o chamava. A linha de
+     pendências mandava o dono para esta aba para "Entrar na nuvem" e aqui
+     não havia botão nenhum. Sem este login não há sincronia nem aviso. */
+  blocoNuvem(raiz);
   var n = B12.contagens(), cofre = B12.cofreCopias();
   var opcoes = [['tudo','Tudo, desde o começo'],['mes','Este mês'],['mesPassado','Mês passado'],['ano','Este ano']];
   raiz.appendChild(bloco(
@@ -3638,6 +3647,12 @@ function pAvisos(raiz) {
   var hoje = B12.hoje();
   var futuros = eventos.filter(function (e) { return e.dia >= hoje; })
                        .sort(function (a, b) { return a.dia < b.dia ? -1 : 1; });
+
+  /* 12/11/2026 — blocoAvisos estava escrito e nunca era desenhado: o dono não
+     tinha, em NENHUMA tela, o botão que liga o aviso no PRÓPRIO celular. A
+     Agenda mandava ele "ligar em Notificações" e aqui só havia o envio para
+     cliente. Agora o primeiro cartão desta aba é o dele. */
+  blocoAvisos(raiz);
 
   raiz.appendChild(bloco(
     '<div class="cx entra"><h3>O que chega no celular do cliente</h3>' +
