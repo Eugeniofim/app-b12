@@ -414,6 +414,9 @@ B12.formBalcao = function (depois, dentro) {
             '</div></div>'; }).join('') +
         campo('Observação', 'obs', { max:140, dica:'o que mais precisa ficar registrado' }) +
       '</div>' +
+      '<div class="cx aviso" id="carro-sem-volta" hidden style="margin-top:14px">' +
+        '<p>O carro fica no pátio, mas falta a <b>data da volta</b> — sem ela não dá para contar a estadia.</p></div>' +
+      '<div class="conta" id="conta-balcao" hidden></div>' +
       '<div class="previa" id="previa-balcao"></div>' +
 
       /* ---- o resto fica guardado, para não atrapalhar quem tem fila ---- */
@@ -483,28 +486,68 @@ B12.formBalcao = function (depois, dentro) {
         var pax = +cPax.value || 1;
         var pag = Math.max(0, Math.min(+cPag.value || 0, pax));
         var manual = Number(form.querySelector('[name=valorManual]').value) || 0;
+        /* ---- 12/11/2026: o estacionamento entra na conta ----
+           `diarias` vinha fixo em 0 e o carro saia de graca da soma do balcao.
+           So conta quando tem PLACA: sem carro nao ha estadia. */
+        var placa = String((form.querySelector('[name=placa]') || {}).value || '').trim();
+        var ida = form.querySelector('[name=data]').value;
+        var volta = form.querySelector('[name=volta]').value;
+        var horaV = form.querySelector('[name=horaVolta]').value;
+        var diarias = placa ? B12.diariasBalcao(ida, hora.value, volta, horaV) : 0;
         var pr = B12.preco({ produto: form.querySelector('[name=produto]').value,
           pax: pax, pagantes: pag, faixa: faixa.value,
-          diarias: 0, pg: form.querySelector('[name=pg]').value });
+          diarias: diarias, pg: form.querySelector('[name=pg]').value });
         var cons = B12.somarConsumo(form);
         var el = form.querySelector('#previa-balcao');
         var naoPag = pax - pag;
         var nota = naoPag > 0 ? ' · ' + naoPag + (naoPag > 1 ? ' não pagam' : ' não paga') : '';
         var travessia = manual > 0 ? manual : (pr ? pr.travessia : 0);
+        var estac = pr ? pr.estacionamento : 0;
+        var total = travessia + cons.total + estac;
 
-        if (!travessia) {
+        /* A conta aberta, linha por linha. O Eugenio pediu para ver a soma:
+           ida, volta, estacionamento. Numero que aparece sozinho ninguem
+           confere — e no balcao a pessoa esta olhando junto. */
+        var linhas = [];
+        if (travessia) {
+          if (manual > 0) {
+            linhas.push(['Valor combinado', manual]);
+          } else if (pr) {
+            var porTrecho = pr.travessia / pr.trechos;
+            linhas.push(['Ida · ' + pr.pagantes + (pr.pagantes > 1 ? ' pagantes' : ' pagante'), porTrecho]);
+            if (pr.trechos > 1) linhas.push(['Volta · mesma tabela', porTrecho]);
+          }
+        }
+        if (estac) linhas.push(['Estacionamento · ' + diarias +
+          (diarias > 1 ? ' diárias' : ' diária') + ' × ' + B12.brl(B12.DB.ajustes.diaria), estac]);
+        if (cons.total) linhas.push(['Consumo', cons.total]);
+
+        var conta = form.querySelector('#conta-balcao');
+        if (conta) {
+          conta.hidden = linhas.length < 2;
+          conta.innerHTML = linhas.map(function (l) {
+            return '<div><span>' + l[0] + '</span><b class="num">' + B12.brl(l[1]) + '</b></div>';
+          }).join('');
+        }
+        /* o carro ficou e ninguem marcou a volta: a estadia nao tem como ser
+           contada, e e melhor dizer isso do que somar zero calado */
+        var avisoCarro = form.querySelector('#carro-sem-volta');
+        if (avisoCarro) avisoCarro.hidden = !(placa && !volta);
+
+        if (!travessia && !estac) {
           el.innerHTML = '<span>Falta o valor' + nota + '</span><b>combine e digite</b>';
         } else {
           el.innerHTML = '<span>' + (manual > 0 ? 'Valor combinado' : 'Pela tabela') + nota +
-            (cons.total ? ' · consumo ' + B12.brl(cons.total) : '') + '</span>' +
-            '<b>' + B12.brl(travessia + cons.total) + '</b>';
+            (estac ? ' · com estacionamento' : '') + '</span>' +
+            '<b>' + B12.brl(total) + '</b>';
         }
         /* o rótulo do botão conta o consumo sem precisar abrir */
         var bt = form.querySelector('#b-consumo-txt');
         if (bt && cxc.hidden) bt.textContent = cons.itens.length
           ? 'Consumo · ' + B12.brl(cons.total) : 'Consumo e observação';
       }
-      form.querySelectorAll('[name=produto],[name=faixa],[name=pg],[name=valorManual],[name^=qtd_]')
+      form.querySelectorAll('[name=produto],[name=faixa],[name=pg],[name=valorManual],[name^=qtd_],' +
+        '[name=data],[name=volta],[name=horaVolta],[name=placa]')
         .forEach(function (c) { c.oninput = calcular; c.onchange = calcular; });
       calcular();
     },
@@ -579,44 +622,6 @@ B12.aposBalcao = function (res) {
 };
 
 /* ============================================== botão flutuante de ações */
-B12.menuMais = function () {
-  var f = document.createElement('div');
-  f.className = 'folha';
-  f.innerHTML = '<div class="folha-fundo"></div><div class="folha-cx">' +
-    '<div class="folha-alca"></div>' +
-    '<div class="folha-topo"><div><h3>O que você quer registrar?</h3></div></div>' +
-    '<div class="folha-corpo acoes">' +
-    acao('balcao','Cliente chegou agora','Ficha, travessia e carro de uma vez','#0E8C80') +
-    acao('entrada','Entrada de dinheiro','Venda, comissão, outra receita','#2FA76A') +
-    acao('saida','Saída de dinheiro','Combustível, compra, taxa','#D2564A') +
-    acao('manut','Manutenção da lancha','Conserto, revisão ou equipamento novo','#D9932B') +
-    acao('carro','Carro entrando no pátio','Placa, dono e saída prevista','#3C86B8') +
-    acao('cliente','Cadastrar cliente','Só a ficha, sem venda','#6C8FA3') +
-    '</div></div>';
-  document.body.appendChild(f);
-  document.body.style.overflow = 'hidden';
-  function fechar() { f.remove(); document.body.style.overflow = ''; }
-  f.querySelector('.folha-fundo').onclick = fechar;
-  var recarrega = function () { if (B12.admDesenhar) B12.admDesenhar(); };
-  f.querySelectorAll('[data-acao]').forEach(function (b) {
-    b.onclick = function () {
-      var a = b.dataset.acao; fechar();
-      if (a === 'balcao')  B12.formBalcao(function (res) { recarrega(); B12.aposBalcao(res); });
-      if (a === 'entrada') B12.formLancamento('entrada', {}, recarrega);
-      if (a === 'saida')   B12.formLancamento('saida', {}, recarrega);
-      if (a === 'manut')   B12.formManutencao(recarrega);
-      if (a === 'carro')   B12.formEntradaPatio(recarrega);
-      if (a === 'cliente') B12.formCliente(null, recarrega);
-    };
-  });
-};
-function acao(id, titulo, sub, cor) {
-  return '<button type="button" class="acao" data-acao="' + id + '">' +
-    '<span class="bolinha" style="background:' + cor + '"></span>' +
-    '<span class="txt"><b>' + titulo + '</b><small>' + sub + '</small></span>' +
-    '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" ' +
-    'stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></button>';
-}
 
 
 /* ------------------------------------------------------- preços (o dono) */
@@ -851,7 +856,9 @@ B12.fichaReserva = function (id, depois) {
     sub: r.pax + (r.pax > 1 ? ' pessoas' : ' pessoa') + ' · ida ' + B12.dataBR(r.ida),
     corpo: corpo,
     extra:
-      (zap ? '<button type="button" class="btn sec" id="fc-zap" style="margin-top:0">' +
+      '<button type="button" class="btn sec" id="fc-editar" style="margin-top:0">' +
+      'Corrigir esta reserva</button>' +
+      (zap ? '<button type="button" class="btn sec" id="fc-zap" style="margin-top:8px">' +
         'Falar no WhatsApp</button>' : '') +
       ((!dono || (c.jaPago && !c.estacionamento)) ? '' :
         '<button type="button" class="btn sec" id="fc-receber" style="margin-top:8px">' +
@@ -860,6 +867,11 @@ B12.fichaReserva = function (id, depois) {
     aoSalvar: function () { return { ok: true }; },
     depois: function () { if (depois) depois(); }
   });
+  var be = form.querySelector('#fc-editar');
+  if (be) be.onclick = function () {
+    B12.fecharFolha();
+    B12.formEditarReserva(id, function () { if (depois) depois(); });
+  };
   var bz = form.querySelector('#fc-zap');
   if (bz) bz.onclick = function () {
     var txt = 'Olá, ' + String(r.nome || '').split(' ')[0] + '! Aqui é a Estação B12, ' +
@@ -871,6 +883,65 @@ B12.fichaReserva = function (id, depois) {
     B12.fecharFolha();
     B12.formReceber(r.id, function () { if (depois) depois(); });
   };
+};
+
+/* ------------------------------------------------ corrigir o atendimento
+   A tela de editar. Mesma ordem de campos da ficha do balcão, porque é a
+   mesma conversa — só que agora com o que já está gravado dentro. */
+B12.formEditarReserva = function (id, depois) {
+  var r = B12.reservaPorId(id);
+  if (!r) return B12.aviso('Não achei essa reserva.', 'ruim');
+  var carro = r.patioId && (B12.DB.patio || []).filter(function (v) { return v.id === r.patioId; })[0];
+
+  B12.folha({
+    titulo: 'Corrigir ' + String(r.nome || '').split(' ')[0],
+    sub: 'código ' + r.cod,
+    corpo:
+      '<div class="par">' +
+        '<div style="grid-column:span 2">' + campo('Nome', 'nome', { valor:r.nome, obrig:true, max:60 }) + '</div>' +
+      '</div>' +
+      '<div class="par">' +
+        '<div>' + campo('Pessoas no veículo', 'pax', { tipo:'number', modo:'numeric', valor:r.pax || 1, passo:'1' }) + '</div>' +
+        '<div>' + campo('Pagantes', 'pagantes', { tipo:'number', modo:'numeric',
+          valor: r.pagantes == null ? (r.pax || 1) : r.pagantes, passo:'1',
+          ajuda:'é este número que faz o preço' }) + '</div>' +
+      '</div>' +
+      '<div class="par">' +
+        '<div>' + campo('Ida', 'ida', { tipo:'date', valor:r.ida }) + '</div>' +
+        '<div>' + campo('Hora', 'hora', { tipo:'time', valor:r.hora || '' }) + '</div>' +
+      '</div>' +
+      '<div class="par">' +
+        '<div>' + campo('Volta', 'volta', { tipo:'date', valor:r.volta || '' }) + '</div>' +
+        '<div>' + campo('Hora', 'horaVolta', { tipo:'time', valor:r.horaVolta || '' }) + '</div>' +
+      '</div>' +
+      (carro && !carro.saidaReal
+        ? '<div class="ajuda" style="margin:-4px 12px 10px">O carro <b>' + esc(r.placa) +
+          '</b> está no pátio. Mudar a volta muda a estadia que vai ser cobrada na saída.</div>'
+        : '') +
+      campo('Placa', 'placa', { valor:r.placa || '', max:8, dica:'deixe vazio se não deixou carro' }) +
+      campo('Celular', 'zap', { tipo:'tel', modo:'tel', valor:r.zap || '', dica:'(41) 90000-0000' }) +
+      '<div class="par">' +
+        '<div>' + campo('Valor combinado', 'total', { tipo:'number', passo:'0.01', modo:'decimal',
+          valor: r.total == null ? '' : r.total }) + '</div>' +
+        '<div>' + lista('Pagamento', 'pg', PAGAMENTOS, r.pg || 'pix') + '</div>' +
+      '</div>' +
+      lista('Destino', 'destino', B12.DESTINOS, r.destino || 'Brasília') +
+      listaLivre('Pousada', 'pousada', ['Direto (sem pousada)']
+        .concat(B12.PARCEIROS.map(function (p) { return p.nome; })), r.pousada || '') +
+      campo('Observação', 'obs', { valor:r.obs || '', max:140 }) +
+      '<div class="ajuda" style="margin-top:12px">O que você mudar aqui anda junto na ficha da ' +
+      'pessoa, no carro do pátio e no caixa. Não é só esta tela.</div>',
+    acao: 'Guardar a correção',
+    aoSalvar: function (d) { return B12.editarReserva(id, d); },
+    depois: function (res) {
+      if (res && res.ok) {
+        B12.aviso(res.mudou && res.mudou.length
+          ? 'Corrigido: ' + res.mudou.join(', ') + '.'
+          : 'Nada mudou.', 'bom');
+      }
+      if (depois) depois(res);
+    }
+  });
 };
 
 /* -------------------------------------------- a ficha completa do cliente
@@ -1171,13 +1242,17 @@ B12.formHorariosDia = function (iso, depois) {
     var todas = sugeridas.concat(atuais)
       .filter(function (h, i, a) { return a.indexOf(h) === i; }).sort();
 
+    /* 12/11/2026, regra do Eugênio: "não deixar horários prontos, horários
+       sempre editáveis". A grade que aparece aqui é SUGESTÃO — a do dia
+       anterior ou a que ele guardou em Ajustes. Cada horário tem ✎ para
+       mudar a hora e × para tirar da lista. O único que não se mexe é o que
+       JÁ TEM PASSAGEIRO: mudar esse é furar a viagem de alguém que já
+       comprou, e isso se resolve falando com a pessoa, não na tela. */
     return '<div class="grupo">' + titulo + '</div>' +
-      '<p style="font-size:12.5px;color:var(--gelo-3);margin-bottom:10px">' + ajuda + '</p>' +
+      '<p style="font-size:12.5px;color:var(--gelo-3);margin-bottom:10px">' + ajuda +
+      ' Toque para ligar ou desligar · <b>✎</b> muda a hora · <b>×</b> tira da lista.</p>' +
       '<div class="horas" id="hx-' + sentido + '">' + todas.map(function (h) {
-        var presa = presas.indexOf(h) >= 0;
-        return '<button type="button" class="hchip' + (atuais.indexOf(h) >= 0 ? ' on' : '') +
-          (presa ? ' presa' : '') + '" data-s="' + sentido + '" data-h="' + h + '"' +
-          (presa ? ' disabled' : '') + '>' + h + (presa ? ' ·com gente' : '') + '</button>';
+        return chip(sentido, h, atuais.indexOf(h) >= 0, presas.indexOf(h) >= 0);
       }).join('') + '</div>' +
       (presas.length
         ? '<div class="ajuda" style="margin-top:8px">' + presas.join(', ') + ' não sai' +
@@ -1186,6 +1261,19 @@ B12.formHorariosDia = function (iso, depois) {
       campo_hora(sentido) +
       '<input type="hidden" name="h-' + sentido + '" value="' + atuais.join(',') + '">';
   }
+  /* um horário na tela: o chip que liga/desliga, mais ✎ e ×. Fica em função
+     porque quem acrescenta um horário novo precisa montar exatamente igual. */
+  function chip(sentido, h, ligado, presa) {
+    return '<span class="hgrupo' + (presa ? ' presa' : '') + '" data-s="' + sentido + '">' +
+      '<button type="button" class="hchip' + (ligado ? ' on' : '') + (presa ? ' presa' : '') +
+      '" data-s="' + sentido + '" data-h="' + h + '"' + (presa ? ' disabled' : '') + '>' +
+      h + (presa ? ' ·com gente' : '') + '</button>' +
+      (presa ? '' :
+        '<button type="button" class="hmini" data-edita aria-label="Mudar o horário de ' + h + '">✎</button>' +
+        '<button type="button" class="hmini hmini-x" data-tira aria-label="Tirar o horário de ' + h + '">×</button>') +
+      '</span>';
+  }
+
   function campo_hora(sentido) {
     return '<label for="c-extra-' + sentido + '" style="margin-top:10px">Acrescentar um horário</label>' +
       '<input id="c-extra-' + sentido + '" name="extra-' + sentido + '" type="time">';
@@ -1213,20 +1301,70 @@ B12.formHorariosDia = function (iso, depois) {
           f.querySelectorAll('.hchip.on[data-s="' + sentido + '"]').forEach(function (b) { m.push(b.dataset.h); });
           guardadas.value = m.join(',');
         }
-        f.querySelectorAll('.hchip[data-s="' + sentido + '"]').forEach(function (b) {
-          b.onclick = function () { b.classList.toggle('on'); sincronizar(); };
-        });
+        var caixa = f.querySelector('#hx-' + sentido);
+
+        /* põe os horários em ordem na tela: 08:30 antes de 10:00, sempre,
+           inclusive depois de alguém editar um para uma hora mais cedo */
+        function ordenar() {
+          var g = Array.prototype.slice.call(caixa.querySelectorAll('.hgrupo'));
+          g.sort(function (a, b) {
+            var ha = a.querySelector('.hchip').dataset.h, hb = b.querySelector('.hchip').dataset.h;
+            return ha < hb ? -1 : ha > hb ? 1 : 0;
+          });
+          g.forEach(function (x) { caixa.appendChild(x); });
+        }
+
+        function existe(h, menos) {
+          var achou = false;
+          caixa.querySelectorAll('.hchip').forEach(function (c) {
+            if (c !== menos && c.dataset.h === h) achou = true;
+          });
+          return achou;
+        }
+
+        function ligarGrupo(g) {
+          var chip = g.querySelector('.hchip');
+          if (!chip.disabled) chip.onclick = function () { chip.classList.toggle('on'); sincronizar(); };
+
+          var bE = g.querySelector('[data-edita]');
+          if (bE) bE.onclick = function () {
+            if (g.querySelector('input[type=time]')) return;   /* já está editando */
+            var ed = document.createElement('input');
+            ed.type = 'time'; ed.className = 'hedita'; ed.value = chip.dataset.h;
+            g.insertBefore(ed, chip); chip.hidden = true; bE.hidden = true;
+            function fim(valendo) {
+              var h = ed.value;
+              ed.remove(); chip.hidden = false; bE.hidden = false;
+              if (!valendo || !h || h === chip.dataset.h) return;
+              if (existe(h, chip)) return B12.aviso('Já existe um horário de ' + h + '.', 'ruim');
+              chip.dataset.h = h; chip.textContent = h; chip.classList.add('on');
+              ordenar(); sincronizar();
+            }
+            ed.onchange = function () { fim(true); };
+            ed.onblur   = function () { fim(true); };
+            ed.onkeydown = function (ev) {
+              if (ev.key === 'Enter') { ev.preventDefault(); fim(true); }
+              if (ev.key === 'Escape') { ev.preventDefault(); fim(false); }
+            };
+            setTimeout(function () { ed.focus(); }, 30);
+          };
+
+          var bX = g.querySelector('[data-tira]');
+          if (bX) bX.onclick = function () { g.remove(); sincronizar(); };
+        }
+
+        caixa.querySelectorAll('.hgrupo').forEach(ligarGrupo);
+
         var extra = f.querySelector('[name="extra-' + sentido + '"]');
         extra.onchange = function () {
           var h = extra.value; if (!h) return;
           var ja = f.querySelector('.hchip[data-s="' + sentido + '"][data-h="' + h + '"]');
           if (ja) { ja.classList.add('on'); }
           else {
-            var b = document.createElement('button');
-            b.type = 'button'; b.className = 'hchip on'; b.dataset.s = sentido; b.dataset.h = h;
-            b.textContent = h;
-            b.onclick = function () { b.classList.toggle('on'); sincronizar(); };
-            f.querySelector('#hx-' + sentido).appendChild(b);
+            var tmp = document.createElement('div');
+            tmp.innerHTML = chip(sentido, h, true, false);
+            var g = tmp.firstChild;
+            caixa.appendChild(g); ligarGrupo(g); ordenar();
           }
           extra.value = ''; sincronizar();
         };

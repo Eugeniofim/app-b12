@@ -7,7 +7,9 @@
       "runtimeArgs": [
         "-m",
         "http.server",
-        "8912"
+        "8912",
+        "--directory",
+        "/Users/eugeniofimhotmail.com/Desktop/CODIGO/app-b12"
       ],
       "port": 8912
     }

@@ -116,6 +116,20 @@
     try { return JSON.parse(SOMBRA[col][id]) || {}; } catch (e) { return {}; }
   }
 
+  /* ========================================================= O PIN NÃO VIAJA
+     12/11/2026. `ajustes` sobe inteiro para `b12_ajustes`, e a política
+     `ajustes_ler` entrega essa tabela para a EQUIPE TODA (nuvem/01-esquema.sql).
+     Os dois PINs moravam ali dentro, em texto aberto. Agora a tranca é do
+     aparelho (acesso.js) — e esta peneira é a garantia de que ela não volta a
+     viajar por descuido: sai na subida E na descida, porque um aparelho que
+     ainda não atualizou continua mandando o campo velho. */
+  function semPin(a) {
+    if (!a || typeof a !== 'object' || !('pins' in a)) return a || {};
+    var c = {};
+    Object.keys(a).forEach(function (k) { if (k !== 'pins') c[k] = a[k]; });
+    return c;
+  }
+
   /* ------------------------------------------------------------ o portão
      Um lugar só decide se dá para falar com o banco. Repetir esta checagem
      solta em cinco lugares é como os bugs do app da Melissa nasceram. */
@@ -176,10 +190,11 @@
       /* e o que vem do banco e é demo daqui não conta: a varredura diária
          recria os demos com ids novos, e eles não existem na SOMBRA */
     });
-    /* ajustes é uma linha só */
-    var aj = JSON.stringify(B12.DB.ajustes || {});
+    /* ajustes é uma linha só — e sobe sem o PIN */
+    var limpo = semPin(B12.DB.ajustes || {});
+    var aj = JSON.stringify(limpo);
     if (SOMBRA.__ajustes !== aj) {
-      por('ajustes', '1', B12.DB.ajustes, false);
+      por('ajustes', '1', limpo, false);
       SOMBRA.__ajustes = aj;
     }
     grava(K_SOMBRA, SOMBRA);
@@ -283,12 +298,18 @@
 
   function aplicarLinha(col, l) {
     if (col === 'ajustes') {
-      var novo = JSON.stringify(l.dados || {});
-      if (SOMBRA.__ajustes === novo) return false;
+      var sujo = !!(l.dados && l.dados.pins);      /* linha de antes de 12/11/2026 */
+      var dados = semPin(l.dados || {});
+      var novo = JSON.stringify(dados);
+      if (SOMBRA.__ajustes === novo && !sujo) return false;
       if (FILA.some(function (f) { return f.col === 'ajustes'; })) return false;
       Object.keys(B12.DB.ajustes).forEach(function (k) { delete B12.DB.ajustes[k]; });
-      Object.assign(B12.DB.ajustes, l.dados || {});
-      SOMBRA.__ajustes = novo;
+      Object.assign(B12.DB.ajustes, dados);
+      /* a linha trouxe PIN: a sombra fica com a versão SUJA, para o próximo
+         `enfileirar` ver diferença e subir a limpa POR CIMA. É assim que a
+         senha sai da nuvem sozinha, no primeiro sinc do dono — a equipe não
+         tem permissão de escrever em ajustes, então nem tenta. */
+      SOMBRA.__ajustes = (sujo && papelNuvem() === 'dono') ? JSON.stringify(l.dados) : novo;
       return true;
     }
 
@@ -411,11 +432,21 @@
       var r = await comPrazo(B12.NUVEM.url + '/rest/v1/b12_cofre?on_conflict=id', {
         method: 'POST', headers: cab,
         body: JSON.stringify([{ id: id, dia: hoje, motivo: motivo || 'auto',
-                                peso: peso, dados: B12.DB }])
+                                peso: peso, dados: semPinNoBanco() }])
       });
       return r.ok ? { ok: true, id: id, peso: peso } : { erro: 'recusado', status: r.status };
     } catch (e) { return { erro: 'rede' }; }
   };
+
+  /* a cópia da nuvem leva o banco inteiro: aqui também o PIN fica de fora */
+  function semPinNoBanco() {
+    var a = B12.DB && B12.DB.ajustes;
+    if (!a || !('pins' in a)) return B12.DB;
+    var c = {};
+    Object.keys(B12.DB).forEach(function (k) { c[k] = B12.DB[k]; });
+    c.ajustes = semPin(a);
+    return c;
+  }
 
   B12.cofreNuvemLista = async function () {
     if (!B12.sincPronta()) return { erro: 'semNuvem' };

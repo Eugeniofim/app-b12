@@ -196,5 +196,41 @@ const iphoneSemInstalar = rodaBloco('blocoAvisos', {
 eh('iPhone sem instalar: explica a tela de início em vez de botão quebrado',
   /Tela de In/.test(iphoneSemInstalar) && !/id="b-av-on"/.test(iphoneSemInstalar));
 
+/* ---------------------------------- 4. o botão + foi eliminado
+   12/11/2026. Mais cedo hoje eu tirei o + de baixo da bolha do Assistente;
+   horas depois o Eugênio mandou eliminar o botão inteiro, porque todo item do
+   menu dele virou aba. Este bloco guarda a remoção COMPLETA: botão que some do
+   HTML mas continua sendo procurado no JS derruba a tela inteira. */
+console.log('\n— o botão + saiu de todos os lugares —');
+
+const html4 = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const app4  = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+const css4  = fs.readFileSync(path.join(__dirname, '..', 'estilo.css'), 'utf8');
+const form4 = fs.readFileSync(path.join(__dirname, '..', 'formularios.js'), 'utf8');
+
+eh('saiu do HTML', !/mais-btn|b-mais-acoes/.test(html4));
+eh('o app não procura mais por ele (getElementById de nada = tela branca)',
+  !/b-mais-acoes/.test(app4));
+eh('o menu que ele abria saiu do código', !/B12\.menuMais/.test(form4));
+eh('e o ajudante que só ele usava também', !/function acao\(id, titulo/.test(form4));
+eh('o estilo saiu inteiro, inclusive das telas largas', !/mais-btn/.test(css4));
+eh('as chaves do CSS continuam equilibradas',
+  (css4.match(/\{/g) || []).length === (css4.match(/\}/g) || []).length);
+
+eh('o Assistente volta para o canto de baixo',
+  /\.ia-bolha-flut\{position:fixed;right:12px;bottom:calc\(84px/.test(css4));
+
+console.log('\n— e nada ficou sem caminho —');
+const adm4 = fs.readFileSync(path.join(__dirname, '..', 'adm.js'), 'utf8');
+eh('entrada de dinheiro: Financeiro → Lançamentos',
+  /B12\.formLancamento\('entrada'/.test(adm4));
+eh('saída de dinheiro: Financeiro → Lançamentos',
+  /B12\.formLancamento\('saida'/.test(adm4));
+eh('manutenção: Estação B12 → Manutenção', /B12\.formManutencao\(/.test(adm4));
+eh('carro entrando: Cadastro → Estacionamento', /\+ Carro entrando/.test(adm4));
+eh('cliente chegou: Cadastro → Náutico é o próprio formulário',
+  /B12\.formBalcao\(function \(res\)/.test(adm4));
+eh('cadastrar cliente: Cadastro → Clientes', /\+ Cadastrar cliente/.test(adm4));
+
 console.log('\n' + ok + ' passaram, ' + falhou + ' falharam');
 process.exit(falhou ? 1 : 0);

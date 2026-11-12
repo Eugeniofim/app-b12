@@ -869,31 +869,51 @@ B12.iaTemVoz = function () { return !!Ouvido; };
 B12.iaTemFala = function () { return 'speechSynthesis' in window; };
 
 var ouvindo = null;
+
+/* 12/11/2026 — SEGURAR PARA FALAR, COMO NO WHATSAPP.
+
+   Antes: `continuous = false` e o texto era enviado no primeiro resultado
+   final. O navegador encerra sozinho na PRIMEIRA PAUSA — então quem respirava
+   no meio da frase via o app cortar e mandar metade. O Eugênio: "eu aperto e
+   daí ele corta a frase no meio. Não pode."
+
+   Agora: `continuous = true` (pausa não encerra nada) e quem decide o fim é o
+   DEDO. Enquanto segurado, acumula; ao soltar, para e entrega o que juntou.
+   Nada é enviado antes de soltar. */
 B12.iaOuvir = function (aoTexto, aoEstado) {
   if (!Ouvido) return null;
-  if (ouvindo) { ouvindo.stop(); ouvindo = null; return null; }
+  if (ouvindo) { try { ouvindo.stop(); } catch (e) {} ouvindo = null; return null; }
   var r = new Ouvido();
-  r.lang = 'pt-BR'; r.interimResults = true; r.continuous = false; r.maxAlternatives = 1;
-  var final = '';
+  r.lang = 'pt-BR'; r.interimResults = true; r.continuous = true; r.maxAlternatives = 1;
+  var final = '', deuErro = false;
   r.onresult = function (e) {
     var parcial = '';
     for (var i = e.resultIndex; i < e.results.length; i++) {
       if (e.results[i].isFinal) final += e.results[i][0].transcript;
       else parcial += e.results[i][0].transcript;
     }
-    aoTexto(final || parcial, !!final);
+    /* mostra o que está sendo ouvido, mas NUNCA diz "pronto": quem diz é o dedo */
+    aoTexto((final + ' ' + parcial).replace(/\s+/g, ' ').trim(), false);
   };
   r.onerror = function (e) {
-    ouvindo = null;
+    /* 'no-speech' e 'aborted' são o normal de quem soltou o botão sem falar:
+       não é erro para mostrar na cara da pessoa. */
+    if (e.error === 'aborted') return;
+    deuErro = true; ouvindo = null;
     aoEstado('erro', e.error === 'not-allowed'
       ? 'Preciso da permissão do microfone. Toque no cadeado do endereço e libere.'
-      : e.error === 'no-speech' ? 'Não ouvi nada. Tente de novo.' : 'O microfone falhou.');
+      : e.error === 'no-speech' ? 'Não ouvi nada. Segure o botão e fale.' : 'O microfone falhou.');
   };
-  r.onend = function () { ouvindo = null; aoEstado('parou'); };
+  r.onend = function () {
+    ouvindo = null;
+    /* o texto só sai AQUI, quando a pessoa soltou o dedo */
+    if (!deuErro) aoEstado('parou', null, final.replace(/\s+/g, ' ').trim());
+  };
   try { r.start(); ouvindo = r; aoEstado('ouvindo'); } catch (e) { ouvindo = null; }
   return r;
 };
 B12.iaPararDeOuvir = function () { if (ouvindo) { try { ouvindo.stop(); } catch (e) {} ouvindo = null; } };
+B12.iaEstaOuvindo = function () { return !!ouvindo; };
 
 /* ------------------------------------------------- como a resposta é falada
    'nao'        — calado
@@ -1160,19 +1180,48 @@ B12.iaAbrirGaveta = function () {
     B12.aviso(B12.iaVozModo() === 'nao' ? 'Voz desligada.' : 'Voz ligada.', 'bom');
   };
 
+  /* ------------------------------------------- segurar para falar
+     Pointer events cobrem dedo e mouse de uma vez. O `setPointerCapture` faz
+     o "soltou" chegar aqui mesmo que o dedo escorregue para fora do botão —
+     sem ele, arrastar o dedo deixava o microfone ligado para sempre. */
   var voz = g.querySelector('#ia-g-voz');
-  if (voz) voz.onclick = function () {
+  if (voz) {
     var campo = g.querySelector('#ia-g-campo');
-    if (voz.classList.contains('on')) { B12.iaPararDeOuvir(); return; }
-    B12.iaCalar();
-    B12.iaOuvir(function (t, pronto) {
-      campo.value = t;
-      if (pronto && t.trim()) { voz.classList.remove('on'); perguntar(t, true); }
-    }, function (estado, msg) {
-      voz.classList.toggle('on', estado === 'ouvindo');
-      if (estado === 'erro') bolha({ papel: 'erro', texto: msg });
-    });
-  };
+    var segurando = false, comecou = 0;
+
+    function comecar(ev) {
+      if (segurando || B12.iaEstaOuvindo()) return;
+      ev.preventDefault();
+      segurando = true; comecou = Date.now();
+      try { voz.setPointerCapture(ev.pointerId); } catch (e) {}
+      B12.iaCalar();
+      campo.value = '';
+      B12.iaOuvir(function (t) { campo.value = t; }, function (estado, msg, texto) {
+        if (estado === 'ouvindo') { voz.classList.add('on'); return; }
+        voz.classList.remove('on');
+        if (estado === 'erro') { campo.value = ''; return bolha({ papel: 'erro', texto: msg }); }
+        /* soltou: o que juntou vai agora, inteiro */
+        if (texto) { campo.value = ''; perguntar(texto, true); }
+        else if (Date.now() - comecou < 400) {
+          bolha({ papel: 'erro', texto: 'Segure o botão enquanto fala e solte no fim.' });
+        }
+      });
+    }
+    function soltar(ev) {
+      if (!segurando) return;
+      segurando = false;
+      if (ev) { ev.preventDefault(); try { voz.releasePointerCapture(ev.pointerId); } catch (e) {} }
+      B12.iaPararDeOuvir();
+    }
+
+    voz.addEventListener('pointerdown', comecar);
+    voz.addEventListener('pointerup', soltar);
+    voz.addEventListener('pointercancel', soltar);
+    /* segurar no celular abre menu de seleção/atalho: não aqui */
+    voz.addEventListener('contextmenu', function (ev) { ev.preventDefault(); });
+    /* perdeu o foco com o dedo ainda em cima (ligação chegando, app ao fundo) */
+    window.addEventListener('blur', function () { soltar(null); });
+  }
   g.querySelector('.ia-g-x').onclick = function () { B12.iaCalar(); B12.iaPararDeOuvir(); B12.iaFecharGaveta(); };
   g.querySelector('.ia-gaveta-fundo').onclick = function () { B12.iaCalar(); B12.iaPararDeOuvir(); B12.iaFecharGaveta(); };
 

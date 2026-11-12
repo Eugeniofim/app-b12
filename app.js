@@ -12,13 +12,34 @@ var B12 = window.B12 || {};
 var TELAS = ['inicio','travessias','passeios','passeio','ilha','previsao','ondas','sobre','promocoes',
              'pontos','reservas','equipe','adm','avaliacoes'];
 var atual = 'inicio';
+/* De onde a pessoa veio. Serve para a seta "Voltar" de telas que tem mais de
+   uma porta de entrada — hoje so "ondas", que se abre pela Previsao E pela
+   tela inicial. Sem isto, quem entra pela inicial volta para a Previsao, uma
+   tela onde nunca esteve. */
+var anterior = 'inicio';
+var VOLTA_DE = { ondas: ['inicio', 'previsao'] };
+
+/* Para onde a seta "Voltar" de `tela` deve apontar, sabendo que a pessoa veio
+   de `veio`. Devolve null quando a tela tem uma porta so e a seta fixa do HTML
+   ja esta certa. Fica em funcao, e nao solto no meio do roteador, porque assim
+   da para medir sem precisar de navegador. */
+B12.voltaDe = function (tela, veio) {
+  var portas = VOLTA_DE[tela];
+  if (!portas) return null;
+  return portas.indexOf(veio) >= 0 ? veio : portas[portas.length - 1];
+};
 
 B12.ir = function (nome) {
   if (nome === 'mais') return abrirMais();
   /* "painel" nao e tela: e a porta. Dono cai no painel, equipe na operacao, e
      quem ainda nao entrou ve o PIN uma vez so. */
-  if (nome === 'painel')
-    return B12.portao('equipe', function (papel) { B12.ir(papel === 'dono' ? 'adm' : 'equipe'); });
+  if (nome === 'painel') {
+    /* já entrou e a sessão vale: não pergunta de novo */
+    if (B12.pode('equipe')) return B12.ir(B12.papel() === 'dono' ? 'adm' : 'equipe');
+    /* 12/11/2026: a porta pergunta QUEM está entrando antes de pedir o PIN.
+       Ver B12.escolherPorta, em acesso.js. */
+    return B12.escolherPorta(function (papel) { B12.ir(papel === 'dono' ? 'adm' : 'equipe'); });
+  }
   if (TELAS.indexOf(nome) < 0) nome = 'inicio';
   if (nome === 'passeio' && !B12.passeioAtual) nome = 'passeios';
   var hashAlvo = nome === 'passeio' ? '/passeio/' + B12.passeioAtual : '/' + nome;
@@ -35,11 +56,19 @@ B12.ir = function (nome) {
     if (location.hash !== '#' + hashAlvo) location.hash = hashAlvo;   /* outro passeio na mesma tela */
     return;
   }
+  anterior = atual;
   atual = nome;
 
   document.querySelectorAll('.tela.on').forEach(function (t) { t.classList.remove('on'); });
   var alvo = document.getElementById('t-' + nome);
   if (alvo) alvo.classList.add('on');
+
+  /* a seta "Voltar" aponta para onde a pessoa estava, nao para um lugar fixo */
+  var volta = B12.voltaDe(nome, anterior);
+  if (alvo && volta) {
+    var seta = alvo.querySelector('.topo-tela .volta[data-ir]');
+    if (seta) seta.setAttribute('data-ir', volta);
+  }
 
   document.body.classList.toggle('adm', nome === 'adm');
   document.querySelector('meta[name=theme-color]')
@@ -329,7 +358,6 @@ function comecar() {
   document.getElementById('b-avisos').onclick   = function () { B12.ir('promocoes'); };
   document.getElementById('b-perfil').onclick   = function () { B12.ir('reservas'); };
   document.getElementById('b-atualizar').onclick = aplicarNova;
-  document.getElementById('b-mais-acoes').onclick = function () { B12.menuMais(); };
   document.getElementById('b-sair').onclick = B12.sair;
   document.getElementById('b-ajustes').onclick = function () { B12.formAjustes(function () { B12.admDesenhar(); }); };
   document.getElementById('b-sair-equipe').onclick = B12.sair;

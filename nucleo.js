@@ -90,7 +90,9 @@ function vazio() {
       mensagens: [],                     /* as mensagens que o próprio Dhalsin escreveu */
       mostrarPrecos: false,              /* o cliente vê valores? Começa DESLIGADO: o preço é
                                             combinado no WhatsApp até o Dhalsin liberar */
-      pins: null,                 /* null = usa o PIN padrão de demonstração */
+      /* os PINs NÃO ficam aqui: `ajustes` viaja para a nuvem e a equipe
+         inteira lê essa tabela. A tranca do aparelho mora na chave
+         `b12_pins` do localStorage — ver acesso.js. */
       grade: null,                /* null = usa B12.GRADE_PADRAO */
       patio: { regra: 'dia', tolerancia: 60, cobranca: 'saida' },
       fidelidade: null            /* null = usa B12.FIDELIDADE */
@@ -151,6 +153,17 @@ B12.carregar = function () {
   /* 12/10/2026: missão e visão. Quem já tinha o app ganha as duas listas sem
      perder o texto nem os destaques que já estavam gravados. */
   if (!A.contador) A.contador = { nome: '', email: '', obs: '' };
+  /* 12/11/2026: o PIN sai de `ajustes` e vai para uma chave só dele neste
+     aparelho (acesso.js). Aqui é onde o banco de quem já usava se limpa: na
+     primeira abertura depois da atualização, o PIN muda de casa e a próxima
+     sincronia sobe a linha de ajustes SEM senha — é assim que ela sai da
+     nuvem. Sem o acesso.js carregado não há portão nenhum, e aí o campo sai
+     mesmo assim: segredo não fica esperando. */
+  var tinhaPin = !!A.pins;
+  if (B12.pinsMigrar) B12.pinsMigrar(A); else delete A.pins;
+  /* e o banco deste aparelho é regravado NA HORA: sem isto a senha continuaria
+     em texto aberto dentro de b12_dados_v1 até alguém salvar outra coisa */
+  if (tinhaPin) { try { localStorage.setItem(CHAVE, JSON.stringify(B12.DB)); } catch (e) {} }
   if (!A.sobre.google) A.sobre.google = JSON.parse(JSON.stringify(B12.SOBRE.google));
   if (!Array.isArray(A.sobre.google.destaques)) A.sobre.google.destaques = [];
   if (!Array.isArray(A.sobre.gastronomia)) A.sobre.gastronomia = [];
@@ -495,6 +508,22 @@ B12.preco = function (o) {
   return { trecho:trecho, trechos:trechos, travessia:travessia, estacionamento:estac,
            desconto:desc, total:sub - desc, pagantes:pagantes, faixaTxt:t.de+' às '+t.ate };
 };
+/* ---------------------------------------------- as diárias do balcão
+   12/11/2026. O balcão mandava `diarias: 0` para B12.preco, então o
+   estacionamento NUNCA entrava no valor sugerido: a pessoa deixava o carro
+   três dias e a tela somava só a travessia.
+
+   Conta pela MESMA regra do pátio (B12.diariasDe), e não por uma subtração de
+   datas própria: se o Dhalsin põe o pátio em "24 horas" com tolerância, o
+   balcão tem de dizer o mesmo número que a tela do pátio vai cobrar na saída.
+   Dois lugares com contas diferentes para o mesmo carro é briga no balcão. */
+B12.diariasBalcao = function (ida, hora, volta, horaVolta) {
+  if (!ida || !volta || volta < ida) return 0;
+  var falso = { entrada: ida, entradaEm: B12.instante(ida, hora || '12:00'),
+                diaria: B12.DB.ajustes.diaria };
+  return B12.diariasDe(falso, B12.instante(volta, horaVolta || hora || '12:00'));
+};
+
 B12.diarias = function (ida, volta) {
   if (!ida || !volta) return 1;
   var d = (new Date(volta+'T12:00') - new Date(ida+'T12:00')) / 86400000;
@@ -1613,6 +1642,102 @@ B12.atenderBalcao = function (a) {
   return { ok: true, cliente: cli, valor: valor, veiculo: veic, reserva: r, saida: saida };
 };
 
+/* ============================================ CORRIGIR UM ATENDIMENTO
+   12/11/2026, pedido do Eugênio: "daí o Dhalsin precisa editar isso aí, às
+   vezes". Até aqui o app não tinha ISSO EM LUGAR NENHUM — a ficha da reserva
+   era só retrato, com botão "Fechar". Nome trocado, data de volta mudada,
+   placa errada: não havia como arrumar.
+
+   O cuidado que esta função existe para ter: UM atendimento de balcão mora em
+   QUATRO lugares — a reserva, a ficha do cliente, o carro no pátio e o
+   lançamento no caixa. Editar só a reserva deixaria os outros três mentindo:
+   o pátio cobrando diária até a data velha, o caixa com o valor velho e a
+   ficha da pessoa com o telefone velho. Então tudo anda junto, aqui, num
+   lugar só.
+
+   O que esta função NÃO faz, de propósito: criar ou tirar carro do pátio.
+   Pôr um carro é entrada de pátio (tem vaga, hora e cobrança) e tirar é
+   saída. Quem muda isso são as telas do Pátio, que sabem cobrar. Aqui só
+   acompanha o que já existe. */
+B12.editarReserva = function (id, d) {
+  var r = B12.reservaPorId(id);
+  if (!r) return { erro: 'Não achei essa reserva.' };
+  if (r.apagado) return { erro: 'Essa reserva foi apagada.' };
+
+  var nome = String(d.nome == null ? r.nome : d.nome).trim();
+  if (!nome) return { erro: 'O nome não pode ficar vazio.' };
+
+  var ida = d.ida || r.ida;
+  var volta = d.volta == null ? r.volta : d.volta;
+  if (volta && volta < ida) return { erro: 'A volta não pode ser antes da ida.' };
+
+  var pax = Math.max(1, Number(d.pax == null ? r.pax : d.pax) || 1);
+  var pagantes = Number(d.pagantes == null ? r.pagantes : d.pagantes);
+  if (!(pagantes >= 0)) pagantes = pax;
+  pagantes = Math.max(0, Math.min(pagantes, pax));
+
+  var total = d.total == null || d.total === '' ? r.total : Number(d.total);
+  if (!(total >= 0)) return { erro: 'O valor não pode ser negativo.' };
+
+  var mudou = [];
+  function põe(campo, valor, rotulo) {
+    if (String(r[campo] == null ? '' : r[campo]) === String(valor == null ? '' : valor)) return;
+    r[campo] = valor;
+    if (rotulo) mudou.push(rotulo);
+  }
+
+  /* 1. a reserva */
+  põe('nome', nome, 'nome');
+  põe('pax', pax, 'pessoas');
+  põe('pagantes', pagantes, 'pagantes');
+  r.criancas = pax - pagantes;
+  põe('ida', ida, 'ida');
+  põe('hora', d.hora == null ? r.hora : d.hora, 'hora da ida');
+  põe('volta', volta, 'volta');
+  põe('horaVolta', d.horaVolta == null ? r.horaVolta : d.horaVolta, 'hora da volta');
+  põe('placa', String(d.placa == null ? r.placa : d.placa).trim().toUpperCase(), 'placa');
+  põe('zap', d.zap == null ? r.zap : d.zap, 'WhatsApp');
+  põe('destino', d.destino || r.destino, 'destino');
+  põe('pousada', d.pousada == null ? r.pousada : d.pousada, 'pousada');
+  põe('pg', d.pg || r.pg, 'pagamento');
+  põe('obs', d.obs == null ? r.obs : d.obs, 'observação');
+  põe('total', total, 'valor');
+
+  /* 2. o carro no pátio: a data de volta é a saída prevista dele, e é por ela
+        que a diária é contada. Sem isto, mudar a volta não muda a cobrança. */
+  var carro = r.patioId && (B12.DB.patio || []).filter(function (v) { return v.id === r.patioId; })[0];
+  if (carro && !carro.saidaReal) {
+    if (r.placa) carro.placa = r.placa;
+    carro.saidaPrevista = volta || '';
+    carro.nome = nome;
+    if (r.zap) carro.whats = r.zap;
+  }
+  r.estacionamento = (carro && volta) ? B12.diariasBalcao(ida, r.hora, volta, r.horaVolta) : 0;
+
+  /* 3. a ficha do cliente */
+  var cli = r.clienteId && (B12.DB.clientes || []).filter(function (c) { return c.id === r.clienteId; })[0];
+  if (cli) {
+    cli.nome = nome;
+    if (d.zap != null) cli.whats = r.zap;
+    if (d.pousada != null) cli.pousada = r.pousada;
+  }
+
+  /* 4. o lançamento no caixa: se o valor combinado mudou, o dinheiro tem de
+        mudar junto, senão o Financeiro conta o que ninguém pagou. */
+  var lan = r.lancamentoId && (B12.DB.lancamentos || []).filter(function (l) { return l.id === r.lancamentoId; })[0];
+  if (lan) {
+    var travessia = Math.max(0, total - (r.consumoTotal || 0));
+    if (lan.valor !== travessia) { lan.valor = travessia; if (mudou.indexOf('valor') < 0) mudou.push('valor'); }
+    lan.data = ida;
+    lan.pg = r.pg;
+    lan.desc = pagantes + ' pagantes · ' + pax + ' no veículo · ' + nome;
+  }
+
+  r.editadaEm = new Date().toISOString();
+  B12.salvar();
+  return { ok: true, reserva: r, mudou: mudou };
+};
+
 /* ------------------------------------------------ investimento x operação */
 B12.resumoInvestimento = function () {
   var L = B12.DB.lancamentos.filter(function (l) { return l.investimento; });
@@ -1742,7 +1867,7 @@ B12.porDiaDaSemana = function () {
    hora, e voltam de um arquivo se o aparelho quebrar. Só aqui se toca no banco. */
 B12.exportarDados = function () {
   var d = JSON.parse(JSON.stringify(B12.DB));
-  if (d.ajustes) d.ajustes.pins = null;          /* a cópia nunca leva senha */
+  if (d.ajustes) delete d.ajustes.pins;         /* a cópia nunca leva senha */
   return { app: 'estacao-b12', formato: 1, geradoEm: new Date().toISOString(),
            aparelho: navigator.userAgent.slice(0, 80), dados: d };
 };
@@ -1758,7 +1883,6 @@ B12.restaurar = function (copia) {
   if (!d || typeof d !== 'object' || !Array.isArray(d.lancamentos) || !Array.isArray(d.clientes))
     return { erro: 'Esse arquivo não é uma cópia do app da B12.' };
   B12.cofreGuardar('mao');                        /* dá para voltar atrás do voltar atrás */
-  var pins = B12.DB.ajustes && B12.DB.ajustes.pins;
   /* cópia antiga (de antes de 05/10 ou 13/10) não tem marinheiros nem agenda.
      "Não tinha a lista" NÃO quer dizer "apague todos": fica o que já existe,
      senão a sincronia mandaria apagar no banco os marinheiros e tarefas. */
@@ -1767,7 +1891,9 @@ B12.restaurar = function (copia) {
   });
   B12.DB = d;
   if (!B12.DB.ajustes) B12.DB.ajustes = vazio().ajustes;
-  B12.DB.ajustes.pins = pins || null;             /* a senha é deste aparelho, não da cópia */
+  /* a senha é deste aparelho, nunca da cópia: o PIN não mora mais no banco, e
+     uma cópia feita antes de 12/11/2026 que ainda traga o campo é limpa aqui */
+  delete B12.DB.ajustes.pins;
   ['clientes','patio','manutencoes','lancamentos','contas','saidas','reservas'].forEach(function (k) {
     if (!Array.isArray(B12.DB[k])) B12.DB[k] = [];
   });

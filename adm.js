@@ -199,20 +199,27 @@ function grafRosca(alvo, fatias) {
    grupo, e pedir a página pelo nome também não entra. */
 var GRUPOS = [
   { id:'hoje',      nome:'Hoje',      sub:[['hoje','O dia'], ['agenda','Agenda', 'dono']] },
-  { id:'visao',     nome:'Visão geral', so:'dono',
-                    sub:[['visao','O negócio'], ['vtravessia','Travessias'],
-                         ['vpatio','Estacionamento']] },
-  { id:'balcao',    nome:'Cadastro',  sub:[['balcao','Cadastro']] },
+  /* 12/11/2026, pedido do Eugênio: o Pátio saiu de "Horário de travessia" e
+     veio para cá. Faz sentido na cabeça de quem atende: no balcão a pessoa
+     chega e o atendente cadastra DUAS coisas — a travessia dela e o carro
+     que ela deixou. São o mesmo momento, a mesma conversa. Horário de
+     travessia volta a ser só a escala da lancha. */
+  { id:'balcao',    nome:'Cadastro',
+    sub:[['balcao','Náutico'], ['patio','Estacionamento'],
+         ['clientes','Clientes'], ['marinheiros','Marinheiros'],
+         ['msgs','Mensagens'], ['prosp','Prospecção', 'dono']] },
   /* "Quem volta" morava em Hoje e o Eugênio foi procurar a criação dos
      horários de retorno aqui, na Travessia — que é onde a cabeça dele põe
      horário. Mudou de lugar: horário de ida e horário de volta no mesmo
      grupo, lado a lado. */
   { id:'travessia', nome:'Horário de travessia',
-                    sub:[['reservas','Reservas'], ['escala','Ida'], ['volta','Volta'],
-                         ['ilha','Na Ilha'], ['marinheiros','Marinheiros'],
-                         ['patio','Pátio']] },
-  { id:'clientes',  nome:'Clientes',  sub:[['clientes','Fichas'], ['msgs','Mensagens'],
-                                           ['prosp','Prospecção', 'dono']] },
+                    /* 12/11/2026: "Na Ilha" saiu da tira de abas a pedido do
+                       Eugênio — mas a TELA não foi apagada. Ela é a única que
+                       lista quem está na Ilha sem volta marcada, com o botão de
+                       WhatsApp para correr atrás, e é para ela que aponta um dos
+                       três avisos das 18h. Agora ela aparece dentro de "Volta",
+                       que é a tela de trazer gente de volta. Ver PAGINAS. */
+                    sub:[['reservas','Reservas'], ['escala','Ida'], ['volta','Volta']] },
   /* Avisos era sub-aba de Clientes e o Eugênio não achou em dois dias.
      Funcionalidade que não se acha é funcionalidade que não existe. */
   { id:'avisos',    nome:'Notificações', sub:[['avisos','Mandar aviso']] },
@@ -220,8 +227,17 @@ var GRUPOS = [
     sub:[['painel','Painel'], ['caixa','Caixa'], ['lanc','Lançamentos'],
          ['contas','Contas'], ['relat','Relatórios'], ['contador','Contador'],
          ['precos','Preços']] },
-  { id:'estacao',   nome:'Estação',   so:'dono',
-    sub:[['gestao','Gestão'], ['sobre','A empresa'], ['manut','Manutenção'],
+  /* 12/11/2026, pedido do Eugênio: a barra de cima fica só com o que ele abre
+     TODO DIA. A Visão geral é leitura de dono — entra aqui, em primeiro, que
+     é onde ele vai olhar quando quiser o retrato do negócio. */
+  { id:'estacao',   nome:'Estação B12',   so:'dono',
+    /* "em números" porque estas três são LEITURA: gráfico e total do período.
+       Quem opera o estacionamento vai em Cadastro → Estacionamento. Sem o
+       sufixo, a palavra "Estacionamento" apareceria em duas abas diferentes
+       do mesmo app, levando a telas que não fazem a mesma coisa. */
+    sub:[['visao','Visão geral'], ['vtravessia','Travessias em números'],
+         ['vpatio','Estacionamento em números'],
+         ['gestao','Gestão'], ['sobre','A empresa'], ['manut','Manutenção'],
          ['oper','Operação'], ['dados','Dados'], ['intel','Inteligência'],
          ['ia','Assistente']] },
 ];
@@ -608,10 +624,14 @@ function pVPatio(raiz) {
   }
 }
 
-var PAGINAS = { hoje:pHoje, volta:pVolta, painel:pPainel, caixa:pCaixa, lanc:pLanc,
+/* "Volta" desenha as duas: quem volta e quem está na Ilha sem volta marcada.
+   Eram duas abas e viraram uma tela só, na ordem da conversa. */
+function pVoltaComIlha(raiz) { pVolta(raiz); pNaIlha(raiz); }
+
+var PAGINAS = { hoje:pHoje, volta:pVoltaComIlha, painel:pPainel, caixa:pCaixa, lanc:pLanc,
   contas:pContas, relat:pRelat, oper:pOper, prosp:pProsp, intel:pIntel,
   clientes:pClientes, patio:pPatio, manut:pManut, gestao:pGestao, escala:pEscala,
-  msgs:pMsgs, dados:pDados, precos:pPrecos, ia:pIA, ilha:pNaIlha, balcao:pBalcao,
+  msgs:pMsgs, dados:pDados, precos:pPrecos, ia:pIA, balcao:pBalcao,
   marinheiros:pMarinheiros, avisos:pAvisos, sobre:pSobre, reservas:pReservas,
   contador:pContador, agenda:pAgenda,
   visao:pVisao, vtravessia:pVTravessia, vpatio:pVPatio };
@@ -689,9 +709,10 @@ B12.admDesenhar = function (aba) {
   B12.animarPlacar(raiz);
   B12.ligarLupa('');
   raiz.scrollIntoView({ block:'nearest' });
-  /* primeira vez nesta aba: o tutorial se oferece. Uma vez só, e nunca por
-     cima de um formulário aberto. */
-  if (B12.tutTalvez) B12.tutTalvez(g.id);
+  /* 12/11/2026: o tutorial NÃO se oferece mais sozinho. Ele pulava na frente
+     do Dhalsin no meio do trabalho — e balão que aparece sem ser chamado, numa
+     tela que a pessoa já sabe usar, é estorvo. Continua inteiro no botão "?"
+     do topo, para quem quiser chamar. */
 };
 
 /* ------------------------------------------------------------------- LUPA
@@ -863,7 +884,7 @@ function pHoje(raiz) {
   raiz.querySelectorAll('[data-ir-caixa]').forEach(function (b) {
     b.onclick = function () { B12.admDesenhar('caixa'); }; });
   raiz.querySelectorAll('[data-ir-ilha]').forEach(function (b) {
-    b.onclick = function () { B12.admDesenhar('ilha'); }; });
+    b.onclick = function () { B12.admDesenhar('volta'); }; });
   raiz.querySelectorAll('[data-ir-volta]').forEach(function (b) {
     b.onclick = function () { B12.admDesenhar('volta'); }; });
 }
@@ -2029,16 +2050,16 @@ function blocoLembretes(raiz) {
   var d = B12.naIlha(hoje) || {};
   if ((d.semVolta || []).length) {
     add(true, d.semVolta.length + (d.semVolta.length > 1 ? ' pessoas estão' : ' pessoa está') +
-      ' na Ilha sem horário de volta', 'Ver', function () { B12.admDesenhar('ilha'); });
+      ' na Ilha sem horário de volta', 'Ver', function () { B12.admDesenhar('volta'); });
   }
 
   /* 3. quem chega e quem volta hoje */
   var chegam = (d.chegam || []).reduce(function (t, p) { return t + (p.pessoas || 1); }, 0);
   var voltam = (d.voltam || []).reduce(function (t, p) { return t + (p.pessoas || 1); }, 0);
   if (chegam) add(false, chegam + (chegam > 1 ? ' pessoas chegam' : ' pessoa chega') + ' hoje',
-    'Ver', function () { B12.admDesenhar('ilha'); });
+    'Ver', function () { B12.admDesenhar('volta'); });
   if (voltam) add(false, voltam + (voltam > 1 ? ' pessoas voltam' : ' pessoa volta') + ' hoje',
-    'Ver', function () { B12.admDesenhar('ilha'); });
+    'Ver', function () { B12.admDesenhar('volta'); });
 
   /* 4. pedidos esperando confirmação */
   var novos = B12.pedidosNovos();
@@ -3108,7 +3129,7 @@ function pNaIlha(raiz) {
     };
   });
   raiz.querySelectorAll('[data-receber]').forEach(function (b) {
-    b.onclick = function () { B12.formReceber(b.dataset.receber, function () { B12.admDesenhar('ilha'); }); };
+    b.onclick = function () { B12.formReceber(b.dataset.receber, function () { B12.admDesenhar('volta'); }); };
   });
 }
 
@@ -3170,8 +3191,11 @@ function pBalcao(raiz) {
        balcão" é verdadeiro e é lido uma vez. Numa tela que abre cem vezes
        por dia ele custa 40px de altura em cada uma, e aqui cada pixel é
        campo que a pessoa vê sem rolar. Foi para o tutorial da tela. */
-    '<div class="tit"><h2>Cadastro do cliente</h2>' +
-    '<button class="mini-btn" id="b-so-ficha">Só o contato</button></div></div>');
+    /* 12/11/2026: saiu o botão "Só o contato". Ele abria a MESMA folha de
+       ficha que o "+ Cadastrar cliente" da aba Clientes — que agora é a
+       terceira sub-aba, aqui do lado. Dois caminhos para a mesma tela, na
+       mesma aba, é só mais uma coisa para o atendente decidir. */
+    '<div class="tit"><h2>Cadastro do cliente</h2></div></div>');
   raiz.appendChild(cabeca);
 
   var caixa = document.createElement('div');
@@ -3181,10 +3205,6 @@ function pBalcao(raiz) {
     if (!res) return;                 /* fechou sem salvar */
     re(); B12.aposBalcao(res);
   }, caixa);
-
-  cabeca.querySelector('#b-so-ficha').onclick = function () {
-    B12.fichaCliente(null, function () { re(); });
-  };
 
   /* ---- 3. quem já passou hoje ---- */
   var b3 = bloco(
@@ -3197,7 +3217,11 @@ function pBalcao(raiz) {
     (deHoje.length
       ? '<div class="pessoas">' + deHoje.map(function (r) {
           var zap = (r.zap || '').replace(/\D/g, '');
-          return '<div class="pes"><div class="pes-cima"><div><b>' + esc(r.nome) + '</b>' +
+          /* 12/11/2026: a linha abre a ficha, e de lá sai o "Corrigir". Antes
+             só o botão do WhatsApp era clicável: o atendimento ficava gravado
+             e sem conserto. */
+          return '<div class="pes toca" data-abrir="' + r.id + '" role="button" tabindex="0">' +
+            '<div class="pes-cima"><div><b>' + esc(r.nome) + '</b>' +
             '<span class="pes-cod">' + r.cod + '</span></div>' +
             (zap ? '<div class="cons"><button type="button" class="con zap" data-bzap="' + zap +
               '" data-nome="' + esc(r.nome) + '" data-cod="' + r.cod + '" aria-label="WhatsApp">' +
@@ -3206,15 +3230,26 @@ function pBalcao(raiz) {
             '<span>' + (r.pax || 1) + (r.pax > 1 ? ' pessoas' : ' pessoa') + '</span>' +
             '<span>' + esc(r.destino || '') + '</span>' +
             (r.placa ? '<span>' + r.placa + '</span>' : '') +
-            '<span>' + esc(r.situacao) + '</span></div></div>'; }).join('') + '</div>'
-      : '<div class="cx" style="margin-top:0"><p>Ninguém atendido no balcão hoje ainda.</p></div>'));
+            '<span>' + esc(r.situacao) + '</span>' +
+            '<span class="pes-corrige">toque para corrigir</span></div></div>'; }).join('') + '</div>'
+      : '<div class="cx" style="margin-top:0"><p>Ninguém atendido no balcão hoje ainda.</p></div>') +
+    '<div class="ajuda" style="margin:10px 12px 0">De outro dia? Use a busca lá em cima: ' +
+    'código, nome, WhatsApp ou placa acham qualquer atendimento, de qualquer data.</div>');
   raiz.appendChild(b3);
 
   b3.querySelectorAll('[data-bzap]').forEach(function (b) {
-    b.onclick = function () {
+    b.onclick = function (ev) {
+      ev.stopPropagation();            /* o WhatsApp não abre a ficha junto */
       var txt = 'Oi, ' + String(b.dataset.nome || '').split(' ')[0] +
         '! Aqui é da Estação B12. O código da sua viagem é ' + b.dataset.cod + '.';
       window.open('https://wa.me/' + b.dataset.bzap + '?text=' + encodeURIComponent(txt), '_blank');
+    };
+  });
+  b3.querySelectorAll('[data-abrir]').forEach(function (l) {
+    function abre() { B12.fichaReserva(l.dataset.abrir, re); }
+    l.onclick = abre;
+    l.onkeydown = function (ev) {
+      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); abre(); }
     };
   });
 }

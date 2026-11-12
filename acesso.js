@@ -16,17 +16,54 @@ var B12 = window.B12 || {};
 
 (function () {
 
-var SESSAO = 'b12_sessao', ERROS = 'b12_pin_erros', BLOQ = 'b12_pin_bloq';
+var SESSAO = 'b12_sessao', ERROS = 'b12_pin_erros', BLOQ = 'b12_pin_bloq',
+    PINS   = 'b12_pins';
 var DURACAO = 12 * 60 * 60 * 1000;          /* 12 horas sem pedir de novo */
 var MAX_ERROS = 5, TEMPO_BLOQ = 60 * 1000;   /* 5 erros = 1 minuto de espera */
 
 B12.PIN_PADRAO = { dono: '2026', equipe: '1234' };   /* trocáveis em Ajustes */
 
+/* ------------------------------------------------------------- os dois PINs
+   12/11/2026. Até aqui os PINs moravam em `B12.DB.ajustes` — e `ajustes` é
+   uma das coleções que a sincronia manda para o banco, na tabela
+   `b12_ajustes`, que a equipe INTEIRA lê (política `ajustes_ler`, em
+   nuvem/01-esquema.sql). Ou seja: qualquer marinheiro com conta podia ler o
+   PIN do dono direto do Postgres, em texto aberto.
+
+   O PIN não é dado do negócio: é a tranca DESTE aparelho. Então mora numa
+   chave só dele, fora de tudo que sincroniza, fora da cópia de segurança e
+   fora do arquivo de exportação. Aparelho novo começa no PIN padrão e o dono
+   escolhe o dele — quem diz quem a pessoa é continua sendo a conta da nuvem,
+   em "Esqueci meu PIN". */
 function pins() {
-  var a = B12.DB && B12.DB.ajustes;
-  if (a && a.pins && a.pins.dono && a.pins.equipe) return a.pins;
+  try {
+    var p = JSON.parse(localStorage.getItem(PINS) || 'null');
+    if (p && p.dono && p.equipe) return p;
+  } catch (e) {}
   return B12.PIN_PADRAO;
 }
+function guardarPins(p) {
+  try {
+    localStorage.setItem(PINS, JSON.stringify({ dono: String(p.dono), equipe: String(p.equipe) }));
+    return true;
+  } catch (e) { return false; }
+}
+/* A MUDANÇA DE CASA, para quem já usa o app: o que estava em `ajustes` vem
+   para a chave nova e SAI de `ajustes`. Roda no B12.carregar (o banco deste
+   aparelho) e também em cada linha de ajustes que chega da nuvem — porque um
+   aparelho que ainda não atualizou continua mandando o campo velho, e a linha
+   que já está no banco hoje traz o PIN. Ninguém perde o PIN que escolheu: ele
+   só muda de lugar. */
+B12.pinsMigrar = function (a) {
+  a = a || (B12.DB && B12.DB.ajustes);
+  if (!a || !a.pins) return false;
+  var meus = null;
+  try { meus = JSON.parse(localStorage.getItem(PINS) || 'null'); } catch (e) {}
+  /* o PIN deste aparelho vale mais que o que chegou de fora */
+  if (!(meus && meus.dono && meus.equipe) && a.pins.dono && a.pins.equipe) guardarPins(a.pins);
+  delete a.pins;
+  return true;
+};
 
 /* ------------------------------------------------------------- sessão */
 B12.papel = function () {
@@ -70,7 +107,54 @@ function limpaErros() { try { localStorage.removeItem(ERROS); localStorage.remov
 
 /* Abre a tela de PIN. `papelMinimo` é 'equipe' ou 'dono'. `depois(papel)` roda
    quando a pessoa entra com um PIN que basta para aquela área. */
-B12.portao = function (papelMinimo, depois) {
+/* =========================================================== A ENTRADINHA
+   12/11/2026, pedido do Eugênio: "importante separar a área do Dhalsin, que é
+   o dono, do login de funcionário... tem que separar isso já ali na entradinha".
+
+   Até aqui havia UMA caixa de PIN e o papel saía de qual PIN a pessoa digitou.
+   Funcionava, mas era invisível: ninguém sabia que existiam dois acessos, e o
+   Dhalsin não tinha como explicar isso para a equipe apontando a tela.
+
+   Agora a porta pergunta primeiro QUEM está entrando, e cada porta só aceita
+   o PIN dela. Quem entra como funcionário não vê Financeiro nem Estação B12 —
+   e isso não é só a tela escondendo: com a nuvem ligada, o banco também não
+   entrega lançamento nem conta para quem não é dono (RLS). */
+B12.escolherPorta = function (depois) {
+  var antiga = document.getElementById('portao'); if (antiga) antiga.remove();
+  var f = document.createElement('div');
+  f.className = 'portao'; f.id = 'portao';
+  f.innerHTML =
+    '<div class="portao-cx">' +
+      '<div class="portao-selo">' + (B12.FAROL || '') + '</div>' +
+      '<h2>Quem está entrando?</h2>' +
+      '<p>Cada um tem o seu PIN. São áreas diferentes.</p>' +
+      '<div class="portas">' +
+        '<button type="button" class="porta" data-papel="dono">' +
+          '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21h18M5 21V8l7-5 7 5v13"/>' +
+          '<path d="M9 21v-6h6v6"/></svg>' +
+          '<b>Proprietário</b><small>Tudo, inclusive o dinheiro</small></button>' +
+        '<button type="button" class="porta" data-papel="equipe">' +
+          '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>' +
+          '<circle cx="12" cy="7" r="4"/></svg>' +
+          '<b>Funcionário</b><small>O dia a dia. Sem o financeiro.</small></button>' +
+      '</div>' +
+      '<button type="button" class="btn sec" id="porta-voltar">Voltar</button>' +
+    '</div>';
+  document.body.appendChild(f);
+  document.body.style.overflow = 'hidden';
+  function fechar() { f.remove(); document.body.style.overflow = ''; }
+  f.querySelector('#porta-voltar').onclick = function () { fechar(); B12.ir('inicio'); };
+  f.querySelectorAll('[data-papel]').forEach(function (b) {
+    b.onclick = function () {
+      var papel = b.dataset.papel;
+      fechar();
+      B12.portao(papel, depois, { exato: true });
+    };
+  });
+};
+
+B12.portao = function (papelMinimo, depois, opc) {
+  opc = opc || {};
   if (B12.pode(papelMinimo)) { if (depois) depois(B12.papel()); return; }
   var antiga = document.getElementById('portao'); if (antiga) antiga.remove();
 
@@ -97,7 +181,11 @@ B12.portao = function (papelMinimo, depois) {
 
   var campo = f.querySelector('#portao-pin'), erro = f.querySelector('#portao-erro');
   function fechar() { f.remove(); document.body.style.overflow = ''; }
-  f.querySelector('#portao-voltar').onclick = function () { fechar(); B12.ir('inicio'); };
+  f.querySelector('#portao-voltar').onclick = function () {
+    fechar();
+    /* veio da entradinha: volta para a escolha, não para fora do app */
+    if (opc.exato) B12.escolherPorta(depois); else B12.ir('inicio');
+  };
 
   /* ------------------------------------------------ esqueci meu PIN
      12/11/2026. Até aqui, PIN esquecido = ligar para quem instalou o app.
@@ -190,10 +278,13 @@ B12.portao = function (papelMinimo, depois) {
         nerro.hidden = false; e2.value = ''; e2.focus(); return;
       }
       var outro = pins();
-      B12.DB.ajustes.pins = papel === 'dono'
+      var gravou = guardarPins(papel === 'dono'
         ? { dono: a, equipe: outro.equipe }
-        : { dono: outro.dono, equipe: a };
-      B12.salvar();
+        : { dono: outro.dono, equipe: a });
+      if (!gravou) {
+        nerro.textContent = 'Não consegui guardar o PIN neste aparelho.';
+        nerro.hidden = false; return;
+      }
       B12.entrar(papel);
       fechar();
       if (depois) depois(papel);
@@ -212,11 +303,18 @@ B12.portao = function (papelMinimo, depois) {
     if (v && v === p.dono) papel = 'dono';
     else if (v && v === p.equipe) papel = 'equipe';
 
-    if (!papel || (papelMinimo === 'dono' && papel !== 'dono')) {
+    /* porta escolhida na entradinha: só o PIN dela entra. Sem isto a separação
+       seria só enfeite — o dono entraria pela porta do funcionário e a equipe
+       nunca entenderia que são dois acessos. */
+    var erradaDePorta = opc.exato && papel && papel !== papelMinimo;
+    if (!papel || erradaDePorta || (papelMinimo === 'dono' && papel !== 'dono')) {
       var travou = registraErro();
       campo.value = ''; campo.classList.remove('treme'); void campo.offsetWidth; campo.classList.add('treme');
-      erro.textContent = !papel ? (travou ? 'PIN errado cinco vezes. Espere um minuto.' : 'PIN incorreto.')
-                                : 'Este PIN é da equipe. Esta área é só do proprietário.';
+      erro.textContent = !papel
+        ? (travou ? 'PIN errado cinco vezes. Espere um minuto.' : 'PIN incorreto.')
+        : papel === 'dono'
+          ? 'Esse é o PIN do proprietário. Volte e entre pela porta dele.'
+          : 'Este PIN é da equipe. Esta área é só do proprietário.';
       erro.hidden = false; campo.focus();
       return;
     }
@@ -335,7 +433,8 @@ B12.formAjustes = function (depois) {
       if (d.pinEquipe && !/^\d{4,6}$/.test(d.pinEquipe)) return { erro: 'O PIN da equipe precisa ter de 4 a 6 números.' };
       var novoDono = d.pinDono || p.dono, novaEquipe = d.pinEquipe || p.equipe;
       if (novoDono === novaEquipe) return { erro: 'O PIN do proprietário não pode ser igual ao da equipe.' };
-      a.pins = { dono: novoDono, equipe: novaEquipe };
+      if (!guardarPins({ dono: novoDono, equipe: novaEquipe }))
+        return { erro: 'Não consegui guardar o PIN neste aparelho.' };
       a.grade = { ida: ida, volta: volta, vagas: Number(d.vagas) || B12.CAPACIDADE };
       a.patio = { regra: d.patioRegra === '24h' ? '24h' : 'dia',
                   tolerancia: Math.max(0, Number(d.patioTol) || 0),

@@ -32,8 +32,11 @@ eh('conta que não é do dono NÃO abre a área do dono',
 eh('o PIN atual nunca é mostrado nem enviado',
    !/PIN atual|seu PIN é|pins\(\)\.dono *\+/.test(codigo));
 eh('a sessão só é aberta DEPOIS de guardar o PIN novo',
-   src.indexOf('B12.DB.ajustes.pins =') < src.lastIndexOf("B12.entrar(papel)"),
+   /var gravou = guardarPins\([\s\S]{0,400}?B12\.entrar\(papel\)/.test(src),
    'entrar antes de gravar deixaria a porta aberta com o PIN velho');
+eh('e o PIN novo é gravado no aparelho, não no banco que sincroniza',
+   /guardarPins\(/.test(codigo) && !/B12\.DB\.ajustes\.pins *=/.test(codigo),
+   'ver testes/segredo.test.js: ajustes vai para a nuvem e a equipe toda lê');
 eh('as tentativas erradas continuam travando',
    /registraErro\(\)/.test(src) && /MAX_ERROS/.test(src));
 eh('acertar limpa o contador de erro', /limpaErros\(\)/.test(src));

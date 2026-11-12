@@ -15,7 +15,7 @@ var B12 = window.B12 || {};
 /* ---------------------------------------------------------------- identidade */
 /* o cofre: o servidor da Ti Artes que guarda a chave da IA. Vazio = assistente
    desligado (o app continua funcionando igual, só sem o chat). */
-B12.VERSAO = 'b12-v2.0.2';   /* tem que bater com o CACHE do sw.js */
+B12.VERSAO = 'b12-v2.0.9';   /* tem que bater com o CACHE do sw.js */
 
 B12.IA = { cofre: 'https://uopfqlogjzuqpabptxkb.supabase.co/functions/v1/cofre',
            modelo: 'claude-haiku-4-5' };
@@ -422,7 +422,7 @@ B12.CREDITOS = [
 
 /* ------------------------------- categorias do financeiro (lista do briefing) */
 B12.ENTRADAS = ['Travessias','Passeios','Estacionamento','Bar e loja','Comissões de hospedagem','Outras receitas'];
-B12.SAIDAS   = ['Combustível','Manutenção','Operação/marinheiros','Impostos e taxas',
+B12.SAIDAS   = ['Combustível','Manutenção','Operação/marinheiros','Refeição','Impostos e taxas',
                 'Despesas administrativas','Compras e fornecedores','Outras despesas'];
 B12.CENTROS  = ['Lancha','Receptivo B12','Estacionamento','Administrativo'];
 
