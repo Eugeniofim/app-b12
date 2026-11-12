@@ -15,7 +15,7 @@ var B12 = window.B12 || {};
 /* ---------------------------------------------------------------- identidade */
 /* o cofre: o servidor da Ti Artes que guarda a chave da IA. Vazio = assistente
    desligado (o app continua funcionando igual, só sem o chat). */
-B12.VERSAO = 'b12-v1.90.0';   /* tem que bater com o CACHE do sw.js */
+B12.VERSAO = 'b12-v1.91.0';   /* tem que bater com o CACHE do sw.js */
 
 B12.IA = { cofre: 'https://uopfqlogjzuqpabptxkb.supabase.co/functions/v1/cofre',
            modelo: 'claude-haiku-4-5' };
@@ -504,14 +504,9 @@ B12.HIST_DESPESAS = [
 ["2019-06",400],["2019-07",2128],["2019-08",2326],["2021-05",50],["2021-06",1508]
 ];
 
-/* maiores despesas nomeadas na planilha — usado no relatório de despesas */
-B12.DESP_MAIORES = [
-  ['Salário marinheiro',26650],['Aluguel Estação B12',21000],['Celular',4995],
-  ['Lavagem da lancha',4350],['Marina Michel (4× lavagem)',4050],
-  ['Peças, o-rings, retentores, óleos',3305],['GPS',2560],['Toldo',2500],['Guincho',2200],
-  ['Óleos, filtros, correia dentada',2083],['Sinal do motor 225 HP',2000],
-  ['Mão de obra lancha',3700]
-];
+/* 12/11/2026 — a lista das maiores despesas da planilha de 2015-2025 foi
+   apagada a pedido do Dhalsin: "pra não craudear". O histórico de VENDA
+   (travessia) e o de pátio continuam, que é o que ele mandou guardar. */
 
 /* origem do cliente, como está na planilha (a coluna "Cliente") */
 B12.HIST_ORIGEM = [

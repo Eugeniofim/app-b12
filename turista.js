@@ -978,9 +978,9 @@ B12.abrirCreditos = function () {
     corpo: '<p style="font-size:13px;color:var(--tinta-2);margin-top:10px">As fotos dos lugares são ilustrativas e ' +
       'ficam no protótipo até a B12 mandar as dela. Cada uma leva o nome de quem fotografou e a licença.</p>' +
       '<table class="tabela" style="margin-top:10px">' + B12.CREDITOS.map(function (c) {
-        return '<tr><td><b>' + c.a.replace('.jpg','') + '</b><div style="font-size:11.5px;color:var(--tinta-3)">' +
+        return '<tr><td><b>' + c.a.replace('.jpg','') + '</b><div style="font-size:12px;color:var(--tinta-3)">' +
           c.autor + '</div></td><td class="n"><a href="' + c.url + '" target="_blank" rel="noopener" ' +
-          'style="color:var(--turq-600);font-size:11.5px">' + c.lic + '</a></td></tr>'; }).join('') + '</table>',
+          'style="color:var(--turq-600);font-size:12px">' + c.lic + '</a></td></tr>'; }).join('') + '</table>',
     acao: 'Fechar', aoSalvar: function () { return {}; }
   });
 };
@@ -1473,10 +1473,10 @@ B12.pintarEquipe = function () {
     '<p>Quem opera vê o dia, os passageiros e o contato. <b>Não vê nada de dinheiro</b> — ' +
     'isso é trava no banco, não é só tela escondida.</p></div>' +
     '<div class="grade2 entra entra-1" style="margin:12px">' +
-    '<div class="cx" style="margin:0"><div style="font-size:10px;letter-spacing:.08em;' +
+    '<div class="cx" style="margin:0"><div style="font-size:12px;letter-spacing:.08em;' +
     'text-transform:uppercase;color:var(--tinta-3);font-weight:700">Saídas hoje</div>' +
     '<div style="font-size:24px;font-weight:750;margin-top:4px">' + idas.length + '</div></div>' +
-    '<div class="cx" style="margin:0"><div style="font-size:10px;letter-spacing:.08em;' +
+    '<div class="cx" style="margin:0"><div style="font-size:12px;letter-spacing:.08em;' +
     'text-transform:uppercase;color:var(--tinta-3);font-weight:700">Passageiros</div>' +
     '<div style="font-size:24px;font-weight:750;margin-top:4px">' + pax + '</div></div></div>' +
     naIlhaEquipe() +

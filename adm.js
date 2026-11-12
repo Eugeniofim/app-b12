@@ -1019,7 +1019,7 @@ function pCaixa(raiz) {
       lin('Reserva de baixa temporada', -r.reservaMinima) +
       '<tr><td style="font-weight:750">Folga para retirada</td><td class="n" style="color:' +
       (r.seguro>0?C.turq3:C.ruim) + '">' + B12.brl(r.seguro) + '</td></tr></table>' +
-      '<p style="font-size:11.5px;color:var(--gelo-3);margin-top:10px">A reserva mínima está em ' +
+      '<p style="font-size:12px;color:var(--gelo-3);margin-top:10px">A reserva mínima está em ' +
       B12.brl(r.reservaMinima) + ' porque janeiro faz dez vezes junho. O valor certo é o que o ' +
       'Dhalsin considerar intocável — é uma pergunta aberta.</p>';
   }
@@ -1175,7 +1175,7 @@ function blocoRelatorio(raiz) {
     '<p class="ajuda" style="margin-top:10px">Mostrando: <b>' + esc(nome) + '</b></p></div>' +
 
     '<div class="faixa-sec"><div class="tit"><h2>No app</h2>' +
-    '<span style="font-size:11.5px;color:var(--gelo-3)">' + r.lancamentos + ' lançamentos</span>' +
+    '<span style="font-size:12px;color:var(--gelo-3)">' + r.lancamentos + ' lançamentos</span>' +
     '</div></div>' +
     '<div class="placar entra entra-1" style="margin-top:0">' +
       tile(r.entradas, 'Entradas', 'brl', 'destaque') +
@@ -1194,7 +1194,7 @@ function blocoRelatorio(raiz) {
       : '<div class="cx entra entra-2"><p>Nenhum lançamento neste recorte.</p></div>') +
 
     '<div class="faixa-sec"><div class="tit"><h2>Na planilha antiga</h2>' +
-    '<span style="font-size:11.5px;color:var(--gelo-3)">' + h.meses +
+    '<span style="font-size:12px;color:var(--gelo-3)">' + h.meses +
     (h.meses === 1 ? ' mês' : ' meses') + '</span></div></div>' +
     (h.meses
       ? '<div class="placar entra entra-3" style="margin-top:0">' +
@@ -1254,7 +1254,7 @@ function pRelat(raiz) {
     '<tr><td style="font-weight:750">Total</td><td class="n">' + B12.brl(r.entradas) +
     '</td><td></td><td class="n" style="color:' + C.ruim + '">− ' + B12.brl(r.taxa) + '</td></tr>' +
     '</table></div>' +
-    '<p style="font-size:11.5px;margin-top:9px">As taxas usadas são de mercado. Trocar pelas ' +
+    '<p style="font-size:12px;margin-top:9px">As taxas usadas são de mercado. Trocar pelas ' +
     'reais da maquininha dele é um campo em Ajustes.</p></div>'
   ));
   /* de onde vêm os clientes — dado REAL */
@@ -1283,16 +1283,9 @@ function pRelat(raiz) {
         '<td class="n" style="color:var(--gelo-3)">' + Math.round(c.v/r.entradas*100) + '%</td></tr>';
     }).join('') + '</table></div>'));
 
-  /* despesas reais nomeadas */
-  var d = document.createElement('div'); d.className = 'cx entra entra-3';
-  d.innerHTML = '<h3>Maiores despesas do histórico <span class="selo-demo selo-real">dado real</span></h3>' +
-    '<p>Somadas das 443 despesas lançadas na planilha, que totalizam ' +
-    B12.brl(236570) + '.</p>' +
-    '<div class="rolagem"><table class="tabela" style="margin-top:10px">' +
-    B12.DESP_MAIORES.map(function (x) {
-      return '<tr><td>' + x[0] + '</td><td class="n">' + B12.brl(x[1]) + '</td></tr>'; }).join('') +
-    '</table></div>';
-  raiz.appendChild(d);
+  /* 12/11/2026 — a lista das maiores despesas da planilha antiga saiu a
+     pedido dele. O que importa agora é a despesa DESTE mês, que já está no
+     Financeiro, e não a de 2018. */
 }
 
 /* ---------------------------------------------------------------- OPERAÇÃO */
@@ -1300,24 +1293,18 @@ function pOper(raiz) {
   var hoje = B12.hoje();
   var idas = B12.saidasDoDia(hoje,'ida'), voltas = B12.saidasDoDia(hoje,'volta');
   var pax = idas.reduce(function(s,x){return s+x.ocupadas;},0);
-  var comb = B12.COMB_TOTAL;
+  /* 12/11/2026 — a tabela de abastecimento de 2015 a 2021 saiu daqui a pedido
+     dele. A ficha da lancha fica: é o que a equipe precisa saber de cabeça. */
   raiz.appendChild(bloco(
     '<div class="placar entra">' +
       tile(idas.length,'Saídas hoje','n') + tile(pax,'Passageiros','n') +
       tile(voltas.length,'Retornos','n') +
     '</div>' +
-    '<div class="cx entra entra-1"><h3>Lancha 01 <span class="selo-demo selo-real">combustível real</span></h3>' +
+    '<div class="cx entra entra-1"><h3>Lancha 01</h3>' +
     '<div class="rolagem"><table class="tabela" style="margin-top:8px">' +
     '<tr><td>Motor</td><td class="n">225 HP</td></tr>' +
     '<tr><td>Capacidade</td><td class="n">12 passageiros</td></tr>' +
-    '<tr><td>Abastecimentos no histórico</td><td class="n">' + B12.n(comb.linhas) + '</td></tr>' +
-    '<tr><td>Litros queimados</td><td class="n">' + B12.n(comb.litros) + ' L</td></tr>' +
-    '<tr><td>Gasto com combustível</td><td class="n">' + B12.brl(comb.valor) + '</td></tr>' +
-    '<tr><td>Preço médio do litro</td><td class="n">R$ ' +
-      comb.precoLitro.toFixed(2).replace('.',',') + '</td></tr>' +
-    '</table></div>' +
-    '<p style="font-size:11.5px;margin-top:9px">O preço médio é de 2015 a 2021, que é o período ' +
-    'em que a aba Combustível foi preenchida. Hoje o litro está bem acima disso.</p></div>'
+    '</table></div></div>'
   ));
   raiz.appendChild(bloco('<div class="faixa-sec"><div class="tit"><h2>Saídas de hoje</h2>' +
     '<button>Ida</button></div></div>'));
@@ -1361,13 +1348,13 @@ function pProsp(raiz) {
         'font-size:13px;margin-bottom:5px"><span>' + f[0] + '</span><b class="num">' + B12.n(f[1]) +
         '</b></div><div class="medidor"><i style="width:' + (f[1]/funil[0][1]*100).toFixed(1) +
         '%;background:' + f[2] + '"></i></div>' +
-        (i ? '<div style="font-size:10.5px;color:var(--gelo-3);margin-top:4px">' +
+        (i ? '<div style="font-size:12px;color:var(--gelo-3);margin-top:4px">' +
           (f[1]/funil[i-1][1]*100).toFixed(1).replace('.',',') + '% de quem estava no passo anterior</div>' : '') +
         '</div>'; }).join('') +
     '<div style="display:flex;justify-content:space-between;padding-top:12px;' +
     'border-top:1px solid var(--noite-risco);font-size:18px;font-weight:750">' +
     '<span>Vendeu</span><span style="color:' + C.turq3 + '">' + B12.brl(5580) + '</span></div>' +
-    '<p style="font-size:11.5px;color:var(--gelo-3);margin-top:8px">Custo por reserva: ' +
+    '<p style="font-size:12px;color:var(--gelo-3);margin-top:8px">Custo por reserva: ' +
     B12.brl(0) + ' — a notificação é do próprio app, não é anúncio pago.</p></div>' +
     '<div class="cx entra entra-2"><h3>O que o app consegue saber</h3>' +
     '<div class="rolagem"><table class="tabela" style="margin-top:6px">' +
@@ -1404,7 +1391,7 @@ function pIntel(raiz) {
     '<div style="margin-top:10px">' + B12.diagnostico().map(function (f) {
       return '<p style="font-size:13.5px;line-height:1.55;padding:7px 0;border-bottom:' +
         '1px solid var(--noite-risco)">' + f + '</p>'; }).join('') + '</div>' +
-    '<p style="font-size:11.5px;color:var(--gelo-3);margin-top:10px">Este texto é montado por ' +
+    '<p style="font-size:12px;color:var(--gelo-3);margin-top:10px">Este texto é montado por ' +
     'conta, lendo os lançamentos. A versão que escreve em linguagem livre usa inteligência ' +
     'artificial e entra numa fase à parte, com a chave do próprio dono.</p></div>' +
     '<div class="placar entra entra-1">' +
@@ -1556,7 +1543,7 @@ function pClientes(raiz) {
       (c.pousada ? '<br>' + esc(c.pousada) : '') +
       (c.origem === 'app' ? ' <span class="pilula dentro">pelo app</span>' : '') + '</small></div>' +
       '<div style="text-align:right"><div class="v">' + B12.brl(x.gasto) + '</div>' +
-      '<small style="font-size:10.5px;color:var(--gelo-3)">' + x.viagens +
+      '<small style="font-size:12px;color:var(--gelo-3)">' + x.viagens +
       (x.viagens === 1 ? ' viagem' : ' viagens') +
       (fid.ligada && x.pontos > 0 ? ' · ' + x.pontos + ' pts' : '') +
       '</small></div></div>';
@@ -1651,7 +1638,7 @@ function pPatio(raiz) {
       '<br>entrou ' + B12.dataBR(v.entrada) + (v.entradaEm ? ' às ' + B12.horaBR(v.entradaEm) : '') +
       (v.saidaPrevista ? ' · sai ' + B12.dataBR(v.saidaPrevista) : '') + '</small></div>' +
       '<div style="text-align:right"><div class="v">' + B12.brl(c.resta) + '</div>' +
-      '<small style="font-size:10px;color:var(--gelo-3)">' + (c.resta ? 'a cobrar · ' : 'quitado · ') +
+      '<small style="font-size:12px;color:var(--gelo-3)">' + (c.resta ? 'a cobrar · ' : 'quitado · ') +
       'toque para dar saída</small></div></div>';
   }).join('') : '<div class="vazio"><b>Pátio vazio</b>' +
     '<p>Quando um carro entrar, registre a placa aqui e o app cobra sozinho na saída.</p></div>';
@@ -1677,7 +1664,6 @@ function pPatio(raiz) {
 /* ============================================================ MANUTENÇÃO */
 function pManut(raiz) {
   var M = B12.DB.manutencoes, r = B12.resumoManutencao(), inv = B12.resumoInvestimento();
-  var comb = B12.COMB_TOTAL;
   raiz.appendChild(bloco(
     '<div class="placar entra">' +
       tile(r.total,'Gasto em manutenção','brl') +
@@ -1701,8 +1687,8 @@ function pManut(raiz) {
     '<div class="cx nota"><h3>Por que separar investimento de manutenção</h3>' +
     '<p>Trocar óleo é custo de operar: sai do lucro do mês. Comprar um motor, um toldo ou um ' +
     'GPS é investimento: fica no barco e não deveria derrubar o resultado daquele mês. ' +
-    'Nas suas despesas antigas isso está tudo junto — março de 2019 aparece com R$ 23.500, ' +
-    'quatro vezes qualquer outro mês, quase certamente por causa de uma compra grande.</p></div>'));
+    'Por isso cada lançamento aqui escolhe um dos dois: o que é conserto pesa no mês, ' +
+    'o que é investimento fica no barco.</p></div>'));
 
   raiz.appendChild(bloco('<div class="faixa-sec"><div class="tit"><h2>Histórico</h2></div></div>'));
   var l = document.createElement('div'); l.className = 'lista';
@@ -1717,15 +1703,6 @@ function pManut(raiz) {
     '<p>Cada conserto, revisão ou equipamento novo entra aqui e vira saída no financeiro sozinho.</p></div>';
   raiz.appendChild(l);
 
-  raiz.appendChild(bloco(
-    '<div class="cx"><h3>Combustível no histórico <span class="selo-demo selo-real">dado real</span></h3>' +
-    '<div class="rolagem"><table class="tabela" style="margin-top:8px">' +
-    '<tr><td>Abastecimentos</td><td class="n">' + B12.n(comb.linhas) + '</td></tr>' +
-    '<tr><td>Litros</td><td class="n">' + B12.n(comb.litros) + ' L</td></tr>' +
-    '<tr><td>Total gasto</td><td class="n">' + B12.brl(comb.valor) + '</td></tr>' +
-    '<tr><td>Preço médio do litro</td><td class="n">R$ ' +
-      comb.precoLitro.toFixed(2).replace('.',',') + '</td></tr>' +
-    '</table></div></div>'));
 }
 
 
@@ -1753,7 +1730,7 @@ function pGestao(raiz) {
     '<div class="medidor' + (pe.coberto ? '' : ' aviso') + '" style="margin-top:12px">' +
     '<i style="width:' + Math.min(100, pe.receitaAtual / (pe.receitaNecessaria||1) * 100).toFixed(1) +
     '%"></i></div>' +
-    '<div style="display:flex;justify-content:space-between;font-size:11.5px;margin-top:6px;' +
+    '<div style="display:flex;justify-content:space-between;font-size:12px;margin-top:6px;' +
     'color:var(--gelo-3)"><span>' + B12.brl(pe.receitaAtual) + ' faturado</span>' +
     '<span>empata em ' + B12.brl(pe.receitaNecessaria) + '</span></div></div>' +
     '<div class="grade2 entra entra-1">' +
@@ -1788,17 +1765,19 @@ function pGestao(raiz) {
       '</table></div>'));
   }
 
-  /* ---------- 3. custo de combustível por passageiro ---------- */
+  /* ---------- 3. custo de combustível por passageiro ----------
+     12/11/2026 — o Dhalsin mandou tirar do app os históricos de combustível
+     e de gasto com a lancha: "pra não craudear". O número do MÊS fica, porque
+     é decisão de hoje; a tabela de onze anos de abastecimento saiu. */
   raiz.appendChild(bloco(
     '<div class="grade2 entra entra-3">' +
       mini('Combustível por passageiro', B12.brl(Math.round(cpp.mes)), 'neste mês') +
-      mini('No histórico', B12.brl(Math.round(cpp.historico)),
-        '41.090 passageiros, 50.784 litros') +
+      mini('Quanto sobra de cada real', (pe.margemContribuicao*100).toFixed(0) + '%',
+        'depois do custo que varia') +
     '</div>' +
     '<div class="cx entra entra-3"><h3>Por que este número importa</h3>' +
-    '<p>É o único custo que cresce a cada passageiro. Se ele subir e o preço não, a margem ' +
-    'some sem ninguém perceber. No histórico da B12 dá ' +
-    B12.brl(Math.round(cpp.historico)) + ' de combustível por pessoa transportada.</p></div>'
+    '<p>É o único custo que cresce a cada passageiro. Se ele subir e o preço não, ' +
+    'a margem some sem ninguém perceber.</p></div>'
   ));
 
   /* ---------- 4. acumulado do ano contra o ano anterior ---------- */
@@ -2144,7 +2123,7 @@ function pEscala(raiz) {
         return '<div class="cx" style="margin:0 0 9px;padding:12px;background:var(--noite-3)">' +
           '<div style="display:flex;gap:10px;align-items:flex-start">' +
           '<span class="tag">' + r.cod + '</span><div style="flex:1;min-width:0">' +
-          '<b>' + r.nome + '</b><div style="font-size:11.5px;color:var(--gelo-3);margin-top:2px">' +
+          '<b>' + r.nome + '</b><div style="font-size:12px;color:var(--gelo-3);margin-top:2px">' +
           r.pax + (r.pax > 1 ? ' pessoas' : ' pessoa') + ' · ' + r.destino + ' · ' + B12.dataBR(r.ida) +
           (r.volta ? ' a ' + B12.dataBR(r.volta) : '') + ' · ' + r.faixa +
           (r.placa ? ' · 🚗 ' + r.placa : '') + (r.total != null ? ' · ' + B12.brl(r.total) : '') +
@@ -2222,7 +2201,7 @@ function pEscala(raiz) {
 
 function desenhaSentido(raiz, titulo, lista, dia, sentido) {
   raiz.appendChild(bloco('<div class="faixa-sec"><div class="tit"><h2>' + titulo + '</h2>' +
-    '<span style="font-size:11.5px;color:var(--gelo-3)">' + lista.length +
+    '<span style="font-size:12px;color:var(--gelo-3)">' + lista.length +
     (lista.length === 1 ? ' saída' : ' saídas') + '</span></div></div>'));
   if (!lista.length) {
     raiz.appendChild(bloco('<div class="vazio" style="padding:26px"><b>Nenhuma saída marcada</b>' +
@@ -2236,7 +2215,7 @@ function desenhaSentido(raiz, titulo, lista, dia, sentido) {
       '<div style="display:flex;align-items:center;gap:12px">' +
       '<div class="horario">' + s.hora + '</div>' +
       '<div style="flex:1;min-width:0"><b style="font-size:14.5px">' + s.destino + '</b>' +
-      '<div style="font-size:11.5px;color:var(--gelo-3);margin-top:2px">' +
+      '<div style="font-size:12px;color:var(--gelo-3);margin-top:2px">' +
       (s.marinheiro ? s.marinheiro + ' · ' : '') + x.pax + ' de ' + s.vagas + ' lugares</div>' +
       '<div class="medidor" style="margin-top:7px"><i style="width:' +
       Math.min(100, cheio*100).toFixed(0) + '%;background:' +
@@ -2659,12 +2638,12 @@ function pDados(raiz) {
     '<button type="button" class="btn sec" id="b-json">Baixar a cópia completa (.json)</button>' +
     '<label class="btn sec arquivo" for="i-json">Restaurar de um arquivo' +
     '<input type="file" id="i-json" accept=".json,application/json"></label>' +
-    '<h4 style="margin-top:16px;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--gelo-3)">Cópias automáticas neste aparelho</h4>' +
+    '<h4 style="margin-top:16px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--gelo-3)">Cópias automáticas neste aparelho</h4>' +
     '<p style="font-size:12px;margin:4px 0 8px">O app guarda sozinho até 12 cópias, e nunca deixa uma cópia vazia apagar uma cheia.</p>' +
     (cofre.length ? '<table class="tabela">' + cofre.map(function (c, i) {
       var d = new Date(c.em);
       return '<tr><td><b>' + B12.dataBR(c.dia) + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') +
-        '</b><div style="font-size:11.5px;color:var(--gelo-3)">' + c.peso + ' registros · ' + (c.motivo === 'mao' ? 'antes de restaurar' : 'automática') + '</div></td>' +
+        '</b><div style="font-size:12px;color:var(--gelo-3)">' + c.peso + ' registros · ' + (c.motivo === 'mao' ? 'antes de restaurar' : 'automática') + '</div></td>' +
         '<td class="n"><button type="button" class="mini-btn" data-cofre="' + i + '">Voltar para esta</button></td></tr>'; }).join('') + '</table>'
       : '<p style="font-size:12px;color:var(--gelo-3)">Ainda não há cópias.</p>') +
     '</div>'
@@ -2734,11 +2713,11 @@ function pPrecos(raiz) {
     '</div>' +
 
     '<div class="cx entra entra-1"><h3>Travessia</h3>' +
-    '<table class="tabela"><tr><td><b>Travessia regular</b><div style="font-size:11.5px;color:var(--gelo-3)">lancha compartilhada · por pessoa, por trecho</div></td>' +
+    '<table class="tabela"><tr><td><b>Travessia regular</b><div style="font-size:12px;color:var(--gelo-3)">lancha compartilhada · por pessoa, por trecho</div></td>' +
     '<td class="n">' + B12.brl(A.regular) + '</td></tr>' +
     ['dia','tarde','noite'].map(function (k) {
-      return '<tr><td><b>Náutico Premium · ' + k + '</b><div style="font-size:11.5px;color:var(--gelo-3)">' + T[k].de + ' às ' + T[k].ate +
-        ' · até 3 pessoas fixo, depois por pessoa</div></td><td class="n">' + B12.brl(T[k].fixo) + '<div style="font-size:11.5px;color:var(--gelo-3)">' +
+      return '<tr><td><b>Náutico Premium · ' + k + '</b><div style="font-size:12px;color:var(--gelo-3)">' + T[k].de + ' às ' + T[k].ate +
+        ' · até 3 pessoas fixo, depois por pessoa</div></td><td class="n">' + B12.brl(T[k].fixo) + '<div style="font-size:12px;color:var(--gelo-3)">' +
         B12.brl(T[k].pessoa) + '/pessoa</div></td></tr>'; }).join('') +
     '<tr><td>Criança não paga até</td><td class="n">' + A.idadeCortesia + ' anos</td></tr>' +
     '<tr><td>Desconto no dinheiro</td><td class="n">' + String(Math.round((A.descDinheiro || 0) * 100)) + '%</td></tr></table>' +
@@ -2756,7 +2735,7 @@ function pPrecos(raiz) {
     '<div class="cx entra entra-2"><h3>Passeios</h3>' +
     '<table class="tabela">' + P.map(function (p) {
       return '<tr' + (p.ativo ? '' : ' style="opacity:.55"') + '><td><b>' + p.nome + '</b>' + (p.ativo ? '' : ' <span class="selo-demo">escondido</span>') +
-        '<div style="font-size:11.5px;color:var(--gelo-3)">' + p.dur + (p.extra ? ' · criado por você' : '') +
+        '<div style="font-size:12px;color:var(--gelo-3)">' + p.dur + (p.extra ? ' · criado por você' : '') +
         (p.precoCrianca != null ? ' · criança ' + B12.brl(p.precoCrianca) : '') + '</div></td>' +
         '<td class="n">' + B12.brl(p.preco) + '<div style="margin-top:6px;display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap">' +
         '<button type="button" class="mini-btn" data-editar="' + p.id + '">Editar</button>' +
@@ -3281,7 +3260,7 @@ function pAgenda(raiz) {
   function grupo(titulo, lista, vazio, atrasada) {
     if (!lista.length && !vazio) return '';
     return '<div class="faixa-sec"><div class="tit"><h2>' + titulo + '</h2>' +
-      '<span style="font-size:11.5px;color:var(--gelo-3)">' + lista.length + '</span></div></div>' +
+      '<span style="font-size:12px;color:var(--gelo-3)">' + lista.length + '</span></div></div>' +
       (lista.length
         ? '<div class="tarefas">' + lista.map(function (t) { return linha(t, atrasada); }).join('') + '</div>'
         : '<div class="cx" style="margin-top:0"><p>' + vazio + '</p></div>');
