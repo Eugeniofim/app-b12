@@ -112,7 +112,8 @@ p{margin:0}
 .logo{width:auto;display:block;color:currentColor}
 .marca .logo{height:52px;color:#fff;filter:drop-shadow(0 2px 10px rgba(0,0,0,.45))}
 @media (min-width:420px){ .marca .logo{height:58px} }
-.logo-adm{height:30px;color:#fff;opacity:.95;margin-bottom:10px}
+.logo-adm{height:22px;color:#fff;opacity:.95;margin-bottom:4px}
+@media (min-width:720px){ .logo-adm{height:30px;margin-bottom:10px} }
 .ticket-marca{display:block;position:relative}
 .ticket-marca .logo{height:32px;margin:0 auto 12px;color:#fff;opacity:.96}
 .portao-selo .farol-marca{height:100%;width:auto;display:block;color:#fff;fill:currentColor}
@@ -346,14 +347,25 @@ body.adm .linha .d small{color:var(--gelo-3)}
 .vazio p{font-size:13.5px;color:var(--tinta-3);margin-bottom:16px}
 
 /* =================================================================== ADM */
-.adm-topo{position:relative;overflow:hidden;padding:14px 16px 18px;color:#fff}
+/* 12/11/2026 — MEDIDO: no celular, a tela do balcão gastava 578 dos 812
+   pixels (71%) antes do primeiro campo, e 264 deles eram só este cabeçalho:
+   logo grande, "Painel do proprietário" e a frase explicando que a equipe
+   não entra. Isso é identidade, e identidade quem precisa é visita — não
+   quem está atendendo uma fila com o dedo no vidro.
+
+   O cabeçalho encolheu: logo menor, título numa linha só, a frase some no
+   celular (continua no computador, onde sobra espaço) e menos respiro em
+   volta. O que ficou foi o que serve no balcão: quem sou eu, o botão de
+   sair, e a BUSCA — que é como se acha quem chegou. */
+.adm-topo{position:relative;overflow:hidden;padding:10px 16px 12px;color:#fff}
 .adm-topo>.oceano{position:absolute;inset:0;opacity:.55}   /* precisa vencer o .adm-topo>* abaixo */
 .adm-topo::before{content:'';position:absolute;inset:0;background:linear-gradient(160deg,
   rgba(6,23,38,.92),rgba(11,42,74,.72))}
 .adm-topo>*:not(canvas){position:relative}
 .adm-topo .rot{font-size:12px;letter-spacing:.2em;text-transform:uppercase;opacity:.72;font-weight:700}
-.adm-topo h2{font-size:20px;margin-top:3px}
-.adm-topo p{font-size:12px;opacity:.78;margin-top:3px}
+.adm-topo h2{font-size:17px;margin-top:1px;line-height:1.15}
+.adm-topo p{font-size:12px;opacity:.78;margin-top:2px;display:none}}
+@media (min-width:720px){ .adm-topo p{display:block} }
 
 /* a tira de abas: o esmaecido na direita avisa que tem mais coisa para o lado */
 .abas{display:flex;gap:8px;overflow-x:auto;padding:11px 12px;scrollbar-width:none;
@@ -1279,7 +1291,7 @@ body:not(.adm) .ia-sug{background:var(--carta);border-color:var(--risco);color:v
 /* ------------------------------------------------ a lupa do painel (reserva)
    Fica no topo do ADM, visível em qualquer aba: no balcão a pessoa tem o
    voucher na mão e o caminho mais curto é digitar o código. */
-.lupa{display:flex;align-items:center;gap:9px;margin-top:12px;
+.lupa{display:flex;align-items:center;gap:9px;margin-top:9px;
   background:rgba(255,255,255,.14);border:1.5px solid rgba(255,255,255,.22);
   border-radius:var(--r-m);padding:0 12px;transition:border-color .18s,background .18s}
 .lupa:focus-within{border-color:var(--turq-300);background:rgba(255,255,255,.2)}
@@ -1780,3 +1792,22 @@ body.adm .ca-total{border-top-color:var(--noite-risco);color:#fff}
   border-radius:8px}
 body.adm :where(button, a, input, select, textarea, summary, [tabindex]):focus-visible{
   outline-color:var(--turq-400)}
+/* 12/11/2026 — a faixa "PROPRIETÁRIO · ⚙ · ? · Sair" é `position:absolute`
+   e estava CAINDO EM CIMA DO LOGO no celular (medido: sobreposição de 12px).
+   Passava despercebido porque o logo é claro sobre fundo escuro.
+
+   No celular ela entra na fila normal, encostada à direita, e o título
+   "Painel do proprietário" sai — a etiqueta PROPRIETÁRIO já diz isso, e
+   aqui cada linha a menos é um campo a mais visível no balcão. No
+   computador tudo volta ao que era, porque lá sobra espaço. */
+@media (max-width:719px){
+  /* `.adm-topo>*:not(canvas){position:relative}` ganha de `.adm-quem` na
+     conta de especificidade, então a faixa ficava RELATIVA com top:12px —
+     o que a desce 12px por cima do logo sem abrir espaço para ela. Daí a
+     sobreposição. Por isso o seletor abaixo é `.adm-topo > .adm-quem`, que
+     ganha, e por isso ele zera top e right além da posição. */
+  .adm-topo > .adm-quem{position:static;top:auto;right:auto;
+    justify-content:flex-end;margin-bottom:4px}
+  .adm-topo h2{display:none}
+  .logo-adm{height:20px;margin-bottom:2px}
+

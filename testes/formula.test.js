@@ -65,5 +65,16 @@ eh('19 nenhum fetch solto sem prazo', (function () {
       return (t.match(/fetch\(/g) || []).length <= (t.match(/AbortController/g) || []).length; });
 })(), 'chamada sem prazo deixa a tela girando com sinal fraco');
 
+console.log('\n— letra e cabeçalho de balcão (12/11/2026) —');
+const semCom = css.replace(/\/\*[\s\S]*?\*\//g, ' ');
+const peq = (semCom.match(/font-size:\s*([0-9.]+)px/g) || [])
+  .map(x => parseFloat(x.replace(/[^0-9.]/g, ''))).filter(v => v < 12);
+eh('18 nenhum texto de tela abaixo de 12px (fora selo e etiqueta)',
+   peq.every(v => v >= 11) && peq.length <= 6,
+   'o balcão da B12 é em pé, ao sol: ' + peq.length + ' regras pequenas, menor = ' + Math.min(...peq, 99));
+eh('19 a faixa do papel não cai em cima do logo no celular',
+   /\.adm-topo > \.adm-quem\{position:static;top:auto;right:auto/.test(semCom),
+   'sem `.adm-topo > .adm-quem` o seletor genérico `.adm-topo>*` ganha e volta o top:12px');
+
 console.log('\n' + (falhou ? '✗ ' : '✓ ') + ok + ' passaram, ' + falhou + ' falharam\n');
 process.exit(falhou ? 1 : 0);

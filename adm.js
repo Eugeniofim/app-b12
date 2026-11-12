@@ -3156,11 +3156,13 @@ function pBalcao(raiz) {
 
   /* ---- 2. a ficha: a tela É isto ---- */
   var cabeca = bloco(
-    '<div class="faixa-sec" style="margin-top:' + (esp.length ? '14px' : '4px') + '">' +
+    '<div class="faixa-sec" style="margin-top:' + (esp.length ? '10px' : '2px') + '">' +
+    /* 12/11/2026 — o parágrafo "na mesma ordem em que você pergunta no
+       balcão" é verdadeiro e é lido uma vez. Numa tela que abre cem vezes
+       por dia ele custa 40px de altura em cada uma, e aqui cada pixel é
+       campo que a pessoa vê sem rolar. Foi para o tutorial da tela. */
     '<div class="tit"><h2>Cadastro do cliente</h2>' +
-    '<button class="mini-btn" id="b-so-ficha">Só guardar o contato</button></div>' +
-    '<p style="font-size:12.5px;color:var(--gelo-3);padding-bottom:6px">' +
-    'Na mesma ordem em que você pergunta no balcão. O código da viagem nasce no fim.</p></div>');
+    '<button class="mini-btn" id="b-so-ficha">Só o contato</button></div></div>');
   raiz.appendChild(cabeca);
 
   var caixa = document.createElement('div');

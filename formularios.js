@@ -930,7 +930,10 @@ B12.fichaCliente = function (id, depois) {
       l('Costuma vir em', d.pessoasTipicas ? d.pessoasTipicas +
         (d.pessoasTipicas > 1 ? ' pessoas' : ' pessoa') : ''),
       l('Carro', d.placas.length ? esc(d.placas.join(', ')) +
-        (d.diariasPatio ? ' · ' + d.diariasPatio + ' vez' + (d.diariasPatio > 1 ? 'es' : '') + ' no pátio' : '') : '')
+        (d.estadiasPatio ? ' · ' + d.estadiasPatio + ' vez' + (d.estadiasPatio > 1 ? 'es' : '') +
+          ' no pátio' : '') +
+        (d.diariasPatio ? ' · ' + d.diariasPatio + ' diária' + (d.diariasPatio > 1 ? 's' : '') : '')
+        : '')
     ]) +
 
     sec('Como falar com ela', [
@@ -943,6 +946,39 @@ B12.fichaCliente = function (id, depois) {
         : '<span class="pend">não autorizou</span>'),
       l('Cadastro', c.origem === 'app' ? 'feito pelo app' : 'feito no balcão')
     ]) +
+    /* 12/11/2026 — o Dhalsin pediu "a ficha de cada cliente com tudo dentro,
+       histórico e tudo". Até aqui a ficha mostrava os TOTAIS. Agora mostra o
+       extrato: cada travessia e cada estadia no pátio, com data e valor. É o
+       que ele hoje procura no caderno quando alguém chega e diz "eu já vim
+       aqui". As listas mais novas primeiro, e cortadas em 20 — ficha não é
+       relatório; relatório tem aba própria. */
+    (d.travessias && d.travessias.length
+      ? '<div class="grupo">Travessias (' + d.travessias.length + ')</div>' +
+        '<table class="tabela">' + d.travessias.slice(0, 20).map(function (t) {
+          return '<tr><td>' + B12.dataBR(t.data) +
+            (t.destino ? ' <span style="color:var(--gelo-3)">' + esc(t.destino) + '</span>' : '') +
+            '<br><small style="color:var(--gelo-3)">' + t.pax +
+            (t.pax > 1 ? ' pessoas' : ' pessoa') +
+            (t.criancas ? ', ' + t.criancas + (t.criancas > 1 ? ' crianças' : ' criança') : '') +
+            (t.volta ? ' · volta ' + B12.dataBR(t.volta) : ' · sem volta marcada') +
+            '</small></td><td class="n">' + (t.valor ? B12.brl(t.valor) : '—') + '</td></tr>';
+        }).join('') + '</table>' +
+        (d.travessias.length > 20
+          ? '<div class="ajuda">Mostrando as 20 mais recentes de ' + d.travessias.length + '.</div>'
+          : '')
+      : '') +
+    (d.patioLista && d.patioLista.length
+      ? '<div class="grupo">Estacionamento (' + d.patioLista.length + ')</div>' +
+        '<table class="tabela">' + d.patioLista.slice(0, 20).map(function (v) {
+          return '<tr><td>' + esc(v.placa || 'sem placa') +
+            '<br><small style="color:var(--gelo-3)">entrou ' + B12.dataBR(v.entrada) +
+            (v.aberto ? ' · <b>ainda está aqui</b>'
+                      : v.saida ? ' · saiu ' + B12.dataBR(v.saida) : '') +
+            (v.diarias ? ' · ' + v.diarias + (v.diarias > 1 ? ' diárias' : ' diária') : '') +
+            '</small></td><td class="n">' +
+            (v.valor ? B12.brl(v.valor) : v.aberto ? 'em aberto' : '—') + '</td></tr>';
+        }).join('') + '</table>'
+      : '') +
     (!d.lista.length && d.gasto > 0
       ? '<div class="ajuda" style="margin-top:12px">O detalhe por categoria e por ano aparece ' +
         'a partir do primeiro recebimento feito pelo app. O total acima veio do histórico ' +

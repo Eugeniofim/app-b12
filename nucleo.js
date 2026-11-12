@@ -1265,8 +1265,33 @@ B12.dadosCliente = function (id) {
     return melhor;
   }
 
-  var carros = c.whats ? B12.DB.patio.filter(function (v) {
-    return String(v.zap || '').replace(/\D/g, '') === String(c.whats).replace(/\D/g, ''); }) : [];
+  /* 12/11/2026 — BUG: procurava o carro por `v.zap`, e no pátio o campo
+     chama `whats`. Resultado: `carros` vinha sempre vazio, a ficha nunca
+     mostrava placa nenhuma e "diárias" dava zero para todo mundo. Agora
+     procura pelo id do cliente primeiro — que é o laço certo — e cai no
+     WhatsApp só para os registros antigos, que não tinham id. */
+  var meuZap = String(c.whats || '').replace(/\D/g, '');
+  var carros = (B12.DB.patio || []).filter(function (v) {
+    if (v.clienteId && c.id) return v.clienteId === c.id;
+    return meuZap && String(v.whats || v.zap || '').replace(/\D/g, '') === meuZap;
+  });
+  /* o extrato do pátio: cada estadia com quantas diárias rendeu */
+  var patioLista = carros.map(function (v) {
+    var fim = v.saidaReal || v.saidaPrevista || null;
+    return { placa: v.placa, modelo: v.modelo, entrada: v.entrada, saida: fim,
+             aberto: !v.saidaReal,
+             diarias: fim && fim >= v.entrada ? B12.diasEntre(v.entrada, fim) : null,
+             valor: v.valorPago || 0, pago: !!v.pago };
+  }).sort(function (a, b) { return (b.entrada || '').localeCompare(a.entrada || ''); });
+  var diariasTotal = patioLista.reduce(function (s, x) { return s + (x.diarias || 0); }, 0);
+
+  /* o extrato das travessias: uma linha por viagem */
+  var travessias = R.map(function (r) {
+    var lan = (B12.DB.lancamentos || []).filter(function (l) { return l.id === r.lancamentoId; })[0];
+    return { data: r.ida, volta: r.volta || null, pax: r.pax || 1, criancas: r.criancas || 0,
+             destino: r.destino || '', produto: r.produto || '', cod: r.cod || '',
+             valor: lan ? lan.valor : (r.total || 0), situacao: r.situacao || 'pedida' };
+  }).sort(function (a, b) { return (b.data || '').localeCompare(a.data || ''); });
 
   var pontos = B12.pontosDe(gasto), f = B12.faixaDe(pontos);
   return {
@@ -1279,7 +1304,8 @@ B12.dadosCliente = function (id) {
     destino: maisUsado(R.map(function (r) { return r.destino; })),
     pessoasTipicas: R.length ? Math.round(R.reduce(function (s, r) { return s + (r.pax || 1); }, 0) / R.length) : 0,
     placas: carros.map(function (v) { return v.placa; }).filter(function (v, i, a) { return v && a.indexOf(v) === i; }),
-    diariasPatio: carros.length,
+    estadiasPatio: carros.length, diariasPatio: diariasTotal,
+    patioLista: patioLista, travessias: travessias,
     pontos: pontos, faixa: f.faixa, proxima: f.proxima, faltam: f.faltam, andado: f.andado,
     lista: L, reservasLista: R
   };
