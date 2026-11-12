@@ -95,5 +95,15 @@ console.log('\n— o erro que isto existe para impedir —');
      'mar=' + B12.estadoDoMar(ondaGrande) + ' vento=' + B12.forcaVento(ventoFraco));
 }
 
+
+/* 12/11/2026 — a pagina da Marinha as vezes nao abre. Quando isso acontece
+   o app NAO pode ficar calado: calar e o mesmo que dizer "esta tudo bem". */
+eh('nao conseguiu ler a pagina -> mostra "Confira o aviso da Marinha"',
+  /Confira o aviso da Marinha/.test(B12.cartaoMarinha({ incerto: true, fonte: 'x' })));
+eh('nenhum aviso de verdade -> nao mostra cartao nenhum',
+  B12.cartaoMarinha({ ok: true, lidos: 7, aqui: [], duvida: [], fonte: 'x' }) === '');
+eh('aviso que alcanca a B12 -> cartao vermelho',
+  /Marinha emitiu/.test(B12.cartaoMarinha({ ok: true, aqui: [{ tipo:'VENTO FORTE', texto:'...' }], duvida: [], fonte:'x' })));
+
 console.log('\n' + (falhou ? '✗ ' : '✓ ') + ok + ' passaram, ' + falhou + ' falharam\n');
 process.exit(falhou ? 1 : 0);

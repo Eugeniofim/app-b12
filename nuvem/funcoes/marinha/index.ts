@@ -201,17 +201,78 @@ function alcancaAB12(a: any) {
   return { pega: null, por: 'formato não reconhecido' };
 }
 
+/* A página da Marinha às vezes volta vazia (bloqueio por IP, manutenção,
+   página de desafio). Nesse caso ela responde 200 com HTML que não tem
+   aviso nenhum — e "nenhum aviso" é exatamente a mentira perigosa que o
+   cabeçalho deste arquivo proíbe: existem 8 avisos no ar e o app diria
+   que está tudo limpo.
+
+   Então, antes de acreditar num resultado vazio, a função confere se a
+   página é mesmo a página de avisos. Se não for, ela devolve INCERTO, e o
+   app mostra "confira o aviso no site da Marinha" em vez de silêncio. */
+function medir(html: string) {
+  const T = semAcento(html);
+  let metarea = 0, i = -1;
+  while ((i = T.indexOf('METAREA', i + 1)) >= 0) metarea++;
+  let avisos = 0; i = -1;
+  while ((i = T.indexOf('AVISO NR', i + 1)) >= 0) avisos++;
+  return { tam: html.length, metarea, avisos };
+}
+
+/* A página da Marinha às vezes volta pela metade (bloqueio por IP, Cloudflare,
+   manutenção). Quando isso acontece ela responde 200 com um HTML que tem o
+   TÍTULO da página mas nenhum aviso dentro — e "nenhum aviso" é exatamente a
+   mentira perigosa que o cabeçalho deste arquivo proíbe: pode haver 8 avisos
+   no ar, um deles alcançando a B12, e o app dizer que está tudo limpo.
+
+   Por isso a conferência não olha o título. Ela olha o ESQUELETO da página:
+   a página inteira tem ~2,6 MB e repete "METAREA" mais de cem vezes, porque
+   é o mapa de áreas. Meia página não tem isso. Assim, dia sem aviso nenhum
+   (legítimo) continua passando, e página capada vira INCERTO. */
+function paginaConfere(html: string) {
+  const m = medir(html);
+  return m.tam >= 300000 && m.metarea >= 10;
+}
+
+async function baixar() {
+  /* três tentativas: o CHM recusa de vez em quando e acerta na seguinte */
+  let ultimo = { tam: 0, metarea: 0, avisos: 0 }, porque = '';
+  for (let n = 0; n < 3; n++) {
+    try {
+      const r = await fetch(FONTE, {
+        headers: { 'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) ' +
+          'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36',
+          'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'accept-language': 'pt-BR,pt;q=0.9,en;q=0.8' },
+        signal: AbortSignal.timeout(20000),
+      });
+      if (!r.ok) { porque = 'a Marinha respondeu ' + r.status; }
+      else {
+        const html = await r.text();
+        ultimo = medir(html);
+        if (paginaConfere(html)) return { html, medida: ultimo };
+        porque = 'a página veio pela metade';
+      }
+    } catch (e) {
+      porque = String((e as any)?.message || e);
+    }
+    if (n < 2) await new Promise((f) => setTimeout(f, 1500));
+  }
+  return { erro: porque || 'não consegui abrir a página', medida: ultimo };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   try {
-    const r = await fetch(FONTE, {
-      headers: { 'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) ' +
-        'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36' },
-      signal: AbortSignal.timeout(20000),
-    });
-    if (!r.ok) return resposta({ erro: 'A Marinha não respondeu (' + r.status + ').', fonte: FONTE }, 502);
-    const html = await r.text();
-    const todos = lerAvisos(html);
+    const got = await baixar();
+    if (!got.html) {
+      /* INCERTO, nunca "tudo bem": o app mostra o cartão de conferir no site */
+      return resposta({ ok: false, incerto: true,
+        erro: 'Não consegui ler o aviso da Marinha agora.',
+        detalhe: got.erro, medida: got.medida,
+        fonte: FONTE, em: new Date().toISOString() }, 200);
+    }
+    const todos = lerAvisos(got.html);
     const aqui: any[] = [], duvida: any[] = [];
     for (const a of todos) {
       const c = alcancaAB12(a);
@@ -219,7 +280,7 @@ Deno.serve(async (req) => {
       else if (c.pega === null) duvida.push({ ...a, por: c.por });
     }
     return resposta({
-      ok: true, lidos: todos.length,
+      ok: true, lidos: todos.length, medida: got.medida,
       /* o que alcança a B12 */
       aqui,
       /* o que o leitor NÃO entendeu: aparece como dúvida, nunca como "tudo bem" */
@@ -228,7 +289,8 @@ Deno.serve(async (req) => {
       em: new Date().toISOString(),
     });
   } catch (e) {
-    return resposta({ erro: 'Não consegui ler o aviso da Marinha agora.', fonte: FONTE,
-                      detalhe: String((e as any)?.message || e) }, 502);
+    return resposta({ ok: false, incerto: true,
+      erro: 'Não consegui ler o aviso da Marinha agora.', fonte: FONTE,
+      detalhe: String((e as any)?.message || e) }, 200);
   }
 });

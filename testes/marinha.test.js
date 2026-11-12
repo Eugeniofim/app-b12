@@ -38,7 +38,7 @@ if (/:\s*(Record<|string\b|number\b|any\b|unknown\b)/.test(js)) {
 
 const caixa = {};
 new Function('caixa', js + '\n;caixa.alcancaAB12=alcancaAB12;caixa.faixaDaReferencia=faixaDaReferencia;' +
-  'caixa.lerAvisos=lerAvisos;caixa.B12=B12;caixa.COSTA=COSTA;caixa.ESTADO=ESTADO;')(caixa);
+  'caixa.lerAvisos=lerAvisos;caixa.B12=B12;caixa.COSTA=COSTA;caixa.ESTADO=ESTADO;caixa.paginaConfere=paginaConfere;caixa.semAcento=semAcento;')(caixa);
 
 let ok = 0, falhou = 0;
 function t(nome, cond) {
@@ -109,6 +109,27 @@ const html = '<p>AVISO NR 797/2026</p><p>AVISO DE VENTO FORTE EMITIDO EM 121200Z
 const lidos = caixa.lerAvisos(html);
 t('o site repete o aviso em cada área; conta uma vez só', lidos.length === 1);
 t('leu o tipo do aviso', lidos.length === 1 && /VENTO FORTE/.test(lidos[0].tipo));
+
+/* --- 10. pagina vazia nao pode virar "nenhum aviso" --- */
+const paginaConfere = caixa.paginaConfere;
+t('pagina de desafio (curta) NAO passa', paginaConfere('<html>Just a moment...</html>') === false);
+t('pagina grande sem a palavra AVISO NAO passa',
+  paginaConfere('<html>' + 'x'.repeat(30000) + '</html>') === false);
+t('pagina de verdade passa',
+  paginaConfere('<html>' + 'x'.repeat(30000) + 'AVISO NR 797/2026</html>') === true);
+
+/* --- 11. a pagina de hoje, inteira, lida de ponta a ponta --- */
+const amostra = __dirname + '/amostras/chm-12-11-2026.html';
+if (fs.existsSync(amostra)) {
+  const reais = caixa.lerAvisos(fs.readFileSync(amostra, 'utf8'));
+  t('a pagina real de 12/11/2026 rende 7 avisos', reais.length === 7);
+  const classif = reais.map((a) => caixa.alcancaAB12(a));
+  t('nenhum aviso real cai em "nao entendi"', classif.every((c) => c.pega !== null));
+  t('exatamente um aviso real alcanca a B12 (o 797)',
+    classif.filter((c) => c.pega === true).length === 1);
+  const i797 = reais.findIndex((a) => a.nr === '797');
+  t('e o que alcanca e mesmo o 797', i797 >= 0 && classif[i797].pega === true);
+}
 
 console.log('\n' + ok + ' passaram, ' + falhou + ' falharam');
 process.exit(falhou ? 1 : 0);

@@ -592,6 +592,7 @@ B12.telaPrevisao = function () {
 
    O app NUNCA diz que dá para sair. Ele mostra o que a Marinha publicou e
    o link do original. Quem decide é o comandante. */
+B12.FONTE_MARINHA = 'https://www.marinha.mil.br/chm/dados-do-smm-avisos-de-mau-tempo/avisos-de-mau-tempo';
 var MARINHA = null, marinhaEm = 0;
 B12.buscarMarinha = function () {
   if (!B12.NUVEM || !B12.NUVEM.url) return Promise.resolve(null);
@@ -619,7 +620,18 @@ B12.cartaoMarinha = function (dados) {
   /* o argumento existe para dar para TESTAR o desenho sem depender de a
      Marinha estar com aviso no ar hoje */
   var d = dados || MARINHA;
-  if (!d || !d.ok) return '';
+  if (!d) return '';
+  /* 12/11/2026 — o servidor passou a distinguir "não há aviso" de "não
+     consegui ler a página". O segundo caso chegava aqui como !d.ok e o
+     cartão sumia, ou seja, o app ficava em silêncio tendo 8 avisos no ar.
+     Silêncio, aqui, é o mesmo que dizer "está tudo bem". */
+  if (d.incerto) {
+    return '<div class="cx aviso entra" style="margin:12px"><h3>Confira o aviso da Marinha</h3>' +
+      '<p>Não consegui abrir a página de avisos agora. Antes de sair, leia no site oficial.</p>' +
+      '<a class="btn sec" href="' + (d.fonte || B12.FONTE_MARINHA) + '" target="_blank" ' +
+      'rel="noopener">Abrir os avisos de mau tempo</a></div>';
+  }
+  if (!d.ok) return '';
   var n = (d.aqui || []).length, dv = (d.duvida || []).length;
   if (!n && !dv) return '';
   var cx = '';
