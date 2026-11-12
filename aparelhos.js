@@ -78,17 +78,32 @@
       visto_em: new Date().toISOString()
     };
 
-    var cab = B12.nuvCabecalho ? B12.nuvCabecalho()
-            : { apikey: B12.NUVEM.chave, Authorization: 'Bearer ' + B12.NUVEM.chave,
-                'Content-Type': 'application/json' };
-    cab.Prefer = 'resolution=merge-duplicates,return=minimal';
-
+    /* 12/11/2026 — mesmo defeito dos avisos, achado na mesma varredura:
+       "inserir OU atualizar" sem política de SELECT é recusado pelo banco
+       (42501), e o visitante não pode ler esta tabela — é a contagem de
+       aparelhos do dono. Resultado: a contagem nunca subiu de quem não
+       tem conta, ou seja, de quase todo mundo. Sem sessão, vai pela
+       função `b12_tocar_aparelho`, que força papel 'turista'. */
+    var temSessao = !!(B12.nuvLogado && B12.nuvLogado());
     var corta = new AbortController();
     var relogio = setTimeout(function () { corta.abort(); }, 8000);
     try {
-      var r = await fetch(B12.NUVEM.url + '/rest/v1/b12_aparelhos?on_conflict=id', {
-        method: 'POST', headers: cab, body: JSON.stringify(corpo), signal: corta.signal
-      });
+      var r;
+      if (temSessao) {
+        var cab = B12.nuvCabecalho();
+        cab.Prefer = 'resolution=merge-duplicates,return=minimal';
+        r = await fetch(B12.NUVEM.url + '/rest/v1/b12_aparelhos?on_conflict=id', {
+          method: 'POST', headers: cab, body: JSON.stringify(corpo), signal: corta.signal
+        });
+      } else {
+        r = await fetch(B12.NUVEM.url + '/rest/v1/rpc/b12_tocar_aparelho', {
+          method: 'POST', signal: corta.signal,
+          headers: { apikey: B12.NUVEM.chave, Authorization: 'Bearer ' + B12.NUVEM.chave,
+                     'Content-Type': 'application/json' },
+          body: JSON.stringify({ p_id: corpo.id, p_instalado: corpo.instalado,
+            p_avisos: corpo.avisos, p_plataforma: corpo.plataforma })
+        });
+      }
       if (r.ok) { try { localStorage.setItem(CHAVE_VISTO, String(Date.now())); } catch (e) {} }
     } catch (e) {
       /* rede fora não é erro que mereça tela: o aparelho conta na próxima vez */

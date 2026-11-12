@@ -608,7 +608,11 @@ B12.buscarMarinha = function () {
   }).then(function (r) { return r.json(); })
     .then(function (d) {
       clearTimeout(corta);
-      if (d && d.ok) { MARINHA = d; marinhaEm = Date.now(); }
+      /* 12/11/2026 — o servidor passou a distinguir "não há aviso" de "não
+         consegui ler a página". O segundo vem com ok:false e incerto:true,
+         e esta linha jogava fora — então o cartão amarelo nunca aparecia e
+         o app ficava calado, que é o mesmo que dizer "está tudo bem". */
+      if (d && (d.ok || d.incerto)) { MARINHA = d; marinhaEm = Date.now(); }
       return MARINHA;
     })
     .catch(function () { clearTimeout(corta); return null; });

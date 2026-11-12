@@ -61,3 +61,44 @@ returns table (
 $$;
 revoke all on function public.b12_contagem_aparelhos() from public, anon;
 grant execute on function public.b12_contagem_aparelhos() to authenticated;
+
+-- =====================================================================
+-- 12/11/2026 — A CONTAGEM NUNCA SUBIU DE QUEM NÃO TEM CONTA
+--
+-- Mesmo defeito dos avisos, achado na mesma varredura de entrega. Esta
+-- tabela tinha política de INSERT e de UPDATE para o visitante, mas não de
+-- SELECT — e não pode ter, porque a contagem é do dono. Com
+-- `on_conflict=id` o Postgres exige SELECT, então todo aparelho sem conta
+-- era recusado com 42501. Ou seja: "Instalados" e "Ativos em 7 dias"
+-- contavam só os aparelhos logados, que são o do Dhalsin e o da equipe.
+--
+-- Mesma saída: uma função com poder próprio que faz só esta operação,
+-- sempre como turista. Não devolve nada; o visitante continua sem poder
+-- ler a tabela.
+-- =====================================================================
+create or replace function public.b12_tocar_aparelho(
+  p_id text, p_instalado boolean default false, p_avisos boolean default false,
+  p_plataforma text default null)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+begin
+  if p_id is null or length(p_id) < 8 then
+    raise exception 'aparelho sem identificacao';
+  end if;
+  insert into public.b12_aparelhos (id, papel, instalado, avisos, plataforma, visto_em)
+  values (p_id, 'turista', coalesce(p_instalado,false), coalesce(p_avisos,false),
+          p_plataforma, now())
+  on conflict (id) do update set
+    instalado = excluded.instalado,
+    avisos    = excluded.avisos,
+    plataforma = coalesce(excluded.plataforma, public.b12_aparelhos.plataforma),
+    visto_em  = now()
+  -- aparelho de dono ou equipe não é rebaixado por esta porta
+  where public.b12_aparelhos.papel = 'turista';
+end $fn$;
+
+revoke all on function public.b12_tocar_aparelho(text,boolean,boolean,text) from public;
+grant execute on function public.b12_tocar_aparelho(text,boolean,boolean,text) to anon, authenticated;
