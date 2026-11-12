@@ -88,7 +88,9 @@ B12.portao = function (papelMinimo, depois) {
         '<button type="submit" class="btn pri">Entrar</button>' +
         '<button type="button" class="btn sec" id="portao-voltar">Voltar</button>' +
       '</form>' +
-      '<small>O PIN fica só neste aparelho. Na versão com a nuvem, o login é por conta, e os dados só saem do servidor para quem entrou.</small>' +
+      '<button type="button" class="portao-link" id="portao-esqueci">Esqueci meu PIN</button>' +
+      '<small>O PIN fica só neste aparelho. Quem manda de verdade é a sua conta da nuvem: ' +
+      'é por ela que você recupera o PIN se esquecer.</small>' +
     '</div>';
   document.body.appendChild(f);
   document.body.style.overflow = 'hidden';
@@ -96,6 +98,107 @@ B12.portao = function (papelMinimo, depois) {
   var campo = f.querySelector('#portao-pin'), erro = f.querySelector('#portao-erro');
   function fechar() { f.remove(); document.body.style.overflow = ''; }
   f.querySelector('#portao-voltar').onclick = function () { fechar(); B12.ir('inicio'); };
+
+  /* ------------------------------------------------ esqueci meu PIN
+     12/11/2026. Até aqui, PIN esquecido = ligar para quem instalou o app.
+     Para um dono que vai usar isto sozinho, todo dia, isso não serve.
+
+     O PIN é só a tranca rápida DESTE aparelho. Quem diz quem a pessoa é,
+     de verdade, é a conta da nuvem — e o PAPEL dela sai do banco, não
+     daqui (ver nuvEntrar → nuvPapel). Então recuperar o PIN é: entrar com
+     a conta, o banco dizer que é o dono, e aí escolher um PIN novo.
+
+     O que NÃO se faz aqui: mostrar o PIN atual, mandar PIN por e-mail, ou
+     aceitar qualquer conta que consiga logar. Conta sem papel de dono não
+     destranca a área do dono. */
+  f.querySelector('#portao-esqueci').onclick = function () {
+    if (!B12.NUVEM || !B12.NUVEM.url) {
+      erro.innerHTML = 'Este aparelho não está ligado na nuvem, então eu não tenho ' +
+        'como conferir quem é você. Fale com quem instalou o app.';
+      erro.hidden = false; return;
+    }
+    var cx = f.querySelector('.portao-cx');
+    cx.innerHTML =
+      '<div class="portao-selo">' + (B12.FAROL || '') + '</div>' +
+      '<h2>Esqueci meu PIN</h2>' +
+      '<p>Entre com a sua conta da Estação B12 — o mesmo e-mail e senha da nuvem. ' +
+      'Confirmando, você escolhe um PIN novo.</p>' +
+      '<form class="portao-form" id="rec-form" novalidate>' +
+        '<input id="rec-email" type="email" inputmode="email" autocomplete="username" ' +
+        'placeholder="seu e-mail" aria-label="E-mail">' +
+        '<input id="rec-senha" type="password" autocomplete="current-password" ' +
+        'placeholder="sua senha" aria-label="Senha">' +
+        '<div class="portao-erro" id="rec-erro" hidden></div>' +
+        '<button type="submit" class="btn pri" id="rec-ok">Entrar</button>' +
+        '<button type="button" class="btn sec" id="rec-voltar">Voltar</button>' +
+      '</form>';
+    var rerro = cx.querySelector('#rec-erro'), bot = cx.querySelector('#rec-ok');
+    cx.querySelector('#rec-voltar').onclick = function () { fechar(); B12.portao(papelMinimo, depois); };
+    setTimeout(function () { cx.querySelector('#rec-email').focus(); }, 120);
+
+    cx.querySelector('#rec-form').onsubmit = function (ev) {
+      ev.preventDefault();
+      rerro.hidden = true;
+      bot.disabled = true; bot.textContent = 'Conferindo…';
+      B12.nuvEntrar(cx.querySelector('#rec-email').value, cx.querySelector('#rec-senha').value)
+        .then(function (r) {
+          bot.disabled = false; bot.textContent = 'Entrar';
+          if (r && r.erro) { rerro.textContent = r.erro; rerro.hidden = false; return; }
+          var quem = B12.nuvQuem() || {};
+          if (papelMinimo === 'dono' && quem.papel !== 'dono') {
+            rerro.textContent = 'Esta conta entra na B12, mas não é a do proprietário. ' +
+              'Esta área é só do dono.';
+            rerro.hidden = false; return;
+          }
+          limpaErros();
+          novoPin(cx, quem.papel === 'dono' ? 'dono' : 'equipe');
+        })
+        .catch(function () {
+          bot.disabled = false; bot.textContent = 'Entrar';
+          rerro.textContent = 'A internet não respondeu. Tente de novo em um instante.';
+          rerro.hidden = false;
+        });
+    };
+  };
+
+  /* escolher o PIN novo, com confirmação — digitar errado aqui tranca a porta */
+  function novoPin(cx, papel) {
+    cx.innerHTML =
+      '<div class="portao-selo">' + (B12.FAROL || '') + '</div>' +
+      '<h2>Escolha um PIN novo</h2>' +
+      '<p>De 4 a 6 números. É ele que você vai digitar para abrir ' +
+      (papel === 'dono' ? 'o painel' : 'a área da equipe') + ' neste aparelho.</p>' +
+      '<form class="portao-form" id="np-form" novalidate>' +
+        '<input id="np-1" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" ' +
+        'autocomplete="new-password" placeholder="PIN novo" aria-label="PIN novo">' +
+        '<input id="np-2" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" ' +
+        'autocomplete="new-password" placeholder="repita o PIN" aria-label="Repita o PIN">' +
+        '<div class="portao-erro" id="np-erro" hidden></div>' +
+        '<button type="submit" class="btn pri">Guardar e entrar</button>' +
+      '</form>';
+    var e1 = cx.querySelector('#np-1'), e2 = cx.querySelector('#np-2'),
+        nerro = cx.querySelector('#np-erro');
+    setTimeout(function () { e1.focus(); }, 120);
+    cx.querySelector('#np-form').onsubmit = function (ev) {
+      ev.preventDefault();
+      var a = String(e1.value || '').trim(), b = String(e2.value || '').trim();
+      if (!/^[0-9]{4,6}$/.test(a)) {
+        nerro.textContent = 'O PIN tem de 4 a 6 números.'; nerro.hidden = false; return;
+      }
+      if (a !== b) {
+        nerro.textContent = 'Os dois campos não bateram. Digite de novo.';
+        nerro.hidden = false; e2.value = ''; e2.focus(); return;
+      }
+      var outro = pins();
+      B12.DB.ajustes.pins = papel === 'dono'
+        ? { dono: a, equipe: outro.equipe }
+        : { dono: outro.dono, equipe: a };
+      B12.salvar();
+      B12.entrar(papel);
+      fechar();
+      if (depois) depois(papel);
+    };
+  }
   setTimeout(function () { campo.focus(); }, 120);
 
   f.querySelector('form').onsubmit = function (ev) {

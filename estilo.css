@@ -851,6 +851,13 @@ body:not(.adm) .semninguem{border-color:var(--risco);color:var(--tinta-3)}
 @keyframes treme{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-7px)}40%,80%{transform:translateX(7px)}}
 .portao-erro{background:#FDECEA;color:#8E2A20;border-radius:10px;padding:9px 12px;font-size:13px;
   font-weight:600;margin-top:10px}
+/* 12/11/2026 — 'Esqueci meu PIN'. Link discreto, mas com 44px de alvo:
+   quem está procurando esta porta está com pressa e com o dedo. */
+.portao-link{display:block;width:100%;min-height:44px;margin-top:10px;background:none;
+  border:0;color:var(--turq-300);font-size:13px;font-weight:650;cursor:pointer;
+  text-decoration:underline;text-underline-offset:3px}
+.portao-link:hover{color:var(--turq-200)}
+
 .portao-form .btn{margin-top:12px}
 .portao-cx small{display:block;margin-top:16px;font-size:12px;color:var(--tinta-3);line-height:1.5}
 
