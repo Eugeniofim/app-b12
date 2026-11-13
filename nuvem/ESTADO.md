@@ -49,19 +49,33 @@ que o anônimo não tem. Sem o cabeçalho, passa. Não é bug do banco.
 ## Quem entra
 
 - `eugeniofim@gmail.com` → papel **dono** em `b12_pessoas` (para testar e dar suporte)
-- O Dhalsin ainda **não tem conta neste projeto**. Quando for usar, o caminho é
-  convite por e-mail no Authentication — ele escolhe a própria senha, ninguém
-  mais digita.
+- `luistinglin@gmail.com` (o Dhalsin) → papel **dono**, `ativo = true`.
+  **A conta EXISTE desde 16/10/2026, 11:25**, criada pelo painel já confirmada.
+  **Nunca foi usada**: `last_sign_in_at` continua NULL (conferido em 13/11/2026).
+
+  > Este arquivo dizia, até 13/11/2026, que a conta não existia — e isso fez
+  > eu mandar o Eugênio criar uma conta que já estava lá. Sempre conferir no
+  > banco antes de repetir o que está escrito aqui:
+  >
+  > ```sql
+  > select u.email, u.last_sign_in_at, p.papel, p.ativo
+  > from auth.users u left join public.b12_pessoas p on p.id = u.id
+  > order by u.created_at;
+  > ```
 
 ## O que falta
 
-1. **Publicar as duas funções** no projeto novo: `avisar` (notificação no
-   celular) e `email`. O código está em `nuvem/funcoes/`.
-2. **Pôr os segredos** — só o Eugênio faz, são credenciais dele:
-   `VAPID_PUBLICA`, `VAPID_PRIVADA`, `VAPID_CONTATO` (estão em
-   `~/Desktop/B12/12-CHAVES-AVISOS.txt`) e `COFRE_TOKEN`.
-   Enquanto não estiverem lá, o botão de e-mail e o de notificação dão erro.
-3. **Criar a conta do Dhalsin** quando ele for começar.
+Conferido em 13/11/2026, medindo no banco e no ar — não de cabeça:
+
+1. ~~Publicar as funções~~ **FEITO.** `avisar` e `email` respondem.
+2. ~~Pôr os segredos~~ **FEITO.** O e-mail saiu de ponta a ponta
+   (`{"ok":true,"enviados":1,"falhas":0}`) e a assinatura VAPID foi aceita
+   pelo FCM do Google.
+3. ~~Criar a conta do Dhalsin~~ **JÁ EXISTIA** desde 16/10. Ver "Quem entra".
+4. **O Dhalsin entrar pela primeira vez.** É o único passo que falta para a
+   nuvem ligar no aparelho dele: `Estação → Dados → Ligue a nuvem → Entrar`.
+   A senha é dele; se ninguém souber, o caminho é mandar a redefinição pelo
+   Authentication do painel — ele escolhe a própria, e ninguém mais digita.
 
 ## A rede de segurança
 
