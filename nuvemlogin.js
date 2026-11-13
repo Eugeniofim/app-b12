@@ -35,9 +35,19 @@ B12.nuvLogado = function () {
   var s = B12.NUVEM && B12.NUVEM.sessao;
   return !!(s && s.access_token && s.expira > Date.now());
 };
+/* 13/11/2026 — ESTE ERA O DEFEITO QUE FAZIA O APP MENTIR.
+
+   `nuvQuem()` devolvia o nome guardado SEM olhar a validade. Então a aba
+   Dados dizia "Ligado como eugeniofim@gmail.com · dono" enquanto a aba
+   Notificações, que usa `nuvLogado()`, dizia "Faça o login da nuvem primeiro".
+   As duas liam a MESMA sessão; uma conferia o prazo e a outra não.
+
+   Agora vem o campo `expirado`, e quem desenha a tela diz a verdade. */
 B12.nuvQuem = function () {
   var s = B12.NUVEM && B12.NUVEM.sessao;
-  return s ? { email: s.email, papel: s.papel || 'equipe', id: s.user_id } : null;
+  if (!s) return null;
+  return { email: s.email, papel: s.papel || 'equipe', id: s.user_id,
+           expirado: !B12.nuvLogado(), podeRenovar: !!s.refresh_token };
 };
 B12.nuvToken = function () {
   return B12.nuvLogado() ? B12.NUVEM.sessao.access_token : null;
@@ -114,7 +124,12 @@ B12.nuvRenovar = async function () {
       headers: { apikey: B12.NUVEM.chave, 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh_token: s.refresh_token })
     });
-    if (!r.ok) return false;
+    if (!r.ok) {
+      /* o banco recusou o refresh (token revogado ou vencido de vez): aí sim
+         a sessão acabou, e o app tem de parar de dizer que está ligado */
+      if (r.status === 400 || r.status === 401) B12.nuvSair();
+      return false;
+    }
     var d = await r.json();
     guardar({ access_token: d.access_token, refresh_token: d.refresh_token,
       expira: Date.now() + (Number(d.expires_in) || 3600) * 1000 - 60000,
@@ -126,6 +141,37 @@ B12.nuvRenovar = async function () {
        seria o pior atendimento possível. A sessão fica. */
     return false;
   }
+};
+
+/* ------------------------------------------- manter a sessão de pé
+   13/11/2026 — O SEGUNDO DEFEITO, e o que fazia "nada subir".
+
+   O token do Supabase vale 1 HORA. `nuvRenovar` só era chamado de dentro de
+   `nuvAcordar`, e `nuvAcordar` só roda UMA VEZ, quando o app abre. Num app
+   instalado, que fica dias na memória sem recarregar (é o normal no celular),
+   a nuvem funcionava por uma hora e depois parava calada: a sincronia via
+   `sincPronta()` falso e simplesmente não enviava, sem erro na tela.
+
+   `nuvGarantir()` é o portão de verdade: antes de qualquer conversa com o
+   banco, garante que existe token vivo — renovando se for preciso. */
+var renovando = null;
+B12.nuvGarantir = async function () {
+  if (!B12.NUVEM || !B12.NUVEM.url) return false;
+  if (B12.nuvLogado()) return true;
+  if (!B12.NUVEM.sessao && !lido()) return false;
+  /* duas chamadas ao mesmo tempo não podem virar dois refresh: o segundo
+     invalidaria o token do primeiro */
+  if (!renovando) renovando = B12.nuvRenovar().finally(function () { renovando = null; });
+  return await renovando;
+};
+
+/* Quem fala com o banco e leva 401 tenta UMA vez renovar e repetir. Sem isto,
+   a primeira chamada depois da hora virada falha e a pessoa não entende. */
+B12.nuvComSessao = async function (fazer) {
+  await B12.nuvGarantir();
+  var r = await fazer();
+  if (r && r.status === 401 && await B12.nuvGarantir()) r = await fazer();
+  return r;
 };
 
 B12.nuvSair = function () {
@@ -140,7 +186,30 @@ B12.nuvAcordar = async function () {
   if (!s) return false;
   B12.NUVEM.sessao = s;
   if (s.expira > Date.now()) return true;
-  return await B12.nuvRenovar();
+  var deu = await B12.nuvRenovar();
+  /* 13/11/2026: sessão morta E sem como renovar não pode continuar montada.
+     Era isso que deixava o app dizendo "ligado" com um token de dias atrás.
+     Se a renovação falhou por rede (o refresh_token continua lá), a sessão
+     FICA — derrubar alguém porque o ônibus entrou no túnel é o pior
+     atendimento possível. Só cai quando o banco recusa o refresh. */
+  if (!deu && !lido()) { B12.NUVEM.sessao = null; }
+  return deu;
+};
+
+/* o relógio da sessão: renova antes de vencer, e sempre que o app volta para
+   a frente da tela (que no celular é quando ele de fato acorda) */
+B12.nuvVigiar = function () {
+  if (B12.nuvVigiar.ligado) return; B12.nuvVigiar.ligado = true;
+  var ultima = 0;
+  function conferir() {
+    if (Date.now() - ultima < 30000) return;        /* trava de rajada */
+    ultima = Date.now();
+    if (B12.NUVEM && (B12.NUVEM.sessao || lido())) B12.nuvGarantir();
+  }
+  setInterval(conferir, 10 * 60 * 1000);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) conferir(); });
+  window.addEventListener('focus', conferir);
+  window.addEventListener('online', conferir);
 };
 
 window.B12 = B12;

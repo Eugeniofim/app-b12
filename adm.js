@@ -1924,7 +1924,19 @@ function blocoNuvem(raiz) {
   if (!B12.nuvLogado) return;
   var eu = B12.nuvQuem && B12.nuvQuem();
   var b;
-  if (eu) {
+  if (eu && eu.expirado) {
+    /* 13/11/2026: este cartão dizia "Ligado como ..." lendo o nome guardado,
+       sem olhar a validade — enquanto a aba Notificações, que confere o prazo,
+       dizia "faça o login primeiro". Agora os dois leem a mesma verdade. */
+    b = bloco('<div class="cx aviso entra entra-2">' +
+      '<div class="cx-topo"><h3>A sessão da nuvem venceu</h3>' +
+      '<button class="mini-btn" id="b-nv">Entrar de novo</button></div>' +
+      '<p>Você estava ligado como <b>' + esc(eu.email) + '</b>. ' +
+      (eu.podeRenovar
+        ? 'O app está tentando religar sozinho; se não voltar em alguns segundos, entre de novo.'
+        : 'Entre de novo para a sincronia e o aviso no celular voltarem.') +
+      '</p></div>');
+  } else if (eu) {
     b = bloco('<div class="cx nota entra entra-2">' +
       '<div class="cx-topo"><h3>Nuvem</h3>' +
       '<button class="mini-btn" id="b-nv">Gerenciar</button></div>' +

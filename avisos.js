@@ -254,7 +254,11 @@ function apelidoDoAparelho() {
    banco, não na palavra. Daqui só sai o pedido. */
 async function chamarCarteiro(corpo) {
   if (!nuvem()) return { erro: 'A nuvem não está ligada.' };
-  if (!B12.nuvLogado()) return { erro: 'Faça o login da nuvem primeiro.' };
+  /* 13/11/2026: antes isto desistia na hora. O token vale 1 hora, então
+     depois de um tempo com o app aberto a tela dizia "faça o login" para quem
+     estava logado. Agora tenta renovar primeiro — e só desiste se não der. */
+  if (B12.nuvGarantir) await B12.nuvGarantir();
+  if (!B12.nuvLogado()) return { erro: 'A sessão da nuvem venceu. Entre de novo em Estação → Dados.' };
   var ctrl = new AbortController();
   var corta = setTimeout(function () { ctrl.abort(); }, 20000);
   try {
@@ -318,11 +322,13 @@ window.B12 = B12;
    endereço. São públicos diferentes, e o Dhalsin manda os dois do mesmo
    lugar. Quem não aceitou receber NÃO entra na lista — a trava é no
    servidor, não nesta linha. */
-B12.emailEnviar = function (o) {
+B12.emailEnviar = async function (o) {
   o = o || {};
-  if (!B12.NUVEM || !B12.NUVEM.url) return Promise.resolve({ erro: 'A nuvem não está ligada.' });
+  if (!B12.NUVEM || !B12.NUVEM.url) return { erro: 'A nuvem não está ligada.' };
+  /* 13/11/2026: renova antes de desistir — o token vale 1 hora */
+  if (B12.nuvGarantir) await B12.nuvGarantir();
   if (!B12.nuvLogado || !B12.nuvLogado())
-    return Promise.resolve({ erro: 'Entre na nuvem para mandar e-mail.' });
+    return { erro: 'A sessão da nuvem venceu. Entre de novo em Estação → Dados.' };
 
   var ctrl = new AbortController();
   var corta = setTimeout(function () { ctrl.abort(); }, 60000);  /* envio em lote demora */

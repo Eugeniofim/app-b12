@@ -335,6 +335,11 @@ function comecar() {
   if (B12.nuvAcordar) B12.nuvAcordar()      /* a sessão da nuvem volta sozinha ao abrir */
     .then(function () { if (B12.sincAoAbrir) return B12.sincAoAbrir(); })
     .catch(function () {});                  /* sem rede o app abre igual, pelo cache */
+  /* 13/11/2026: o token da nuvem vale 1 hora e `nuvAcordar` só roda aqui, uma
+     vez. Num app instalado, que fica dias na memória, a nuvem parava calada
+     depois da primeira hora. O vigia renova antes de vencer e toda vez que o
+     app volta para a frente da tela. */
+  if (B12.nuvVigiar) B12.nuvVigiar();
 
   /* conteúdo que depende de dados */
   B12.pintarPasseios();

@@ -137,6 +137,15 @@
     return !!(B12.NUVEM && B12.NUVEM.url && B12.NUVEM.ligada &&
               B12.nuvLogado && B12.nuvLogado());
   };
+  /* 13/11/2026: `sincPronta` é síncrona e só olha se o token está vivo AGORA.
+     O token vale 1 hora; num app que fica dias aberto, ela passava a dizer
+     "não" para sempre e a sincronia parava calada. Antes de cada conversa com
+     o banco, o portão de verdade é este — ele renova se precisar. */
+  async function sessaoDePe() {
+    if (!(B12.NUVEM && B12.NUVEM.url && B12.NUVEM.ligada)) return false;
+    if (B12.nuvGarantir) return await B12.nuvGarantir();
+    return B12.sincPronta();
+  }
   function papelNuvem() { return ((B12.nuvQuem && B12.nuvQuem()) || {}).papel || 'equipe'; }
   function alcanca(col) { return !(SO_DO_DONO[col] && papelNuvem() !== 'dono'); }
 
@@ -212,7 +221,8 @@
 
   /* ============================================================== ENVIAR */
   async function enviarFila() {
-    if (enviando || !B12.sincPronta() || !FILA.length) return;
+    if (enviando || !FILA.length) return;
+    if (!await sessaoDePe()) return;
     enviando = true;
     try {
       var porCol = {};
@@ -229,8 +239,15 @@
         });
         var cab = B12.nuvCabecalho();
         cab.Prefer = 'resolution=merge-duplicates,return=minimal';
-        var r = await comPrazo(B12.NUVEM.url + '/rest/v1/' + tabela + '?on_conflict=id',
-          { method: 'POST', headers: cab, body: JSON.stringify(corpo) });
+        var enviar = function () {
+          return comPrazo(B12.NUVEM.url + '/rest/v1/' + tabela + '?on_conflict=id',
+            { method: 'POST', headers: B12.nuvCabecalho ? (function () {
+                var c = B12.nuvCabecalho(); c.Prefer = cab.Prefer; return c; })() : cab,
+              body: JSON.stringify(corpo) });
+        };
+        var r = await enviar();
+        /* token virou a hora no meio do envio: renova e repete UMA vez */
+        if (r.status === 401 && B12.nuvGarantir && await B12.nuvGarantir()) r = await enviar();
         if (!r.ok) return;   /* falhou: a fila fica (o finally solta a trava) */
 
         /* o eco da própria subida: guardar para não regredir o registro
@@ -351,6 +368,7 @@
   /* ========================================================== O RITUAL
      A primeira sincronia do aparelho. Só depois dela o app pode ENVIAR. */
   B12.sincAoAbrir = async function () {
+    if (!await sessaoDePe()) return { erro: 'sem sessão' };
     if (!B12.sincPronta()) return { erro: 'semNuvem' };
     conhecer();
 
