@@ -705,6 +705,10 @@ B12.admDesenhar = function (aba) {
   }
 
   raiz.innerHTML = '';
+  /* 13/11/2026: a aba fica marcada no corpo para o estilo poder dar um layout
+     próprio a uma tela que precisa (o Cadastro, que é um formulário e não uma
+     pilha de cartões). Sem isto, só existe a coluna de jornal para todas. */
+  raiz.dataset.aba = abaAtual;
   (PAGINAS[abaAtual] || pHoje)(raiz);
   B12.animarPlacar(raiz);
   B12.ligarLupa('');
@@ -3184,23 +3188,33 @@ function pBalcao(raiz) {
     });
   }
 
-  /* ---- 2. a ficha: a tela É isto ---- */
-  var cabeca = bloco(
-    '<div class="faixa-sec" style="margin-top:' + (esp.length ? '10px' : '2px') + '">' +
-    /* 12/11/2026 — o parágrafo "na mesma ordem em que você pergunta no
-       balcão" é verdadeiro e é lido uma vez. Numa tela que abre cem vezes
-       por dia ele custa 40px de altura em cada uma, e aqui cada pixel é
-       campo que a pessoa vê sem rolar. Foi para o tutorial da tela. */
-    /* 12/11/2026: saiu o botão "Só o contato". Ele abria a MESMA folha de
-       ficha que o "+ Cadastrar cliente" da aba Clientes — que agora é a
-       terceira sub-aba, aqui do lado. Dois caminhos para a mesma tela, na
-       mesma aba, é só mais uma coisa para o atendente decidir. */
-    '<div class="tit"><h2>Cadastro do cliente</h2></div></div>');
-  raiz.appendChild(cabeca);
+  /* ---- 2. a ficha: a tela É isto ----
+     13/11/2026. "Tá meio feio e não muito UI e UX... a ficha do cliente tem
+     que estar bem sinalizada ali que é ficha do cliente."
+
+     Eram duas coisas soltas: um título de seção e, embaixo, campos avulsos.
+     Em tela larga o painel escorre em colunas de jornal, e a ficha era picada
+     em três pedaços — campo de VOLTA no topo da coluna do meio, o total na
+     terceira. Agora é UM cartão, com cabeçalho próprio, que atravessa as
+     colunas inteiro. Ver .ficha-cartao no estilo.css. */
+  var cartao = document.createElement('section');
+  cartao.className = 'ficha-cartao';
+  cartao.innerHTML =
+    '<header class="ficha-topo">' +
+      '<span class="ficha-ico" aria-hidden="true">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" ' +
+        'stroke-linecap="round" stroke-linejoin="round">' +
+        '<path d="M15 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>' +
+        '<path d="M15 3v5h5"/><path d="M8 13h8M8 17h5"/></svg></span>' +
+      '<div class="ficha-tit"><b>Ficha do cliente</b>' +
+      '<small>Na mesma ordem da ficha de papel</small></div>' +
+      '<span class="ficha-selo">NOVA</span>' +
+    '</header>';
+  raiz.appendChild(cartao);
 
   var caixa = document.createElement('div');
   caixa.className = 'ficha-caixa';
-  raiz.appendChild(caixa);
+  cartao.appendChild(caixa);
   B12.formBalcao(function (res) {
     if (!res) return;                 /* fechou sem salvar */
     re(); B12.aposBalcao(res);

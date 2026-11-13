@@ -1310,7 +1310,27 @@ body:not(.adm) .ia-sug{background:var(--carta);border-color:var(--risco);color:v
   body.adm #adm-corpo{column-count:2;column-gap:0;padding-bottom:20px}
   body.adm #adm-corpo .cx,body.adm #adm-corpo .grade2,body.adm #adm-corpo .lista,
   body.adm #adm-corpo .faixa-sec,body.adm #adm-corpo .busca{break-inside:avoid}
+  /* 13/11/2026: a coluna de jornal cortava ao meio coisas que são UM assunto —
+     a linha de um atendimento ficava com o nome numa coluna e a placa noutra,
+     e a conta aberta era separada do total. Tudo isto é indivisível. */
+  body.adm #adm-corpo .pes,body.adm #adm-corpo .pessoas,body.adm #adm-corpo .conta,
+  body.adm #adm-corpo .previa,body.adm #adm-corpo .horas,body.adm #adm-corpo .hgrupo,
+  body.adm #adm-corpo .db-config,body.adm #adm-corpo .linha,body.adm #adm-corpo .tabela,
+  body.adm #adm-corpo .mini,body.adm #adm-corpo .prod{break-inside:avoid}
   body.adm #adm-corpo .placar{column-span:all}
+  /* a ficha é um documento: atravessa as colunas inteira, nunca picada */
+  body.adm #adm-corpo .ficha-cartao{column-span:all}
+
+  /* O CADASTRO NÃO É UMA PILHA DE CARTÕES, É UM FORMULÁRIO.
+     Coluna de jornal serve para conteúdo que se lê escorrendo; formulário se
+     preenche de cima para baixo, numa ordem. Aqui a tela vira duas colunas de
+     verdade: a ficha à esquerda, inteira, e o que já passou hoje à direita. */
+  body.adm #adm-corpo[data-aba="balcao"]{column-count:auto;display:grid;
+    grid-template-columns:minmax(0,560px) minmax(0,1fr);gap:0 18px;align-items:start}
+  body.adm #adm-corpo[data-aba="balcao"] > *{grid-column:2;break-inside:auto}
+  body.adm #adm-corpo[data-aba="balcao"] .ficha-cartao{grid-column:1;grid-row:1/span 99;
+    margin:12px 0 12px 12px}
+  body.adm #adm-corpo[data-aba="balcao"] .placar{column-span:none}
   body.adm .rodape-nav .in{max-width:640px}
   body.adm .barra-nova{left:50%;right:auto;transform:translateX(-50%);width:640px}
   body.adm .adm-topo{padding-left:24px;padding-right:24px}
@@ -1656,7 +1676,38 @@ body.ia-solta .ia-gaveta-cx::after{content:'Solta aqui — vai pro assistente';p
    A mesma folha que sobe de baixo, mas nascida na página: sem fundo escuro,
    sem alça, sem X. O Dhalsin anota no papel — aqui a tela É o bloco dele,
    e abrir um menu antes custaria uma batida por atendimento. */
-.ficha-caixa{margin:0 12px}
+/* ============================================ A FICHA DO CLIENTE (13/11/2026)
+   "Tá meio feio e não muito UI e UX. A ficha do cliente tem que estar bem
+   sinalizada ali que é ficha do cliente."
+
+   A ficha é o documento central do balcão — ela substitui o bloquinho de papel
+   do Dhalsin. Então é um CARTÃO, com cabeçalho, ícone de ficha e um selo
+   dizendo que está em branco. Não um título solto com campos embaixo. */
+.ficha-cartao{margin:12px;border:1px solid var(--noite-risco);border-radius:16px;
+  background:var(--noite-2);overflow:hidden}
+body:not(.adm) .ficha-cartao{background:var(--carta);border-color:var(--risco);
+  box-shadow:var(--sombra-1)}
+.ficha-topo{display:flex;align-items:center;gap:12px;padding:14px 16px;
+  border-bottom:1px solid var(--noite-risco);
+  background:linear-gradient(135deg,rgba(20,169,154,.14),transparent 70%)}
+body:not(.adm) .ficha-topo{border-bottom-color:var(--risco);
+  background:linear-gradient(135deg,rgba(11,122,112,.08),transparent 70%)}
+.ficha-ico{flex:none;width:38px;height:38px;border-radius:11px;display:grid;place-items:center;
+  background:var(--turq-700);color:#fff}
+.ficha-ico svg{width:20px;height:20px}
+.ficha-tit{min-width:0;flex:1}
+.ficha-tit b{display:block;font-size:17px;font-weight:750;letter-spacing:-.01em}
+.ficha-tit small{display:block;font-size:12.5px;color:var(--gelo-3);margin-top:1px}
+body:not(.adm) .ficha-tit small{color:var(--tinta-3)}
+/* 11px é o piso da casa: o balcão da B12 se atende em pé, ao sol. O teste
+   formula.test.js nº 18 me pegou tentando 10,5px aqui. */
+.ficha-selo{flex:none;font-size:11px;font-weight:800;letter-spacing:.09em;
+  padding:4px 9px;border-radius:99px;background:var(--noite-3);color:var(--turq-300)}
+body:not(.adm) .ficha-selo{background:#EDFBF9;color:var(--turq-700)}
+/* a caixa já está dentro do cartão: a margem agora é do cartão */
+.ficha-caixa{margin:0}
+.ficha-cartao .folha-inline .folha-cx{background:transparent;border:0;border-radius:0}
+body.adm .ficha-cartao .folha-inline .folha-cx{background:transparent}
 .folha-inline{display:block}
 .folha-inline .folha-cx{position:static;width:auto;max-width:none;max-height:none;
   border-radius:var(--r-m);transform:none;box-shadow:none;
