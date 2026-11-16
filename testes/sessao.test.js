@@ -235,6 +235,32 @@ console.log('\n— a sessão se renova sozinha —');
   eh('conta sem papel na B12 não fica logada por engano',
     /não tem papel na B12/.test(fonte));
 
-  console.log('\n' + ok + ' passaram, ' + falhou + ' falharam');
-  process.exit(falhou ? 1 : 0);
+  console.log('\n— o app pede o próprio link, sem passar pelo painel —');
+  (async function () {
+    let w = monta();
+    const r1 = await w.B12.nuvPedirSenha('dono@b12.com');
+    eh('o pedido sai', r1.ok === true, JSON.stringify(r1));
+    const bateu = w.chamadas.filter(c => /auth\/v1\/recover/.test(c.url))[0];
+    eh('bate no endereço de recuperação', !!bateu);
+    eh('e manda o link de volta PARA ESTE APP, não para o do estúdio',
+      !!bateu && /redirect_to=/.test(bateu.url),
+      'sem redirect_to o Supabase usa o Site URL do projeto');
+    eh('o e-mail vai no corpo', !!bateu && /dono%40b12\.com|dono@b12\.com/.test(bateu.corpo || ''));
+
+    const r2 = await w.B12.nuvPedirSenha('   ');
+    eh('e-mail vazio é recusado antes de gastar chamada', !!r2.erro);
+    const r3 = await w.B12.nuvPedirSenha('nao-e-email');
+    eh('texto que não é e-mail também', !!r3.erro);
+
+    eh('a tela de pedir o link existe', /B12\.formPedirSenha = function/.test(form2));
+    eh('o login da nuvem tem o "Esqueci minha senha"', /id="nv-esqueci"/.test(form2));
+    eh('e ele leva o e-mail já digitado junto',
+      /B12\.formPedirSenha\(email, depois\)/.test(form2));
+    eh('o recado não entrega se a conta existe',
+      /Se essa conta existir/.test(form2));
+
+  
+    console.log('\n' + ok + ' passaram, ' + falhou + ' falharam');
+    process.exit(falhou ? 1 : 0);
+  })();
 })();

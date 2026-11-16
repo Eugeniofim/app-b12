@@ -243,6 +243,41 @@ B12.nuvTrocarSenha = async function (nova) {
   return { ok: true, email: s.email, papel: s.papel };
 };
 
+/* ------------------------------------------- pedir o link da senha
+   16/11/2026. O botão "Send password recovery" do painel do Supabase manda o
+   link para o SITE URL do projeto — que aqui é `os.eugeniofim.com`, o app do
+   estúdio, compartilhado com todos os outros clientes. Trocar o Site URL
+   quebraria os demais.
+
+   Então quem pede o link é o PRÓPRIO APP, dizendo para onde o link volta
+   (`redirect_to`). Assim o Dhalsin pede do app dele, recebe o e-mail e cai no
+   app dele. Ninguém precisa do painel, e vale para todo cliente. */
+B12.nuvPedirSenha = async function (email) {
+  email = String(email || '').trim();
+  if (!email || email.indexOf('@') < 0) return { erro: 'Escreva o e-mail da conta.' };
+  if (!B12.NUVEM || !B12.NUVEM.url) return { erro: 'A nuvem não está configurada.' };
+  var volta = location.origin + location.pathname;
+  var r;
+  try {
+    r = await comPrazo(B12.NUVEM.url + '/auth/v1/recover?redirect_to=' + encodeURIComponent(volta), {
+      method: 'POST',
+      headers: { apikey: B12.NUVEM.chave, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email })
+    });
+  } catch (e) {
+    return { erro: 'A internet não respondeu. Tente de novo em um instante.' };
+  }
+  /* o Supabase responde 200 mesmo para e-mail que não existe, de propósito:
+     senão esta tela viraria um jeito de descobrir quem tem conta. A gente
+     repete esse cuidado no recado. */
+  if (!r.ok && r.status !== 200) {
+    var d = await r.json().catch(function () { return {}; });
+    if (r.status === 429) return { erro: 'Você pediu muitas vezes seguidas. Espere um minuto.' };
+    return { erro: d.msg || d.error_description || 'Não consegui pedir o link (' + r.status + ').' };
+  }
+  return { ok: true, email: email };
+};
+
 B12.nuvSair = function () {
   try { localStorage.removeItem(CHAVE); } catch (e) {}
   if (B12.NUVEM) B12.NUVEM.sessao = null;

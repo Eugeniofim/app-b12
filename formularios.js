@@ -1469,14 +1469,48 @@ B12.formNuvemEntrar = function (depois) {
       'celular e o computador mostrarem a mesma coisa, e é ele que libera o aviso no celular.</p>' +
       campo('E-mail', 'email', { tipo:'email', modo:'email', obrig:true, dica:'o e-mail da conta da B12' }) +
       campo('Senha', 'senha', { tipo:'password', obrig:true }) +
-      '<div class="ajuda" style="margin-top:12px">Quem não tem conta não entra aqui — e o ' +
+      '<button type="button" class="portao-link" id="nv-esqueci" style="margin-top:12px">' +
+      'Esqueci minha senha</button>' +
+      '<div class="ajuda" style="margin-top:8px">Quem não tem conta não entra aqui — e o ' +
       'banco recusa, não é só a tela.</div>',
     acao: 'Entrar',
+    aoAbrir: function (f) {
+      /* 16/11/2026: o pedido do link sai DAQUI, apontando para este app. Pelo
+         painel do Supabase o link iria para o Site URL do projeto, que é o app
+         do estúdio — o cliente cairia no lugar errado. */
+      f.querySelector('#nv-esqueci').onclick = function () {
+        var email = String((f.querySelector('[name=email]') || {}).value || '').trim();
+        B12.fecharFolha();
+        B12.formPedirSenha(email, depois);
+      };
+    },
     aoSalvar: function (d) {
       if (!d.email || !d.senha) return { erro: 'Preencha o e-mail e a senha.' };
       return { esperar: B12.nuvEntrar(d.email, d.senha) };
     },
     depois: depois
+  });
+};
+
+/* ------------------------------------------- pedir o link da senha nova */
+B12.formPedirSenha = function (email, depois) {
+  B12.folha({
+    titulo: 'Esqueci minha senha',
+    sub: 'Chega um link no seu e-mail',
+    corpo:
+      '<p style="font-size:13px;color:var(--gelo-3);margin-bottom:14px">Escreva o e-mail da ' +
+      'conta. Vai chegar um link que abre <b>neste app</b> e deixa você escolher uma senha ' +
+      'nova. O link vale por uma hora.</p>' +
+      campo('E-mail', 'email', { tipo:'email', modo:'email', obrig:true, valor: email || '' }),
+    acao: 'Mandar o link',
+    aoSalvar: function (d) { return { esperar: B12.nuvPedirSenha(d.email) }; },
+    depois: function (r) {
+      if (r && r.ok) {
+        /* recado que não entrega se a conta existe ou não */
+        B12.aviso('Se essa conta existir, o link já está a caminho. Olhe o e-mail.', 'bom');
+      }
+      if (depois) depois(r);
+    }
   });
 };
 
