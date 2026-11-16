@@ -1465,6 +1465,36 @@ function naIlhaEquipe() {
     '<div class="pessoas-eq">' + d.agora.map(cartao).join('') + '</div>';
 }
 
+/* O pátio na tela da equipe: quem está dentro, há quantos dias, e o botão de
+   devolver o carro. O valor aparece porque é o que a pessoa vai pagar ali, na
+   frente dela — é cobrança de balcão, não o caixa da empresa. A funcionária
+   continua sem ver faturamento, lucro ou qualquer lançamento: isso é trava no
+   banco (b12_lancamentos não responde para ela). */
+function patioEquipe() {
+  var dentro = (B12.DB.patio || []).filter(function (v) { return !v.saidaReal && !v.apagado; });
+  if (!dentro.length) {
+    return '<div class="faixa-sec"><div class="tit"><h2>Pátio</h2></div></div>' +
+      '<div class="cx" style="margin-top:0"><p>Nenhum carro no pátio agora.</p></div>';
+  }
+  var hoje = B12.hoje();
+  return '<div class="faixa-sec"><div class="tit"><h2>Pátio</h2>' +
+    '<span style="font-size:12.5px;color:var(--tinta-3)">' + dentro.length +
+    (dentro.length > 1 ? ' carros' : ' carro') + '</span></div></div>' +
+    '<div class="lista">' + dentro.map(function (v) {
+      var c = B12.valorPatio(v);
+      var atrasado = v.saidaPrevista && v.saidaPrevista < hoje;
+      return '<div class="linha' + (atrasado ? ' alerta' : '') + '">' +
+        '<span class="tag">' + escT(v.placa || '—') + '</span>' +
+        '<div class="d"><b>' + escT(v.nome || 'sem nome') + '</b>' +
+        '<small>entrou ' + B12.dataBR(v.entrada) +
+        ' · ' + c.dias + (c.dias > 1 ? ' diárias' : ' diária') +
+        (c.resta ? ' · a cobrar ' + B12.brl(c.resta) : ' · pago') +
+        (atrasado ? ' · passou da data' : '') + '</small></div>' +
+        '<button type="button" class="mini-btn" data-eqsai="' + v.id + '">Dar saída</button>' +
+        '</div>';
+    }).join('') + '</div>';
+}
+
 B12.pintarEquipe = function () {
   var alvo = document.getElementById('area-equipe');
   if (B12.ligarLupa) B12.ligarLupa('-eq');     /* a lupa do balcão, por código */
@@ -1472,8 +1502,15 @@ B12.pintarEquipe = function () {
   var idas = B12.saidasDoDia(hoje, 'ida'), voltas = B12.saidasDoDia(hoje, 'volta');
   var pax = idas.reduce(function (s, x) { return s + x.ocupadas; }, 0);
   alvo.innerHTML =
-    '<div style="padding:12px 12px 0"><button class="btn pri" style="margin:0" id="b-balcao">' +
-    '+ Cliente chegou agora</button></div>' +
+    /* 16/11/2026 — o receptivo também cuida do PÁTIO.
+       Medido: a funcionária conseguia cadastrar quem chega, mas não conseguia
+       dar entrada de carro avulso nem DEVOLVER um carro. Metade da operação
+       do pátio ficava presa no Dhalsin. O banco já deixava (b12_patio é da
+       equipe); faltava a tela. */
+    '<div class="grade2" style="margin:12px 12px 0">' +
+    '<button class="btn pri" style="margin:0" id="b-balcao">+ Cliente chegou agora</button>' +
+    '<button class="btn sec" style="margin:0" id="b-carro-eq">+ Carro entrando</button>' +
+    '</div>' +
     '<div class="cx nota entra"><h3>Painel da equipe</h3>' +
     '<p>Quem opera vê o dia, os passageiros e o contato. <b>Não vê nada de dinheiro</b> — ' +
     'isso é trava no banco, não é só tela escondida.</p></div>' +
@@ -1485,6 +1522,7 @@ B12.pintarEquipe = function () {
     'text-transform:uppercase;color:var(--tinta-3);font-weight:700">Passageiros</div>' +
     '<div style="font-size:24px;font-weight:750;margin-top:4px">' + pax + '</div></div></div>' +
     naIlhaEquipe() +
+    patioEquipe() +
     '<div class="faixa-sec"><div class="tit"><h2>Saídas de hoje</h2></div></div>' +
     '<div class="lista">' + idas.map(function (s, i) {
       var c = s.ocupadas / s.vagas;
@@ -1504,6 +1542,13 @@ B12.pintarEquipe = function () {
     }).join('') + '</div>';
   var b = document.getElementById('b-balcao');
   if (b) b.onclick = function () { B12.formBalcao(function (res) { B12.pintarEquipe(); B12.aposBalcao(res); }); };
+  var bc = document.getElementById('b-carro-eq');
+  if (bc) bc.onclick = function () { B12.formEntradaPatio(function () { B12.pintarEquipe(); }); };
+  alvo.querySelectorAll('[data-eqsai]').forEach(function (x) {
+    x.onclick = function () {
+      B12.confirmarSaidaPatio(x.dataset.eqsai, function () { B12.pintarEquipe(); });
+    };
+  });
   alvo.querySelectorAll('[data-eqzap]').forEach(function (x) {
     x.onclick = function () {
       var txt = 'Olá, ' + x.dataset.nome + '! Aqui é a Estação B12. Sobre a sua reserva ' +

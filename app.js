@@ -341,6 +341,21 @@ function comecar() {
      app volta para a frente da tela. */
   if (B12.nuvVigiar) B12.nuvVigiar();
 
+  /* 16/11/2026: o link de redefinição de senha chega pelo endereço. Tem de
+     ser tratado ANTES de qualquer rota, e o endereço tem de ser limpo na
+     hora — token em barra de endereço fica no histórico e em link copiado. */
+  (function () {
+    if (!B12.nuvRecuperacaoNaURL) return;
+    var p = B12.nuvRecuperacaoNaURL();
+    if (!p) return;
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+    setTimeout(function () {
+      if (p.erro) return B12.aviso(p.erro, 'ruim');
+      B12.nuvAceitarRecuperacao(p);
+      B12.formSenhaNova(function () {});
+    }, 600);
+  })();
+
   /* conteúdo que depende de dados */
   B12.pintarPasseios();
   B12.montarFormulario();

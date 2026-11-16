@@ -149,6 +149,27 @@
   function papelNuvem() { return ((B12.nuvQuem && B12.nuvQuem()) || {}).papel || 'equipe'; }
   function alcanca(col) { return !(SO_DO_DONO[col] && papelNuvem() !== 'dono'); }
 
+  /* ================================ O DINHEIRO QUE A EQUIPE RECEBE (16/11/2026)
+
+     Buraco achado medindo, não lendo: `lancamentos` está em SO_DO_DONO, então
+     o aparelho da funcionária NUNCA enviava lançamento. Ela atendia no balcão,
+     o app criava a entrada no caixa DELA, e aquilo morria ali: o Dhalsin via a
+     reserva com o valor, mas o Caixa dele não via o dinheiro. Num receptivo com
+     funcionária, isso é o faturamento do dia sumindo.
+
+     O conserto não é abrir a tabela para a equipe — ela continua SEM PODER LER
+     uma linha sequer do caixa. É deixá-la só DEPOSITAR: no banco existe uma
+     política de INSERT para equipe e nenhuma de SELECT (ver 08-equipe-lanca.sql).
+
+     Por isso o envio da equipe é diferente do envio do dono:
+       · sem `on_conflict` — upsert exige UPDATE **e SELECT**, e dar SELECT aqui
+         vazaria o caixa inteiro (foi a armadilha do turista, em 12/11);
+       · `return=minimal` — pedir a linha de volta também exige SELECT;
+       · nada de apagado — quem não lê não pode apagar.
+     Ou seja: a equipe empurra para dentro e nunca mais toca. */
+  function soDeposita(col) { return col === 'lancamentos' && papelNuvem() !== 'dono'; }
+  function podeEnviar(col) { return alcanca(col) || soDeposita(col); }
+
   function comPrazo(url, opc) {
     opc = opc || {};
     var corta = new AbortController();
@@ -229,9 +250,13 @@
       FILA.forEach(function (f) { (porCol[f.col] = porCol[f.col] || []).push(f); });
 
       for (var col in porCol) {
-        if (col !== 'ajustes' && !alcanca(col)) continue;
+        if (col !== 'ajustes' && !podeEnviar(col)) continue;
+        var deposito = soDeposita(col);
         var tabela = col === 'ajustes' ? 'b12_ajustes' : MAPA[col];
         var lote = porCol[col].slice(0, 200);
+        /* a equipe não apaga dinheiro: linha apagada por ela nem sai daqui */
+        if (deposito) lote = lote.filter(function (f) { return !f.apagado; });
+        if (!lote.length) continue;
         var corpo = lote.map(function (f) {
           return col === 'ajustes'
             ? { id: 1, dados: f.dados || {} }
@@ -240,10 +265,12 @@
         var cab = B12.nuvCabecalho();
         cab.Prefer = 'resolution=merge-duplicates,return=minimal';
         var enviar = function () {
-          return comPrazo(B12.NUVEM.url + '/rest/v1/' + tabela + '?on_conflict=id',
-            { method: 'POST', headers: B12.nuvCabecalho ? (function () {
-                var c = B12.nuvCabecalho(); c.Prefer = cab.Prefer; return c; })() : cab,
-              body: JSON.stringify(corpo) });
+          var c = B12.nuvCabecalho ? B12.nuvCabecalho() : cab;
+          /* depósito da equipe: insert puro, sem pedir nada de volta */
+          c.Prefer = deposito ? 'return=minimal' : cab.Prefer;
+          return comPrazo(B12.NUVEM.url + '/rest/v1/' + tabela +
+            (deposito ? '' : '?on_conflict=id'),
+            { method: 'POST', headers: c, body: JSON.stringify(corpo) });
         };
         var r = await enviar();
         /* token virou a hora no meio do envio: renova e repete UMA vez */

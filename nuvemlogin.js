@@ -174,6 +174,75 @@ B12.nuvComSessao = async function (fazer) {
   return r;
 };
 
+/* ====================================== REDEFINIR A SENHA (16/11/2026)
+   Faltava a peça que fecha o ciclo: quem esquece a senha da nuvem recebe um
+   e-mail do Supabase e o link traz, no endereço:
+
+     https://app.estacaob12.com.br/#access_token=...&type=recovery
+
+   Sem uma tela que entenda isso, o link caía no app e não acontecia nada —
+   e o Eugênio ficou travado no sábado por causa disto. Agora o app reconhece
+   o link, abre "escolha a senha nova" e grava no banco.
+
+   Vale para o Dhalsin, para a equipe e para todo cliente futuro. */
+B12.nuvRecuperacaoNaURL = function () {
+  var h = String(location.hash || '').replace(/^#/, '');
+  if (!h || (h.indexOf('access_token') < 0 && h.indexOf('error') < 0)) return null;
+  var p = {};
+  h.split('&').forEach(function (par) {
+    var i = par.indexOf('=');
+    if (i > 0) { try { p[par.slice(0, i)] = decodeURIComponent(par.slice(i + 1).replace(/\+/g, ' ')); } catch (e) {} }
+  });
+  /* link vencido ou já usado: o Supabase manda o motivo no mesmo lugar */
+  if (p.error || p.error_description) {
+    return { erro: /expired/i.test(p.error_description || p.error || '')
+      ? 'Esse link já venceu. Peça um novo para quem cuida do app.'
+      : (p.error_description || 'O link não serve mais.') };
+  }
+  if (p.type !== 'recovery' || !p.access_token) return null;
+  return { access_token: p.access_token, refresh_token: p.refresh_token || '' };
+};
+
+/* o link traz uma sessão de verdade, curta: é com ela que a senha é trocada */
+B12.nuvAceitarRecuperacao = function (p) {
+  if (!p || !p.access_token) return false;
+  B12.NUVEM.sessao = { access_token: p.access_token, refresh_token: p.refresh_token,
+    expira: Date.now() + 3600000 - 60000, email: '', user_id: '' };
+  return true;
+};
+
+B12.nuvTrocarSenha = async function (nova) {
+  nova = String(nova || '');
+  if (nova.length < 8) return { erro: 'A senha precisa de pelo menos 8 letras ou números.' };
+  if (!B12.nuvLogado()) return { erro: 'O link venceu. Peça outro e tente de novo.' };
+  var r;
+  try {
+    r = await comPrazo(B12.NUVEM.url + '/auth/v1/user', {
+      method: 'PUT', headers: B12.nuvCabecalho(), body: JSON.stringify({ password: nova })
+    });
+  } catch (e) {
+    return { erro: 'A internet não respondeu. Tente de novo em um instante.' };
+  }
+  var d = await r.json().catch(function () { return {}; });
+  if (!r.ok) {
+    return { erro: /same.*password/i.test(d.msg || d.error_description || '')
+      ? 'Essa é a senha que já estava valendo. Escolha outra.'
+      : (d.msg || d.error_description || 'Não consegui trocar a senha (' + r.status + ').') };
+  }
+  /* trocou: a sessão vira uma sessão normal, com o papel que o banco disser */
+  var s = B12.NUVEM.sessao;
+  s.email = (d || {}).email || s.email;
+  s.user_id = (d || {}).id || s.user_id;
+  s.papel = await B12.nuvPapel();
+  if (s.papel === 'ninguem') {
+    B12.nuvSair();
+    return { erro: 'A senha foi trocada, mas esta conta não tem papel na B12. Fale com o proprietário.' };
+  }
+  guardar(s);
+  setTimeout(function () { if (B12.sincAoAbrir) B12.sincAoAbrir(); }, 300);
+  return { ok: true, email: s.email, papel: s.papel };
+};
+
 B12.nuvSair = function () {
   try { localStorage.removeItem(CHAVE); } catch (e) {}
   if (B12.NUVEM) B12.NUVEM.sessao = null;

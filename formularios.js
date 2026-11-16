@@ -1396,6 +1396,38 @@ B12.formHorariosDia = function (iso, depois) {
 /* o nome antigo continua valendo */
 B12.formVoltas = function (iso, depois) { return B12.formHorariosDia(iso, depois); };
 
+/* -------------------------------------------- escolher a senha da nuvem
+   16/11/2026. A tela que faltava: quem chega pelo link do e-mail cai aqui.
+   Não pede a senha antiga — quem abriu o link já provou que é dono do
+   e-mail, que é exatamente o que o link serve para provar. */
+B12.formSenhaNova = function (depois) {
+  B12.folha({
+    titulo: 'Escolha a senha da nuvem',
+    sub: 'É com ela que você entra em qualquer aparelho',
+    corpo:
+      '<p style="font-size:13px;color:var(--gelo-3);margin-bottom:14px">Esta é a senha da ' +
+      '<b>conta</b>, não o PIN. O PIN é a tranca rápida de cada aparelho; esta senha é o que ' +
+      'faz o celular, o tablet e o computador mostrarem a mesma coisa.</p>' +
+      campo('Senha nova', 'senha', { tipo:'password', obrig:true,
+        ajuda:'de 8 letras ou números para cima' }) +
+      campo('Repita a senha', 'senha2', { tipo:'password', obrig:true }) +
+      '<div class="ajuda" style="margin-top:12px">Guarde no gerenciador de senhas do ' +
+      'aparelho. Se perder, dá para pedir outro link.</div>',
+    acao: 'Guardar a senha',
+    aoSalvar: function (d) {
+      if (!d.senha || !d.senha2) return { erro: 'Preencha os dois campos.' };
+      if (d.senha !== d.senha2) return { erro: 'As duas senhas não bateram. Digite de novo.' };
+      return { esperar: B12.nuvTrocarSenha(d.senha) };
+    },
+    depois: function (r) {
+      if (r && r.ok) {
+        B12.aviso('Pronto. Você está ligado na nuvem como ' + (r.email || 'sua conta') + '.', 'bom');
+      }
+      if (depois) depois(r);
+    }
+  });
+};
+
 /* ----------------------------------------------------- o login da nuvem
    O PIN é a porta do balcão; este é o que o banco entende. A folha diz a
    diferença em uma frase, porque ele vai perguntar. */

@@ -28,6 +28,7 @@ const raiz = path.join(__dirname, '..');
 const fonte = fs.readFileSync(path.join(raiz, 'nuvemlogin.js'), 'utf8');
 
 /* ------------------------------------------------- um navegador de mentira */
+let janelaHash = '';
 function monta(opc) {
   opc = opc || {};
   const guardado = {};
@@ -55,14 +56,17 @@ function monta(opc) {
       }
       return { ok: true, status: 200, json: async () => ({}), text: async () => '"dono"' };
     },
-    document: { addEventListener: () => {} }
+    document: { addEventListener: () => {} },
+    location: { get hash() { return janelaHash; }, pathname: '/', search: '' },
+    history: { replaceState: () => {} }
   };
   janela.window = janela;
   const fn = new Function('window', 'localStorage', 'fetch', 'setTimeout', 'clearTimeout',
-    'setInterval', 'AbortController', 'document',
+    'setInterval', 'AbortController', 'document', 'location', 'history',
     fonte + '\n; return window.B12;');
   const B12 = fn(janela, janela.localStorage, janela.fetch, janela.setTimeout,
-    janela.clearTimeout, janela.setInterval, janela.AbortController, janela.document);
+    janela.clearTimeout, janela.setInterval, janela.AbortController, janela.document,
+    janela.location, janela.history);
   return { B12, guardado, chamadas };
 }
 
@@ -182,6 +186,54 @@ console.log('\n— a sessão se renova sozinha —');
   eh('mostra quando venceu', /A sessão da nuvem venceu/.test(adm));
   eh('mostra quando está ligado', /Ligado como <b>/.test(adm));
   eh('e mostra quando nunca ligou', /Ligue a nuvem/.test(adm));
+
+  /* ------------------------------ redefinir a senha (16/11/2026) */
+  console.log('\n— o link do e-mail abre a tela de senha nova —');
+  const form2 = fs.readFileSync(path.join(raiz, 'formularios.js'), 'utf8');
+
+  let z = monta();
+  const leLink = (hash) => {
+    janelaHash = hash;
+    return z.B12.nuvRecuperacaoNaURL();
+  };
+  eh('existe o leitor do link', typeof z.B12.nuvRecuperacaoNaURL === 'function');
+
+  eh('link de verdade é reconhecido',
+    (function () { const r = leLink('#access_token=ABC&refresh_token=DEF&expires_in=3600&type=recovery');
+      return r && r.access_token === 'ABC' && r.refresh_token === 'DEF'; })(),
+    JSON.stringify(leLink('#access_token=ABC&type=recovery')));
+  eh('endereço limpo não dispara nada', leLink('') === null);
+  eh('a tela inicial normal não dispara nada', leLink('#/inicio') === null);
+  eh('convite (type=invite) não é tratado como senha nova',
+    leLink('#access_token=ABC&type=invite') === null);
+  eh('link vencido devolve o motivo em português',
+    (function () { const r = leLink('#error=access_denied&error_description=Email+link+is+invalid+or+has+expired');
+      return r && /já venceu/.test(r.erro || ''); })(),
+    JSON.stringify(leLink('#error=access_denied&error_description=Email+link+is+invalid+or+has+expired')));
+  eh('o + do endereço vira espaço ao ler o motivo',
+    !/\+/.test((leLink('#error=x&error_description=algo+assim+aqui') || {}).erro || ''));
+
+  eh('aceitar a recuperação monta uma sessão utilizável',
+    (function () { const w = monta();
+      w.B12.nuvAceitarRecuperacao({ access_token: 'T', refresh_token: 'R' });
+      return w.B12.nuvLogado() === true; })());
+  eh('sem token não monta sessão nenhuma',
+    (function () { const w = monta();
+      return w.B12.nuvAceitarRecuperacao({}) === false && w.B12.nuvLogado() === false; })());
+  eh('existe a troca de senha', typeof z.B12.nuvTrocarSenha === 'function');
+  eh('o app trata o link antes de qualquer rota', /nuvRecuperacaoNaURL\(\)/.test(app));
+  eh('e limpa o endereço na hora (token não fica no histórico)',
+    /history\.replaceState\(null, '', location\.pathname \+ location\.search\)/.test(app));
+  eh('link vencido vira recado em português, não tela muda',
+    /Esse link já venceu/.test(fonte));
+  eh('a tela de senha nova existe', /B12\.formSenhaNova = function/.test(form2));
+  eh('ela pede a senha duas vezes', /name="senha2"|'senha2'/.test(form2));
+  eh('e recusa se as duas não baterem', /As duas senhas não bateram/.test(form2));
+  eh('senha curta é recusada no motor', /pelo menos 8 letras ou números/.test(fonte));
+  eh('a tela explica que isto não é o PIN', /não o PIN/.test(form2));
+  eh('depois de trocar, o papel vem do banco', /s\.papel = await B12\.nuvPapel\(\)/.test(fonte));
+  eh('conta sem papel na B12 não fica logada por engano',
+    /não tem papel na B12/.test(fonte));
 
   console.log('\n' + ok + ' passaram, ' + falhou + ' falharam');
   process.exit(falhou ? 1 : 0);
