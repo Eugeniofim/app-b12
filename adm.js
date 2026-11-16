@@ -2678,6 +2678,20 @@ function pDados(raiz) {
     'Estacionamento, Manutenção, Contas e o Histórico da planilha (2015 a 2025). Datas e valores vão como número, ' +
     'para o contador somar e filtrar.</p></div>' +
 
+    /* 16/11/2026: entregar o app a um cliente exigia zerar o movimento de
+       teste, e não existia como. "Começar a usar valendo" tira só o que é
+       demonstração — reserva com nome inventado e grade de teste ficavam. */
+    '<div class="cx aviso entra entra-1"><h3>Entregar o app zerado</h3>' +
+    '<p>Tira <b>todo o movimento</b> deste aparelho — reservas, clientes, ' +
+    'lançamentos, horários, carros do pátio — e deixa a empresa valendo, pronta ' +
+    'para o primeiro dia de quem vai usar.</p>' +
+    '<p style="margin-top:8px">O que <b>fica</b>: preços, grade de horários, regras ' +
+    'do pátio, dados da empresa e os textos. O histórico dos 11 anos da planilha ' +
+    'também fica — ele não é movimento, é o passado da B12.</p>' +
+    '<button type="button" class="btn sec" id="b-zerar" style="margin-top:12px">' +
+    'Começar do zero</button>' +
+    '<div class="ajuda">Baixe a cópia completa antes. Isto não tem volta.</div></div>' +
+
     '<div class="cx entra entra-1"><h3>Cópia de segurança</h3>' +
     '<p>A cópia completa (.json) é o app inteiro num arquivo. Guarde uma por semana no Drive ou no e-mail. ' +
     'Se o celular quebrar, abra o app noutro aparelho e restaure a partir dela.</p>' +
@@ -2713,6 +2727,18 @@ function pDados(raiz) {
   document.getElementById('b-pdf-cli').onclick = function () {
     var r = B12.exportarPDFClientes();
     avisar('PDF de clientes gerado: ' + r.paginas + ' página' + (r.paginas > 1 ? 's' : '') + '.', true);
+  };
+  document.getElementById('b-zerar').onclick = function () {
+    var c = B12.contagens();
+    var quanto = (c.reservas || 0) + (c.clientes || 0) + (c.lancamentos || 0) + (c.patio || 0);
+    if (!confirm('Começar do zero?\n\nSai TODO o movimento deste aparelho: ' +
+        'reservas, clientes, lançamentos, horários e carros do pátio.\n\n' +
+        'Ficam os preços, a grade, as regras e os dados da empresa.\n\n' +
+        'Isto NÃO tem volta. Baixe a cópia completa antes se ainda não baixou.')) return;
+    var r = B12.comecarDoZero();
+    alert('Pronto. Saíram ' + r.tirados + ' registros.\n\n' +
+      'O app está zerado e valendo, pronto para o primeiro dia.');
+    B12.admDesenhar('dados');
   };
   document.getElementById('b-json').onclick = function () {
     var r = B12.baixarCopia();

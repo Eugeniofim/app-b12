@@ -2175,6 +2175,57 @@ B12.sairDaDemo = function () {
 };
 B12.emDemo = function () { return B12.DB && B12.DB.ajustes && B12.DB.ajustes.demo !== false; };
 
+/* ====================================== COMEÇAR DO ZERO (16/11/2026)
+   O que faltava para entregar o app a um cliente.
+
+   "Começar a usar valendo" tira só o que é DEMONSTRAÇÃO. Mas no teste de um
+   app a gente cria movimento de verdade — reserva com nome inventado, carro,
+   lançamento, grade de horário. Isso não é demo, é registro real de mentira,
+   e ficava para sempre. Medido hoje: 165 saídas e 4 reservas de teste tinham
+   subido para a nuvem da B12, com o e-mail do Eugênio nas quatro.
+
+   Isto aqui zera o MOVIMENTO e preserva a CONFIGURAÇÃO: preços, grade, regras
+   do pátio, dados da empresa e textos continuam. É o app pronto para o
+   primeiro dia de quem vai usar.
+
+   E limpa a memória da sincronia junto. Sem isso o aparelho continuaria
+   achando que já mandou tudo, e qualquer mexida ressuscitaria o lixo na nuvem
+   do cliente. */
+B12.movimento = ['reservas', 'lancamentos', 'contas', 'saidas', 'patio',
+                 'manutencoes', 'clientes', 'tarefas', 'mensagens'];
+
+B12.comecarDoZero = function () {
+  var D = B12.DB;
+  var conta = {};
+  B12.movimento.forEach(function (k) {
+    conta[k] = (D[k] || []).length;
+    D[k] = [];
+  });
+  /* marinheiros volta para a lista de fábrica: é cadastro, não movimento,
+     mas quem recebe o app quer o dele, não o que sobrou do teste */
+  conta.marinheiros = (D.marinheiros || []).length;
+  D.marinheiros = (B12.MARINHEIROS || []).slice();
+
+  /* a empresa passa a valer: nada de número inventado no primeiro dia */
+  D.ajustes.demo = false;
+  D.ajustes.demoSaiuEm = new Date().toISOString();
+  D.semeado = true;
+  D.demoDia = null;
+
+  /* o cofre local guarda cópias do que acabou de ser apagado: zera também,
+     senão "Voltar para esta" traz o lixo de volta */
+  try { localStorage.removeItem('b12_cofre'); } catch (e) {}
+
+  /* a memória da sincronia: sombra, fila e marcas de leitura */
+  ['b12_sombra', 'b12_fila', 'b12_marca', 'b12_emdia', 'b12_casa'].forEach(function (k) {
+    try { localStorage.removeItem(k); } catch (e) {}
+  });
+
+  B12.salvar();
+  var total = Object.keys(conta).reduce(function (t, k) { return t + conta[k]; }, 0);
+  return { ok: true, tirados: total, porColecao: conta };
+};
+
 /* ====================================================================
    VISÃO GERAL — o negócio inteiro num período
    12/11/2026. Até aqui o app respondia bem "como está hoje" e "como

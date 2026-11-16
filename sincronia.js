@@ -347,8 +347,40 @@
       var novo = JSON.stringify(dados);
       if (SOMBRA.__ajustes === novo && !sujo) return false;
       if (FILA.some(function (f) { return f.col === 'ajustes'; })) return false;
+
+      /* ======================= VALENDO NÃO VOLTA ATRÁS (16/11/2026)
+         `ajustes` desce substituindo TUDO, e o modo demonstração mora dentro
+         dele. Resultado medido no banco de hoje: o Eugênio apertou "Começar a
+         usar valendo" na sexta, abriu o app noutro aparelho no fim de semana
+         (aparelho novo NASCE em demonstração), e esse aparelho sobrescreveu os
+         ajustes — `demoSaiuEm` voltou a NULL e o primeiro encheu de novo com
+         219 lançamentos de mentira.
+
+         Com o Dhalsin instalando em celular, iPad e laptop, isso estouraria na
+         frente dele: um aparelho novo jogaria a empresa inteira de volta para
+         número inventado, no Caixa e no Painel.
+
+         A regra agora é de mão única: se QUALQUER lado já está valendo, vale
+         para todos, e o aparelho que estava em demonstração limpa os falsos
+         dele na hora. Começar a valer é decisão do dono e não se desfaz
+         sozinha. */
+      var eraValendo = B12.DB.ajustes && B12.DB.ajustes.demo === false;
+      var vemValendo = dados.demo === false;
+      var saiuEm = (B12.DB.ajustes && B12.DB.ajustes.demoSaiuEm) || dados.demoSaiuEm || null;
+
       Object.keys(B12.DB.ajustes).forEach(function (k) { delete B12.DB.ajustes[k]; });
       Object.assign(B12.DB.ajustes, dados);
+
+      if (eraValendo || vemValendo) {
+        B12.DB.ajustes.demo = false;
+        B12.DB.ajustes.demoSaiuEm = saiuEm || new Date().toISOString();
+        /* este aparelho ainda tinha os registros de mentira: tira agora */
+        if (!eraValendo && B12.sairDaDemo) { try { B12.sairDaDemo(); } catch (e) {} }
+        /* a nuvem ainda diz demonstração: a sombra fica com o que CHEGOU, para
+           o próximo envio subir o "valendo" por cima e consertar lá também */
+        if (!vemValendo) { SOMBRA.__ajustes = novo; return true; }
+        novo = JSON.stringify(semPin(B12.DB.ajustes));
+      }
       /* a linha trouxe PIN: a sombra fica com a versão SUJA, para o próximo
          `enfileirar` ver diferença e subir a limpa POR CIMA. É assim que a
          senha sai da nuvem sozinha, no primeiro sinc do dono — a equipe não
