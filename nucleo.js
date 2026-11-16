@@ -2216,12 +2216,26 @@ B12.comecarDoZero = function () {
      senão "Voltar para esta" traz o lixo de volta */
   try { localStorage.removeItem('b12_cofre'); } catch (e) {}
 
-  /* a memória da sincronia: sombra, fila e marcas de leitura */
-  ['b12_sombra', 'b12_fila', 'b12_marca', 'b12_emdia', 'b12_casa'].forEach(function (k) {
-    try { localStorage.removeItem(k); } catch (e) {}
-  });
+  /* ===================== A MEMÓRIA DA SINCRONIA FICA (conserto de 16/11)
+     A primeira versão disto, publicada hoje de manhã, apagava `b12_sombra`
+     junto. Foi erro meu, e caro: a SOMBRA é exatamente o que o app compara
+     para descobrir o que SUMIU. Com ela zerada, esvaziar o aparelho não
+     apagava nada na nuvem — e, pior, na primeira leitura o aparelho baixava
+     tudo de volta. Medido na B12: o laptop foi zerado e a nuvem continuou
+     com 317 saídas, 7 reservas e 2 clientes.
+
+     Deixando a sombra intacta, o `enfileirar` faz sozinho o que já sabe
+     fazer: vê 317 registros na sombra e nenhum na tela, e sobe 317 marcas de
+     apagado. A limpeza viaja para a nuvem e para os outros aparelhos pelo
+     caminho normal do app, sem nada de especial.
+
+     As marcas de leitura (`b12_marca`, `b12_emdia`, `b12_casa`) também ficam:
+     zerá-las forçaria uma releitura completa e traria de volta o que está
+     prestes a ser apagado. */
 
   B12.salvar();
+  /* e empurra agora, para a nuvem não ficar com o lixo esperando */
+  if (B12.sincAgendar) B12.sincAgendar();
   var total = Object.keys(conta).reduce(function (t, k) { return t + conta[k]; }, 0);
   return { ok: true, tirados: total, porColecao: conta };
 };

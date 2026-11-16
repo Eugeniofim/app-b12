@@ -41,7 +41,8 @@ function monta() {
       ajustes: { demo: true, diaria: 50, regular: 60, grade: { ida: ['08:30'] },
                  patio: { regra: 'dia' }, metaMensal: 9000 }
     },
-    salvar: function () { B12.salvou = (B12.salvou || 0) + 1; }
+    salvar: function () { B12.salvou = (B12.salvou || 0) + 1; },
+    sincAgendar: function () { B12.agendou = (B12.agendou || 0) + 1; }
   };
   const i = nucleo.indexOf('B12.movimento = [');
   const f = nucleo.indexOf('\n};', nucleo.indexOf('B12.comecarDoZero = function')) + 3;
@@ -84,14 +85,27 @@ eh('o marinheiro de teste saiu',
 eh('e a lista de fábrica entrou',
   m.B12.DB.marinheiros.length === 1 && m.B12.DB.marinheiros[0].nome === 'Padrão');
 
-console.log('\n— a memória da sincronia é limpa (senão o lixo volta) —');
-['b12_sombra', 'b12_fila', 'b12_marca', 'b12_emdia', 'b12_casa'].forEach(function (k) {
-  eh('"' + k + '" foi apagado', m.guardado[k] === undefined);
+console.log('\n— a memória da sincronia FICA, senão a limpeza não viaja —');
+/* Conserto de 16/11, pago com erro em produção: a primeira versão apagava a
+   sombra. A sombra é o que o app compara para descobrir o que SUMIU — sem
+   ela, esvaziar o aparelho não apaga nada na nuvem e, na primeira leitura, o
+   aparelho baixa tudo de volta. Aconteceu na B12: laptop zerado, nuvem ainda
+   com 317 saídas. */
+['b12_sombra', 'b12_fila'].forEach(function (k) {
+  eh('"' + k + '" CONTINUA (é o que gera as marcas de apagado)',
+    m.guardado[k] !== undefined,
+    'apagar isto faz a limpeza morrer no aparelho');
 });
-eh('o cofre local também (senão "Voltar para esta" traz tudo de volta)',
+['b12_marca', 'b12_emdia', 'b12_casa'].forEach(function (k) {
+  eh('"' + k + '" continua (releitura completa traria o lixo de volta)',
+    m.guardado[k] !== undefined);
+});
+eh('o cofre local é apagado (senão "Voltar para esta" traz tudo de volta)',
   m.guardado.b12_cofre === undefined);
 eh('mas o banco do aparelho continua (é ele que acabou de ser gravado)',
   m.guardado.b12_dados_v1 !== undefined);
+eh('e a sincronia é chamada na hora, para não deixar o lixo esperando',
+  m.B12.agendou === 1, String(m.B12.agendou));
 
 console.log('\n— o histórico dos 11 anos não é tocado —');
 eh('ele mora no código, não no movimento', /B12\.HIST_VENDAS|HIST_VENDAS\s*=/.test(dados));
