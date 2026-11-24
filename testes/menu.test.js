@@ -53,7 +53,11 @@ eh('a Estação B12 continua trancada para a equipe',
   estacao.so === 'dono');
 
 console.log('\n— a barra de cima é o dia a dia —');
-['Hoje', 'Cadastro', 'Horário de travessia'].forEach(function (n) {
+/* 24/11/2026: "Horário de travessia" virou "Horários de retorno" — a ida foi
+   eliminada, é livre. E "Mensagens" + "Notificações" viraram um grupo só,
+   "Falar com o cliente": para quem usa é uma coisa só, e o canal (WhatsApp,
+   push ou e-mail) é um detalhe do final. */
+['Hoje', 'Cadastro', 'Horários de retorno', 'Falar com o cliente'].forEach(function (n) {
   eh('"' + n + '" continua em cima, à mão', topo.includes(n));
 });
 eh('nenhum id de grupo aparece duas vezes',
@@ -93,9 +97,12 @@ eh('a página do pátio agora mora no Cadastro',
   cadastro.sub.some(s => s[0] === 'patio'));
 eh('e saiu de Horário de travessia',
   !travessia.sub.some(s => s[0] === 'patio'), subs(travessia).join(' · '));
-eh('Horário de travessia ficou só com a escala da lancha',
-  subs(travessia).every(x => ['Reservas', 'Ida', 'Volta'].includes(x)),
+eh('Horários de retorno ficou só com a lancha',
+  subs(travessia).every(x => ['Quem volta', 'Horários', 'Reservas'].includes(x)),
   subs(travessia).join(' · '));
+eh('e abre em "Quem volta", que é a pergunta que ele faz',
+  subs(travessia)[0] === 'Quem volta',
+  'a primeira sub-aba é a que abre: monta-se o horário DEPOIS de ver quem volta');
 eh('o Cadastro continua aberto para a equipe, não só para o dono',
   !cadastro.so);
 
@@ -160,11 +167,25 @@ eh('os dados dos marinheiros NÃO foram apagados do app',
     require('fs').readFileSync(require('path').join(__dirname, '..', 'nucleo.js'), 'utf8')),
   'tirar a tela é uma decisão de menu; apagar o dado dele não foi pedido');
 
+console.log('\n— mensagem e aviso num lugar só (24/11/2026) —');
+var falar = GRUPOS.filter(g => g.id === 'avisos')[0];
+eh('o grupo se chama pelo que ele faz, não pelo canal',
+  falar.nome === 'Falar com o cliente', falar.nome);
+eh('Mensagens saiu do Cadastro', !subs(cadastro).includes('Mensagens'),
+  subs(cadastro).join(' · '));
+eh('e entrou aqui, como "Mandar"', falar.sub.some(s => s[0] === 'msgs'));
+eh('junto com "Quem recebe"', falar.sub.some(s => s[0] === 'avisos'));
+eh('o canal é escolhido DENTRO da tela, não pelo menu',
+  /id="mp-zap"/.test(require('fs').readFileSync(require('path').join(__dirname, '..', 'mensagens.js'), 'utf8')) &&
+  /id="mp-app"/.test(require('fs').readFileSync(require('path').join(__dirname, '..', 'mensagens.js'), 'utf8')) &&
+  /id="mp-mail"/.test(require('fs').readFileSync(require('path').join(__dirname, '..', 'mensagens.js'), 'utf8')),
+  'é isso que deixa fluido: um texto, umas pessoas, três botões');
+
 console.log('\n— "Na Ilha" saiu da tira, mas a tela não foi perdida —');
 eh('não existe mais a aba "Na Ilha"',
   !GRUPOS.some(g => g.sub.some(s => s[1] === 'Na Ilha')));
-eh('Horário de travessia ficou só com Reservas, Ida e Volta',
-  subs(travessia).join('|') === 'Reservas|Ida|Volta', subs(travessia).join(' · '));
+eh('Horários de retorno ficou com Quem volta, Horários e Reservas',
+  subs(travessia).join('|') === 'Quem volta|Horários|Reservas', subs(travessia).join(' · '));
 eh('a tela de quem está na Ilha continua existindo',
   /function pNaIlha\(raiz\)/.test(adm));
 eh('e passou a ser desenhada dentro de Volta',

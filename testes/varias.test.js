@@ -83,6 +83,68 @@ eh('e-mail conta quem tem endereço com @', /p\.email\.indexOf\('@'\) > 0; \}\)\
 eh('botão de canal sem ninguém fica desligado',
   /f\.querySelector\('#mp-zap'\)\.disabled = !z;/.test(msg));
 
+console.log('\n— o recado do retorno vem junto, sempre em primeiro —');
+eh('a lista começa pelo recado do retorno',
+  /var prontas = \[\{ id: '__retorno'/.test(adm),
+  'é a mensagem que ele mais manda; fora dali ele reescreveria toda véspera');
+eh('montado com os horários de AMANHÃ, que são editáveis',
+  /var am = B12\.diaMais\(B12\.hoje\(\), 1\), rec = B12\.recadoDeVolta\(am\);/.test(adm));
+eh('e o subtítulo mostra quais horários vão dentro',
+  /'horários: ' \+ rec\.horas\.join\(' · '\)/.test(adm));
+eh('sem a grade montada, avisa antes de mandar',
+  /ainda não foram montados — o recado vai sair sem eles/.test(adm),
+  'recado de retorno sem horário é o recado sem a informação que importa');
+eh('os blocos Voltam hoje / amanhã também mandam para vários',
+  /id="va-varios"/.test(adm) && /B12\.formMandarPara\(\{ id: '__retorno'/.test(adm));
+
+console.log('\n— deixar genérico: um texto de uma pessoa vira texto de todas —');
+/* 24/11/2026, olhando o "Confirmar reserva" montado para a Ivone: "como seria
+   isso pra ser mais efetivo... deixar genérico, sem nome, apenas info, para
+   enviar para pessoas escolhidas."
+
+   Os modelos de fábrica trazem nome, CÓDIGO DA RESERVA e TOTAL PAGO. Mandar
+   isso para trinta pessoas manda o código de uma para as outras: além de
+   errado, é vazar dado de cliente. */
+const B12g = { dataBR: x => x, hoje: () => '2026-11-24' };
+const gen = (function () {
+  const i = msg.indexOf('var PESSOAIS =');
+  const bloco = msg.slice(i, msg.indexOf('\n};', msg.indexOf('B12.textoGenerico')) + 2);
+  const f = new Function('B12', bloco.replace('B12.textoGenerico =', 'var g =') + '\nreturn g;');
+  return f(B12g);
+})();
+const modelo = ['✅ *Reserva confirmada — Estação B12*', '',
+  'Oi, Ivone! Sua travessia para a Ilha do Mel está garantida.', '',
+  '🎫 Código: *B12-4821*', '📅 Ida: 24/11/2026', '👥 Passageiros: 2', '💰 Total: R$ 240', '',
+  '📍 Estação B12 — Av. Beira-Mar, 3433', 'Chegue com 20 minutos de antecedência.'].join('\n');
+const saiu = gen(modelo);
+eh('o código da reserva sai', saiu.indexOf('B12-4821') < 0,
+  'é o dado mais perigoso: dá acesso à reserva de outra pessoa no app');
+eh('o total pago sai', saiu.indexOf('240') < 0);
+eh('o número de passageiros sai', saiu.indexOf('Passageiros') < 0);
+eh('o nome sai da saudação, mas a saudação fica',
+  saiu.indexOf('Ivone') < 0 && saiu.indexOf('Oi!') >= 0, saiu.split('\n')[2]);
+eh('o endereço fica — serve para todo mundo', saiu.indexOf('Beira-Mar') > 0);
+eh('a antecedência fica', saiu.indexOf('20 minutos') > 0);
+eh('a data da ida fica', saiu.indexOf('24/11/2026') > 0);
+eh('não sobram linhas vazias onde saiu o que foi tirado',
+  !/\n\n\n/.test(saiu), JSON.stringify(saiu.slice(0, 60)));
+eh('passar duas vezes dá o mesmo resultado', gen(saiu) === saiu,
+  'senão o botão continuaria aparecendo depois de já ter sido usado');
+eh('texto que já é genérico não é mexido',
+  gen('Bom dia! Os retornos de hoje: 09:20 e 15:00.') === 'Bom dia! Os retornos de hoje: 09:20 e 15:00.');
+
+eh('o botão existe e mora DENTRO do aviso que explica o perigo',
+  /<div class="cx aviso mp-pessoal" id="mp-alerta-pessoal"/.test(msg) &&
+  /id="mp-generico">Deixar genérico<\/button><\/div>/.test(msg),
+  'problema e conserto encostados: é o que faz a pessoa resolver em vez de ler duas vezes');
+eh('e some quando não há mais o que tirar',
+  /f\.querySelector\('#mp-alerta-pessoal'\)\.hidden =\s*\n?\s*B12\.textoGenerico\(cTexto\.value\) === cTexto\.value;/.test(msg));
+eh('a linha "vai igual para todos" não mente mais',
+  /var pessoal = B12\.textoGenerico\(cTexto\.value\) !== cTexto\.value;\s*\n\s*avNome\.hidden = pessoal;/.test(msg),
+  'com "Oi, Ivone!" dentro ela dizia que o texto não tinha nome');
+eh('os modelos de fábrica também mandam para vários',
+  /id="b-varios">Mandar para várias pessoas<\/button>/.test(msg));
+
 console.log('\n— a fila do WhatsApp parou de mentir —');
 eh('o confirm() sumiu', !/confirm\('Enviado para /.test(adm));
 eh('e com ele a palavra "Enviado"', !/'Enviado para ' \+ p\.nome/.test(adm));

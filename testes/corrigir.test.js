@@ -66,8 +66,10 @@ eh('aceitou a mudança', r.ok === true, r.erro);
 eh('a reserva tem a volta nova', B.DB.reservas[0].volta === '2026-11-18');
 eh('o CARRO no pátio também', B.DB.patio[0].saidaPrevista === '2026-11-18',
   B.DB.patio[0].saidaPrevista);
-eh('e a estadia foi recontada: 12 → 18 = 6 diárias',
-  B.DB.reservas[0].estacionamento === 6, String(B.DB.reservas[0].estacionamento));
+/* régua nova (24/11/2026): o dia da chegada e o da partida contam os dois,
+   então 12 → 18 são 7 diárias, não 6 */
+eh('e a estadia foi recontada: 12 → 18 = 7 diárias',
+  B.DB.reservas[0].estacionamento === 7, String(B.DB.reservas[0].estacionamento));
 eh('gravou no aparelho', B.salvou() === 1);
 eh('e disse o que mudou', r.mudou.includes('volta'), JSON.stringify(r.mudou));
 

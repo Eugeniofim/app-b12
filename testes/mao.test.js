@@ -93,6 +93,19 @@ eh('a reserva guarda os dois trechos para a ficha reabrir certa',
   /valorIda: Math\.max\(0, Number\(a\.valorIda\) \|\| 0\)/.test(nucleo) &&
   /valorVolta: Math\.max\(0, Number\(a\.valorVolta\) \|\| 0\)/.test(nucleo));
 
+console.log('\n— "Mais informações (opcional)" saiu da vista —');
+eh('o botão da dobra não existe mais', !/id="b-mais-balcao"/.test(form));
+eh('nem o texto dele', !/Mais informações \(opcional\)/.test(form));
+eh('mas os campos que o motor lê continuam no formulário',
+  /lista\('Destino', 'destino'/.test(form) &&
+  /lista\('Serviço', 'produto'/.test(form) &&
+  /lista\('Faixa de horário', 'faixa'/.test(form),
+  'tirar de vez quebraria o cálculo e a reserva na manhã da entrega');
+eh('escondidos, não apagados', /<div id="mais-balcao" hidden>/.test(form));
+eh('e e-mail, Instagram, CPF e cidade continuam em Editar cadastro',
+  /campo\('E-mail', 'email'[\s\S]{0,900}?campo\('Instagram', 'instagram'/.test(
+    form.slice(form.indexOf("B12.formCliente = function"))));
+
 console.log('\n— a entrada do pátio: menos escolha, menos risco —');
 eh('a lista "Tarifa" saiu da tela', !/f_lista\('Tarifa', 'tarifa'/.test(form));
 eh('e com ela o apagão silencioso do valor digitado',

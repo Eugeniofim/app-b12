@@ -546,10 +546,26 @@ B12.pgNome = function (k) {
             adefinir:'A definir' })[k] || k || '—';
 };
 
+/* ============================================ COMO A B12 CONTA DIÁRIA
+   24/11/2026, dele, e é dinheiro:
+
+     "multiplicar pelos dias e não diárias, seria referente ao dia da chegada
+      e partida... por exemplo chegou dia 25 e voltou dia 27 — então são 3
+      diárias."
+
+   O app contava a DIFERENÇA entre as datas: 27 − 25 = 2. Mas o carro ocupou
+   a vaga no dia 25, no 26 e no 27. São três dias de pátio, e a B12 cobra os
+   três — como todo estacionamento de praia cobra.
+
+   A conta certa é a diferença MAIS UM: o dia da chegada e o da partida
+   contam os dois. Entrou e saiu no mesmo dia continua sendo 1.
+
+   O erro custava uma diária em CADA carro. Com 10 carros por dia a R$ 50,
+   eram R$ 500 por dia saindo de graça do pátio. */
 B12.diarias = function (ida, volta) {
   if (!ida || !volta) return 1;
   var d = (new Date(volta+'T12:00') - new Date(ida+'T12:00')) / 86400000;
-  return d > 0 ? Math.round(d) : 1;
+  return d > 0 ? Math.round(d) + 1 : 1;
 };
 
 /* ======================================================== motor do financeiro */
@@ -1572,8 +1588,10 @@ B12.diariasDe = function (reg, ate) {
   var fimData = fimIso.slice(0, 10) === fimIso ? fimIso : (function () { var d = new Date(fimIso);
     return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); 
   })();
+  /* o dia da chegada e o da partida contam os dois: 25 → 27 são 3 diárias.
+     Ver a explicação longa em B12.diarias. */
   var d = (new Date(fimData + 'T12:00') - new Date(reg.entrada + 'T12:00')) / 86400000;
-  return Math.max(1, Math.round(d) || 1);
+  return Math.max(1, Math.round(d) + 1);
 };
 /* a conta de um carro: diárias até agora (ou até a saída), o que já foi pago e o que resta */
 B12.valorPatio = function (reg, ate) {
@@ -1663,9 +1681,9 @@ B12.atenderBalcao = function (a) {
   if (res.erro) return res;
   var cli = res.cliente;
 
-  var p = B12.preco({ produto: a.produto || 'regular', pax: a.pax || 1,
-    pagantes: a.pagantes, criancas: a.criancas || 0,
-    faixa: a.faixa || B12.faixaHora(a.hora), diarias: 0, pg: a.pg });
+  /* a chamada a B12.preco saiu junto com a rede da tabela: ninguém mais lia
+     o resultado dela aqui. A tabela continua viva para consulta em Preços e
+     para o app do turista. */
   /* 24/11/2026: "a pessoa vai preencher se é só estacionamento, ou só
      náutico, ou os dois". Antes disto o app EXIGIA travessia e recusava o
      atendimento de quem só deixava o carro — e essa pessoa existe todo dia
@@ -1676,11 +1694,15 @@ B12.atenderBalcao = function (a) {
   if (serv === 'estacionamento' && !a.placa)
     return { erro: 'Só estacionamento sem placa não dá: escreva a placa do carro.' };
 
-  /* quem atende manda: valor digitado ganha da tabela. É assim no papel. */
+  /* 24/11/2026: a tabela saiu da tela do balcão, então saiu daqui também.
+     Enquanto ela ficava de rede por baixo, a pessoa podia registrar sem
+     digitar nada e o app gravava um preço que NINGUÉM TINHA VISTO na tela —
+     a surpresa mais cara que um app de balcão pode dar. Agora, sem valor
+     escrito, ele recusa e diz o que fazer. */
   var combinado = Number(a.valorManual) || 0;
-  var travessia = !temNautico ? 0 : (combinado > 0 ? combinado : (p ? p.travessia : 0));
+  var travessia = !temNautico ? 0 : combinado;
   if (temNautico && travessia <= 0)
-    return { erro: 'Falta o valor: combine com a pessoa e digite quanto foi.' };
+    return { erro: 'Falta o valor da travessia: combine com a pessoa e digite quanto foi.' };
 
   /* o consumo é outra venda: entra em Bar e loja, não em Travessias, senão o
      relatório diz que a lancha faturou o que foi a cerveja */

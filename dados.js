@@ -25,7 +25,7 @@ var B12 = window.B12 || {};
    Para ligar quando ele quiser, é uma linha: pôr o endereço do cofre de volta
    (plano do estúdio) ou ele põe a própria chave da Anthropic em
    Estação → Assistente, que fica só no aparelho dele. */
-B12.VERSAO = 'b12-v2.5.0';   /* tem que bater com o CACHE do sw.js */
+B12.VERSAO = 'b12-v2.7.0';   /* tem que bater com o CACHE do sw.js */
 
 B12.IA = { cofre: '',
            modelo: 'claude-haiku-4-5' };

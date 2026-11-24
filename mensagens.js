@@ -309,7 +309,9 @@ B12.folhaMensagem = function (modeloId, dados) {
     texto.replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</textarea>' +
     '<p class="ajuda" style="margin-top:10px">Pode mudar o texto aqui antes de mandar. ' +
     'Os <b>*asteriscos*</b> viram negrito no WhatsApp. O app não envia nada sozinho.</p></div>' +
-    '<div class="folha-pe"><div class="grade2" style="margin:0">' +
+    '<div class="folha-pe">' +
+    '<button class="btn sec" style="margin:0 0 8px" id="b-varios">Mandar para várias pessoas</button>' +
+    '<div class="grade2" style="margin:0">' +
     '<button class="btn sec" style="margin:0" id="b-copiar">Copiar texto</button>' +
     '<button class="btn zap" style="margin:0" id="b-zap">Abrir no WhatsApp</button>' +
     '</div></div></div>';
@@ -320,6 +322,11 @@ B12.folhaMensagem = function (modeloId, dados) {
   f.querySelector('.folha-fundo').onclick = fechar;
   /* o que sai é o que está na tela, não o que a função gerou */
   function agora() { return f.querySelector('#txt-msg').value; }
+  f.querySelector('#b-varios').onclick = function () {
+    var t = agora();
+    fechar();
+    B12.formMandarPara({ id: m.id, nome: m.nome, quando: m.quando, texto: t }, { pessoal: true });
+  };
   f.querySelector('#b-zap').onclick = function () {
     B12.abrirWhats(dados && dados.whats, agora()); fechar(); };
   f.querySelector('#b-copiar').onclick = function () {
@@ -349,7 +356,9 @@ B12.folhaMinhaMensagem = function (msg, dados) {
     'aria-label="Texto da mensagem">' + escM(texto) + '</textarea>' +
     '<p class="ajuda" style="margin-top:10px">Pode mudar o texto aqui antes de mandar. ' +
     'Os <b>*asteriscos*</b> viram negrito no WhatsApp. O app não envia nada sozinho.</p></div>' +
-    '<div class="folha-pe"><div class="grade2" style="margin:0">' +
+    '<div class="folha-pe">' +
+    '<button class="btn sec" style="margin:0 0 8px" id="b-varios">Mandar para várias pessoas</button>' +
+    '<div class="grade2" style="margin:0">' +
     '<button class="btn sec" style="margin:0" id="b-copiar">Copiar texto</button>' +
     '<button class="btn zap" style="margin:0" id="b-zap">Abrir no WhatsApp</button>' +
     '</div></div></div>';
@@ -359,6 +368,10 @@ B12.folhaMinhaMensagem = function (msg, dados) {
   f.querySelector('.folha-x').onclick = fechar;
   f.querySelector('.folha-fundo').onclick = fechar;
   function agora() { return f.querySelector('#txt-msg').value; }
+  f.querySelector('#b-varios').onclick = function () {
+    var t = agora(); fechar();
+    B12.formMandarPara({ id: msg.id, nome: msg.nome, quando: msg.quando, texto: t });
+  };
   f.querySelector('#b-zap').onclick = function () { B12.abrirWhats(d.whats, agora()); fechar(); };
   f.querySelector('#b-copiar').onclick = function () {
     var b = f.querySelector('#b-copiar');
@@ -369,6 +382,44 @@ B12.folhaMinhaMensagem = function (msg, dados) {
 function escM(x) {
   return String(x == null ? '' : x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
+
+/* ---------------------------------------------- deixar o texto GENÉRICO
+   24/11/2026, dele, olhando o "Confirmar reserva" montado para a Ivone:
+
+     "como seria isso pra ser mais efetivo... deixar genérico, sem nome,
+      apenas info, para enviar para pessoas escolhidas."
+
+   Os modelos de fábrica são escritos para UMA pessoa: trazem o nome, o
+   código da reserva, o total que ela pagou, quantos passageiros. Mandar esse
+   texto para trinta pessoas é mandar o código de uma para as outras — além
+   de errado, é vazar dado de cliente.
+
+   Isto tira as linhas que só valem para uma pessoa e deixa o que serve para
+   todas: endereço, antecedência, horário, recado. O resto ele ajusta à mão,
+   porque o campo é editável. */
+var PESSOAIS = /^\s*(?:[^\s]*\s*)?(?:🎫|👥|💰)/;
+var PESSOAIS_PALAVRA = /^\s*[^\n]*\b(c[óo]digo|total|passageiros?)\s*:/i;
+B12.textoGenerico = function (texto) {
+  var linhas = String(texto || '').split('\n');
+  var fora = linhas.filter(function (l) {
+    if (PESSOAIS.test(l) || PESSOAIS_PALAVRA.test(l)) return false;
+    /* a saudação com nome: "Oi, Ivone! ..." vira "Oi! ..." mais abaixo */
+    return true;
+  }).map(function (l) {
+    return l
+      /* "Oi, Ivone!" → "Oi!"  ·  "Olá, Ivone," → "Olá," */
+      .replace(/\b(Oi|Olá|Bom dia|Boa tarde|Boa noite)\s*,\s*[^!,.]{1,40}([!,])/i, '$1$2')
+      /* "Sua travessia" / "sua volta" ficam: valem para qualquer um */
+      .replace(/\{nome\}/gi, '');
+  });
+  /* não deixa três linhas vazias seguidas onde saíram as linhas pessoais */
+  var limpo = [];
+  fora.forEach(function (l) {
+    if (l.trim() === '' && limpo.length && limpo[limpo.length - 1].trim() === '') return;
+    limpo.push(l);
+  });
+  return limpo.join('\n').trim();
+};
 
 /* ================================================ MANDAR PARA VÁRIAS PESSOAS
    24/11/2026. Ele olhou a aba Mensagens e perguntou: "como a gente faz para
@@ -434,6 +485,9 @@ B12.formMandarPara = function (msg, opc) {
 
   var texto0 = msg && msg.texto ? msg.texto : '';
   var temNome = /\{nome\}/i.test(texto0);
+  /* tem dado de UMA pessoa dentro? Então há o que tirar antes de mandar
+     para trinta — mandar o código de uma para as outras é vazar cliente. */
+  var temPessoal = B12.textoGenerico(texto0) !== texto0;
 
   function linha(p, i) {
     var canais = [];
@@ -459,9 +513,18 @@ B12.formMandarPara = function (msg, opc) {
     '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" ' +
     'stroke-width="2.2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>' +
     '<div class="folha-corpo">' +
-      '<textarea class="balao balao-edit" id="mp-texto" rows="7" style="margin-bottom:10px" ' +
+      '<textarea class="balao balao-edit" id="mp-texto" rows="7" style="margin-bottom:8px" ' +
       'aria-label="Texto da mensagem">' + escM(texto0) + '</textarea>' +
-      '<div class="ajuda" id="mp-aviso-nome" style="margin-bottom:14px">' + (temNome
+      /* 24/11/2026: o aviso e o botão diziam a mesma coisa em dois lugares da
+         mesma tela. Viraram um bloco só — o problema e o conserto encostados,
+         que é o que faz a pessoa resolver em vez de ler duas vezes. Só
+         aparece quando há o que tirar. */
+      '<div class="cx aviso mp-pessoal" id="mp-alerta-pessoal"' +
+      (temPessoal ? '' : ' hidden') + '><p>Este texto tem <b>nome, código e total</b> de ' +
+      'uma pessoa só. Mandando assim, todas recebem o código da primeira.</p>' +
+      '<button type="button" class="btn sec" id="mp-generico">Deixar genérico</button></div>' +
+      '<div class="ajuda" id="mp-aviso-nome" style="margin-bottom:14px"' +
+      (temPessoal ? ' hidden' : '') + '>' + (temNome
         ? 'O texto tem <b>{nome}</b>: cada pessoa recebe com o primeiro nome dela. ' +
           'Pelo WhatsApp e pelo aviso no app a troca é feita uma a uma.'
         : 'O texto não tem nome dentro: vai <b>igual para todos</b>.') + '</div>' +
@@ -505,7 +568,24 @@ B12.formMandarPara = function (msg, opc) {
   f.querySelectorAll('.mp-cx').forEach(function (c) { c.onchange = recontar; });
   /* mexeu no texto: o aviso sobre o nome acompanha */
   var cTexto = f.querySelector('#mp-texto'), avNome = f.querySelector('#mp-aviso-nome');
+  var bGen = f.querySelector('#mp-generico');
+  bGen.onclick = function () {
+    cTexto.value = B12.textoGenerico(cTexto.value);
+    cTexto.dispatchEvent(new Event('input'));
+  };
   cTexto.addEventListener('input', function () {
+    /* some quando não há mais nada de uma pessoa só para tirar */
+    /* o bloco inteiro some quando não há mais nada de uma pessoa só */
+    f.querySelector('#mp-alerta-pessoal').hidden =
+      B12.textoGenerico(cTexto.value) === cTexto.value;
+  });
+  cTexto.addEventListener('input', function () {
+    /* 24/11/2026, visto na tela: com "Oi, Ivone!" dentro, esta linha dizia
+       "não tem nome dentro: vai igual para todos" — e era mentira, porque
+       {nome} não é a única forma de ter nome num texto. Enquanto o aviso de
+       dado pessoal está de pé, ele manda, e esta linha some. */
+    var pessoal = B12.textoGenerico(cTexto.value) !== cTexto.value;
+    avNome.hidden = pessoal;
     avNome.innerHTML = /\{nome\}/i.test(cTexto.value)
       ? 'O texto tem <b>{nome}</b>: cada pessoa recebe com o primeiro nome dela.'
       : 'O texto não tem nome dentro: vai <b>igual para todos</b>.';

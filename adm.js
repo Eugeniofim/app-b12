@@ -212,23 +212,37 @@ var GRUPOS = [
      é uma linha. Os dados em B12.DB.marinheiros não são tocados. */
   { id:'balcao',    nome:'Cadastro',
     sub:[['balcao','Náutico'], ['patio','Estacionamento'],
-         ['clientes','Clientes'],
-         ['msgs','Mensagens'], ['prosp','Prospecção', 'dono']] },
+         ['clientes','Clientes'], ['prosp','Prospecção', 'dono']] },
   /* "Quem volta" morava em Hoje e o Eugênio foi procurar a criação dos
      horários de retorno aqui, na Travessia — que é onde a cabeça dele põe
      horário. Mudou de lugar: horário de ida e horário de volta no mesmo
      grupo, lado a lado. */
-  { id:'travessia', nome:'Horário de travessia',
+  { id:'travessia', nome:'Horários de retorno',
                     /* 12/11/2026: "Na Ilha" saiu da tira de abas a pedido do
                        Eugênio — mas a TELA não foi apagada. Ela é a única que
                        lista quem está na Ilha sem volta marcada, com o botão de
                        WhatsApp para correr atrás, e é para ela que aponta um dos
                        três avisos das 18h. Agora ela aparece dentro de "Volta",
                        que é a tela de trazer gente de volta. Ver PAGINAS. */
-                    sub:[['reservas','Reservas'], ['escala','Ida'], ['volta','Volta']] },
+                    sub:[['volta','Quem volta'], ['escala','Horários'], ['reservas','Reservas']] },
   /* Avisos era sub-aba de Clientes e o Eugênio não achou em dois dias.
      Funcionalidade que não se acha é funcionalidade que não existe. */
-  { id:'avisos',    nome:'Notificações', sub:[['avisos','Mandar aviso']] },
+  /* 24/11/2026, dele: "mensagem e notificações — como podemos deixar isso
+     mais homogêneo e no mesmo lugar? Pois umas vão pro WhatsApp e outras vão
+     pro notificações push e e-mail. Como fazer, pra deixar mais fluido?"
+
+     Estavam em dois lugares por acidente de história: as MENSAGENS nasceram
+     como modelos de WhatsApp e foram parar dentro do Cadastro; os AVISOS
+     nasceram como push e viraram grupo próprio. Mas para quem usa é uma
+     coisa só — "falar com o cliente" — e o canal é um detalhe do final.
+
+     Agora é um grupo: **Falar com o cliente**. Dentro dele, a ordem é a da
+     cabeça de quem vai falar:
+       Mandar       → escolhe o texto, escolhe quem, escolhe o canal
+       Mensagens    → os textos guardados
+       Quem recebe  → ligar o aviso no celular, ver quem está inscrito */
+  { id:'avisos',    nome:'Falar com o cliente',
+    sub:[['msgs','Mandar'], ['avisos','Quem recebe']] },
   { id:'dinheiro',  nome:'Financeiro', so:'dono',
     sub:[['painel','Painel'], ['caixa','Caixa'], ['lanc','Lançamentos'],
          ['contas','Contas'], ['relat','Relatórios'], ['contador','Contador'],
@@ -1992,8 +2006,15 @@ function blocoVoltamAmanha(raiz, amanha, quando) {
       ? '<button type="button" class="btn sec" id="va-mais" style="margin-top:9px">Ver as outras ' +
         (gente.length - 8) + '</button>'
       : '') +
-    '<button type="button" class="btn sec" id="va-ver" style="margin-top:9px">Ver o recado padrão</button>' +
-    '</div>');
+    '<div class="grade2" style="margin:9px 0 0">' +
+    '<button type="button" class="btn sec" style="margin:0" id="va-ver">Ver o recado</button>' +
+    '<button type="button" class="btn pri" style="margin:0" id="va-varios">Mandar para vários</button>' +
+    '</div></div>');
+
+  b.querySelector('#va-varios').onclick = function () {
+    B12.formMandarPara({ id: '__retorno', nome: 'Recado do retorno (' + quando + ')',
+      quando: rec.semGrade ? '' : 'horários: ' + rec.horas.join(' · '), texto: rec.texto });
+  };
 
   var bMais = b.querySelector('#va-mais');
   if (bMais) bMais.onclick = function () { vaAbertos[amanha] = true; B12.admDesenhar('hoje'); };
@@ -2049,7 +2070,12 @@ function blocoHorarios(dia) {
   var voltam = (d.voltam || []).reduce(function (t, p) { return t + (p.pessoas || 1); }, 0);
   var hoje = B12.hoje();
   var quando = dia === hoje ? 'hoje' : dia === B12.diaMais(hoje, 1) ? 'amanhã' : B12.dataBR(dia);
-  var falta = !idas.length || !voltas.length;
+  /* 24/11/2026, "eliminar horário de ida": a ida é livre — a lancha sai
+     quando tem gente, e ele não monta grade para isso. O que ele monta na
+     véspera, olhando quem está na Ilha e como está o mar, é o RETORNO. A
+     tira de idas saiu daqui e das outras telas de horário; as saídas de ida
+     que já existem continuam no banco e nos relatórios. */
+  var falta = !voltas.length;
 
   function tira(lista, rotulo) {
     return '<div style="margin-top:10px"><div class="sub-lin" style="margin-bottom:6px">' + rotulo + '</div>' +
@@ -2065,12 +2091,10 @@ function blocoHorarios(dia) {
     '<div class="cx-topo"><h3>Horários · ' + quando + '</h3>' +
     '<button class="mini-btn" data-horarios="' + dia + '">' + (falta ? 'Montar' : 'Mudar') + '</button></div>' +
     (falta
-      ? '<p>Falta montar ' + (!idas.length && !voltas.length ? 'as idas e as voltas'
-          : !idas.length ? 'as idas' : 'as voltas') + ' de ' + quando +
+      ? '<p>Falta montar os retornos de ' + quando +
         '. Enquanto não montar, o passageiro vê no app que os horários ainda não abriram.</p>'
-      : '<p>' + idas.length + ' de ida e ' + voltas.length + ' de volta' +
+      : '<p>' + voltas.length + (voltas.length === 1 ? ' retorno' : ' retornos') +
         (voltam ? ' · ' + voltam + (voltam > 1 ? ' pessoas voltam' : ' pessoa volta') : '') + '.</p>') +
-    tira(idas, 'Idas — levar para a Ilha') +
     tira(voltas, 'Retornos — buscar na Ilha') +
     '</div>');
   b.querySelectorAll('[data-horarios]').forEach(function (x) {
@@ -2227,10 +2251,8 @@ function blocoLembretes(raiz) {
   /* 1. os horários da véspera — é a rotina dele */
   [[amanha, 'amanhã'], [hoje, 'hoje']].forEach(function (par) {
     var dia = par[0], nome = par[1];
-    var i = B12.saidasDoDia(dia, 'ida').length, v = B12.saidasDoDia(dia, 'volta').length;
-    if (i && v) return;
-    add(dia === hoje, 'Faltam os horários de ' + nome +
-      (!i && !v ? ' (ida e volta)' : !i ? ' (ida)' : ' (volta)'),
+    if (B12.saidasDoDia(dia, 'volta').length) return;
+    add(dia === hoje, 'Faltam os horários de retorno de ' + nome,
       'Montar', function () { B12.formHorariosDia(dia, function () { B12.admDesenhar(); }); });
   });
 
@@ -2304,16 +2326,16 @@ function pEscala(raiz) {
     '<button class="btn sec" style="margin:0;width:auto;padding:11px 14px" id="b-amanha">›</button>' +
     '</div>' +
     '<div class="placar entra entra-1">' +
-      tile(e.idas.length,'Horários de ida','n') +
-      tile(totalIda,'Passageiros indo','n','destaque') +
       tile(e.voltas.length,'Horários de retorno','n') +
       tile(totalVolta,'Passageiros no retorno','n','destaque') +
       tile(pendentes.length,'Sem volta marcada','n', pendentes.length ? 'alerta' : '') +
       tile(B12.EMBARCACOES.length,'Embarcações','n') +
     '</div>' +
-    '<div class="grade2" style="margin:12px">' +
-    '<button class="btn pri" style="margin:0" id="b-nova-ida">+ Horário de ida</button>' +
-    '<button class="btn sec" style="margin:0" id="b-nova-volta">+ Horário de retorno</button></div>'
+    '<div style="padding:0 12px">' +
+    '<button class="btn pri" id="b-nova-volta">+ Horário de retorno</button></div>' +
+    '<div class="ajuda" style="margin:8px 12px 0">A <b>ida</b> é livre: a lancha sai quando ' +
+    'tem gente, e quem atende registra no Cadastro. Aqui ficam só os <b>retornos</b>, que ' +
+    'você monta na véspera.</div>'
   ));
   var campo = raiz.querySelector('#d-escala');
   campo.onchange = function () { diaEscala = campo.value; B12.admDesenhar('escala'); };
@@ -2321,7 +2343,6 @@ function pEscala(raiz) {
     diaEscala = B12.diaMais(dia, -1); B12.admDesenhar('escala'); };
   raiz.querySelector('#b-amanha').onclick = function () {
     diaEscala = B12.diaMais(dia, 1); B12.admDesenhar('escala'); };
-  raiz.querySelector('#b-nova-ida').onclick = function () { formSaida('ida', dia); };
   raiz.querySelector('#b-nova-volta').onclick = function () { formSaida('volta', dia); };
 
   raiz.appendChild(blocoHorarios(dia));
@@ -2398,7 +2419,6 @@ function pEscala(raiz) {
     });
   }
 
-  desenhaSentido(raiz, 'Indo para a Ilha', e.idas, dia, 'ida');
   desenhaSentido(raiz, 'Voltando da Ilha', e.voltas, dia, 'volta');
 
   var fim = bloco('<div style="padding:0 12px 12px">' +
@@ -2506,14 +2526,31 @@ function pMsgs(raiz) {
   ));
   var bv = raiz.querySelector('#b-varias');
   if (bv) bv.onclick = function () {
-    /* sem mensagem escolhida, ele escolhe primeiro qual texto vai */
-    var minhas2 = B12.minhasMensagens();
-    if (!minhas2.length) return B12.aviso('Escreva uma mensagem primeiro, aqui embaixo.', 'aviso');
+    /* 24/11/2026, "lembre da mensagem de retorno padrão": ela é a mensagem
+       que ele mais manda para a Ilha inteira, e não estava nesta lista — ele
+       teria de reescrever o texto à mão toda véspera. Entra aqui, sempre em
+       primeiro, montada com os horários de retorno de AMANHÃ, que são
+       editáveis em Horário de travessia. E já vem sem nome dentro, que é como
+       ele mesmo mandava no WhatsApp. */
+    var am = B12.diaMais(B12.hoje(), 1), rec = B12.recadoDeVolta(am);
+    var prontas = [{ id: '__retorno', nome: 'Recado do retorno (amanhã)',
+      quando: rec.semGrade ? 'FALTA MONTAR OS HORÁRIOS DE AMANHÃ'
+                           : 'horários: ' + rec.horas.join(' · '),
+      texto: rec.texto }];
+    var minhas2 = prontas.concat(B12.minhasMensagens());
+
     B12.folha({ titulo: 'Qual mensagem?', sub: 'depois você escolhe para quem',
-      corpo: '<div class="escolhas">' + minhas2.map(function (m) {
+      corpo: (rec.semGrade
+          ? '<div class="cx aviso" style="margin:0 0 12px"><p>Os horários de retorno de ' +
+            'amanhã ainda não foram montados — o recado vai sair sem eles.</p></div>'
+          : '') +
+        '<div class="escolhas">' + minhas2.map(function (m) {
         return '<button type="button" class="escolha" data-qual="' + esc(m.id) + '">' +
           '<span><b>' + esc(m.nome) + '</b><br><small>' + esc(m.quando || '') + '</small></span>' +
-          '</button>'; }).join('') + '</div>',
+          '</button>'; }).join('') + '</div>' +
+        (minhas2.length === 1
+          ? '<div class="ajuda" style="margin-top:12px">Você ainda não escreveu mensagens suas. ' +
+            'Dá para criar aqui embaixo, na lista <b>Minhas mensagens</b>.</div>' : ''),
       acao: 'Fechar', aoSalvar: function () { return { ok: true }; },
       aoAbrir: function (form) {
         form.querySelectorAll('[data-qual]').forEach(function (b) {

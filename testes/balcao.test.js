@@ -46,15 +46,23 @@ function monta(ajustes) {
   return B12;
 }
 
+/* 24/11/2026 — A RÉGUA MUDOU, e estes números mudaram junto.
+
+   Ele corrigiu a regra do pátio: "chegou dia 25 e voltou dia 27, então são 3
+   diárias". O dia da chegada e o da partida contam os DOIS. Até aqui o app
+   contava a diferença (2) e perdia uma diária em cada carro.
+
+   Os números abaixo eram os da régua velha. Ficam aqui com o cálculo à
+   mostra, para que a próxima pessoa veja a regra e não só o resultado. */
 console.log('\n— as diárias saem da mesma régua do pátio —');
 const B = monta();
-eh('12/11 19:32 até 15/11 = 3 diárias',
-  B.diariasBalcao('2026-11-12', '19:32', '2026-11-15', '') === 3,
+eh('12/11 até 15/11 = 4 diárias (12, 13, 14 e 15)',
+  B.diariasBalcao('2026-11-12', '19:32', '2026-11-15', '') === 4,
   String(B.diariasBalcao('2026-11-12', '19:32', '2026-11-15', '')));
 eh('ida e volta no mesmo dia = 1 diária, nunca zero',
   B.diariasBalcao('2026-11-12', '08:00', '2026-11-12', '18:00') === 1);
-eh('uma noite = 1 diária',
-  B.diariasBalcao('2026-11-12', '19:32', '2026-11-13', '') === 1);
+eh('uma noite = 2 diárias (o dia que chegou e o que foi embora)',
+  B.diariasBalcao('2026-11-12', '19:32', '2026-11-13', '') === 2);
 eh('sem data de volta não inventa diária',
   B.diariasBalcao('2026-11-12', '19:32', '', '') === 0);
 eh('volta antes da ida não vira diária negativa',
@@ -80,8 +88,9 @@ const p = B.preco({ produto: 'regular', pax: 3, pagantes: 3, faixa: 'tarde', dia
 eh('a ida custa 3 × R$ 60 = R$ 180', p.travessia / p.trechos === 180, String(p.travessia / p.trechos));
 eh('são dois trechos: ida e volta', p.trechos === 2);
 eh('a travessia soma R$ 360', p.travessia === 360, String(p.travessia));
-eh('o estacionamento soma 3 × R$ 50 = R$ 150', p.estacionamento === 150, String(p.estacionamento));
-eh('o total é R$ 510, e não R$ 360', p.travessia + p.estacionamento === 510,
+/* 4 diárias pela régua nova: 12, 13, 14 e 15 */
+eh('o estacionamento soma 4 × R$ 50 = R$ 200', p.estacionamento === 200, String(p.estacionamento));
+eh('o total é R$ 560, e não R$ 360', p.travessia + p.estacionamento === 560,
   String(p.travessia + p.estacionamento));
 
 console.log('\n— sem carro não existe estadia —');
@@ -109,8 +118,22 @@ eh('a linha da ida e a da volta aparecem separadas',
   /linhas\.push\(\['Ida', vIda\]\)/.test(form) && /linhas\.push\(\['Volta', vVolta\]\)/.test(form));
 eh('e são o que foi digitado, não a tabela',
   /if \(porMao > 0\) \{/.test(form));
-eh('a tabela, quando aparece, se chama de sugestão',
-  /'Sugestão da tabela · ida'/.test(form) && !/'Volta · mesma tabela'/.test(form));
+/* 24/11/2026, "eliminar isso agora": nem como sugestão. Enquanto a tela
+   mostrava "Sugestão da tabela · ida R$ 60", aquilo era lido como PREÇO —
+   número em tela de balcão sempre é. E o motor tinha a mesma rede por baixo:
+   sem valor digitado, gravava o da tabela, um preço que ninguém tinha visto.
+   Agora os dois recusam e pedem o valor. */
+eh('a tabela sumiu da conta do balcão',
+  !/'Sugestão da tabela/.test(form.replace(/\/\*[\s\S]*?\*\//g, '')));
+eh('e da faixa verde também',
+  !/'Pela tabela'/.test(form));
+eh('o motor também não cai na tabela por baixo',
+  /var travessia = !temNautico \? 0 : combinado;/.test(
+    require('fs').readFileSync(require('path').join(__dirname, '..', 'nucleo.js'), 'utf8')),
+  'gravar um preço que não apareceu na tela é a surpresa mais cara de um app de balcão');
+eh('sem valor, recusa e diz o que fazer',
+  /Falta o valor da travessia: combine com a pessoa e digite quanto foi\./.test(
+    require('fs').readFileSync(require('path').join(__dirname, '..', 'nucleo.js'), 'utf8')));
 eh('carro sem data de volta é avisado, não somado como zero calado',
   /id="carro-sem-volta"/.test(form));
 eh('o total da faixa verde inclui o estacionamento',

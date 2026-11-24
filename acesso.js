@@ -346,7 +346,7 @@ B12.formAjustes = function (depois) {
       B12.f_campo('Lugares por saída', 'vagas', { tipo:'number', modo:'numeric', valor: g.vagas || B12.CAPACIDADE }) +
       '<div class="grupo">Estacionamento</div>' +
       '<div class="ajuda">O valor da diária fica na aba <b>Preços</b>. Aqui são só as regras.</div>' +
-      B12.f_lista('Como contar as diárias', 'patioRegra', [['dia','Por dia de calendário (entrou dia 5, saiu dia 7 = 2 diárias)'],
+      B12.f_lista('Como contar as diárias', 'patioRegra', [['dia','Por dia de calendário (entrou dia 25, saiu dia 27 = 3 diárias)'],
         ['24h','A cada 24 horas desde a hora de entrada']], (a.patio || {}).regra || 'dia') +
       B12.f_campo('Tolerância (minutos)', 'patioTol', { tipo:'number', modo:'numeric', valor: (a.patio || {}).tolerancia || 60,
         ajuda:'Só na regra de 24 horas: folga antes de contar a diária seguinte.' }) +

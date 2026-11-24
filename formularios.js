@@ -564,34 +564,38 @@ B12.formBalcao = function (depois, dentro) {
       '<div class="conta" id="conta-balcao" hidden></div>' +
       '<div class="previa" id="previa-balcao"></div>' +
 
-      /* ---- o resto fica guardado, para não atrapalhar quem tem fila ---- */
-      '<button type="button" class="btn sec" id="b-mais-balcao" style="margin-top:14px">' +
-      'Mais informações (opcional)</button>' +
+      /* 24/11/2026, "tirar: mais informações (opcional)" — e logo depois,
+         "eliminar". O botão saiu e a dobra junto: no balcão com fila, uma
+         porta que ninguém abre é só mais uma coisa na tela.
+
+         Os campos continuam existindo, escondidos, por duas razões honestas:
+
+         1. O MOTOR LÊ TRÊS DELES. `produto`, `faixa` e `destino` entram na
+            reserva e no cálculo. Tirar de vez seria sair consertando o app
+            inteiro na manhã da entrega para ganhar nada.
+         2. E-MAIL, INSTAGRAM, CPF E CIDADE NÃO SE PERDEM. Eles continuam em
+            **Editar cadastro**, na ficha da pessoa, que é onde se preenche
+            com calma — não com alguém esperando em pé no balcão.
+
+         O marinheiro ficava aqui e também sai da vista: a sub-aba de
+         marinheiros foi excluída hoje pela mesma razão. */
       '<div id="mais-balcao" hidden>' +
-        grupo('Mais sobre a pessoa') +
         campo('E-mail', 'email', { tipo:'email', modo:'email', dica:'opcional' }) +
         campo('Instagram', 'instagram', { dica:'opcional, sem o @' }) +
         campo('CPF', 'cpf', { modo:'numeric', max:14, dica:'só se pedir nota fiscal' }) +
         campo('Cidade', 'cidade', { dica:'opcional' }) +
-        grupo('Sobre a viagem') +
-        campo('Idades das crianças', 'idades', { modo:'numeric', max:24, dica:'3, 7, 11',
-          ajuda:'só registro — quem decide o preço é o número de pagantes' }) +
+        campo('Idades das crianças', 'idades', { modo:'numeric', max:24, dica:'3, 7, 11' }) +
         lista('Destino', 'destino', B12.DESTINOS, 'Brasília') +
         lista('Serviço', 'produto', [['regular','Táxi Náutico'],
           ['nautico','Serviço Náutico Premium']], 'regular') +
         lista('Faixa de horário', 'faixa', [['dia','08h30 às 18h00'],['tarde','18h00 às 20h00'],
           ['noite','20h00 às 22h00'],['fora','Fora da tabela']], faixaAgora) +
         campo('Marinheiro', 'responsavel', { dica:'quem levou', max:30 }) +
-        marca('Aceita receber ofertas e novidades', 'aceitaOfertas', false,
-          'Guardado com data e hora. Sem isso, só dá para falar sobre a viagem dele.') +
+        marca('Aceita receber ofertas e novidades', 'aceitaOfertas', false, '') +
       '</div>',
     acao: 'Registrar atendimento',
     aoAbrir: function (form) {
-      var mais = form.querySelector('#mais-balcao'), bm = form.querySelector('#b-mais-balcao');
-      bm.onclick = function () {
-        mais.hidden = !mais.hidden;
-        bm.textContent = mais.hidden ? 'Mais informações (opcional)' : 'Esconder o resto';
-      };
+      /* o bloco escondido não tem mais botão: fica fora da vista de propósito */
       /* consumo: abre, fecha, e os botoes de + e - para nao digitar no celular */
       var bc = form.querySelector('#b-consumo'), cxc = form.querySelector('#cx-consumo');
       bc.onclick = function () {
@@ -670,22 +674,27 @@ B12.formBalcao = function (depois, dentro) {
         var volta = form.querySelector('[name=volta]').value;
         var horaV = form.querySelector('[name=horaVolta]').value;
         var diarias = placa ? B12.diariasBalcao(ida, hora.value, volta, horaV) : 0;
-        var pr = B12.preco({ produto: form.querySelector('[name=produto]').value,
-          pax: pax, pagantes: pag, faixa: faixa.value,
-          diarias: diarias, pg: form.querySelector('[name=pg]').value });
         var cons = B12.somarConsumo(form);
         var el = form.querySelector('#previa-balcao');
         var naoPag = pax - pag;
         var nota = naoPag > 0 ? ' · ' + naoPag + (naoPag > 1 ? ' não pagam' : ' não paga') : '';
-        var travessia = manual > 0 ? manual : (pr ? pr.travessia : 0);
+        /* 24/11/2026, "eliminar isso agora": a tabela sumiu da conta. Enquanto
+           ele não escrevia nada, a tela mostrava "Sugestão da tabela · ida
+           R$ 60 / volta R$ 60 / R$ 120" — e um número na tela de balcão é
+           lido como preço, não como sugestão. Na B12 quem atende combina e
+           digita. Sem valor escrito, a conta fica vazia e a faixa pede o
+           valor, que é a verdade. A tabela continua viva em Financeiro →
+           Preços, para consulta. */
+        var travessia = manual;
         var cEst = form.querySelector('[name=valorEstacionamento]');
         var cDia = form.querySelector('[name=diariaCarro]');
         var estMao = Math.max(0, Number(cEst && cEst.value) || 0);
         var diaMao = Math.max(0, Number(cDia && cDia.value) || 0);
+        /* a diária já vem escrita no campo, então o carro sempre tem um
+           número visível: não precisa (nem deve) cair na tabela por baixo */
         var estac = !placa ? 0
           : estMao > 0 ? estMao
-          : diaMao > 0 ? diaMao * diarias
-          : (pr ? pr.estacionamento : 0);
+          : diaMao * diarias;
         var total = travessia + cons.total + estac;
 
         /* A conta aberta, linha por linha. O Eugenio pediu para ver a soma:
@@ -701,16 +710,12 @@ B12.formBalcao = function (depois, dentro) {
             if (manual && Math.abs(manual - porMao) > 0.009) linhas.push(['Total escrito por cima', manual]);
           } else if (manual > 0) {
             linhas.push(['Valor combinado', manual]);
-          } else if (pr) {
-            var porTrecho = pr.travessia / pr.trechos;
-            linhas.push(['Sugestão da tabela · ida', porTrecho]);
-            if (pr.trechos > 1) linhas.push(['Sugestão da tabela · volta', porTrecho]);
           }
         }
         if (estac) linhas.push([estMao > 0
           ? 'Estacionamento · combinado' + (diarias ? ' · ' + diarias + (diarias > 1 ? ' diárias' : ' diária') : '')
           : 'Estacionamento · ' + diarias + (diarias > 1 ? ' diárias' : ' diária') +
-            ' × ' + B12.brl(diaMao > 0 ? diaMao : B12.DB.ajustes.diaria), estac]);
+            ' × ' + B12.brl(diaMao), estac]);
         if (cons.total) linhas.push(['Consumo', cons.total]);
 
         var conta = form.querySelector('#conta-balcao');
@@ -739,7 +744,7 @@ B12.formBalcao = function (depois, dentro) {
           el.innerHTML = '<span>Falta o valor' + nota + '</span><b>combine e digite</b>';
         } else {
           el.innerHTML = '<span>' + (porMao > 0 ? 'Ida + volta, como você digitou'
-              : manual > 0 ? 'Valor combinado' : 'Sugestão da tabela') + nota +
+              : 'Valor combinado') + nota +
             (estac ? ' · com estacionamento' : '') + '</span>' +
             '<b>' + B12.brl(total) + '</b>';
         }
@@ -1627,17 +1632,28 @@ B12.formHorariosDia = function (iso, depois) {
     sub: (chegam ? chegam + ' chega' + (chegam > 1 ? 'm' : '') : 'ninguém marcado') +
          ' · ' + (voltam ? voltam + ' volta' + (voltam > 1 ? 'm' : '') : 'nenhuma volta'),
     corpo:
-      bloco('ida', 'Idas — levar para a Ilha',
-        'Os horários em que a lancha sai do trapiche da B12.', B12.idasSugeridas()) +
+      /* 24/11/2026, "eliminar horário de ida": a ida é livre. A lancha sai
+         quando tem gente, e quem atende registra no Cadastro. O que ele monta
+         na véspera, olhando quem está lá e como está o mar, é o RETORNO.
+
+         O bloco da ida saiu da tela. O campo escondido `h-ida` fica, com os
+         horários que já existem, para `aoSalvar` não apagar as saídas de ida
+         que ainda tenham passageiro marcado. */
       bloco('volta', 'Retornos — buscar na Ilha',
         'Os horários em que a lancha vai buscar quem está lá.', B12.voltasSugeridas()) +
-      '<div class="grupo">Para as duas</div>' +
+      '<input type="hidden" name="h-ida" value="' +
+        B12.saidasDoDia(iso, 'ida').map(function (s) { return s.hora; }).join(',') + '">' +
+      /* era "Para as duas" quando havia ida e volta; agora só existe o
+         retorno (24/11/2026) */
+      '<div class="grupo">Da lancha</div>' +
       campo('Lugares por saída', 'vagas', { tipo:'number', modo:'numeric', valor: B12.CAPACIDADE,
         ajuda: 'A lancha leva ' + B12.CAPACIDADE + ' pessoas.' }) +
       campo('Marinheiro do dia', 'marinheiro', { valor: '', dica: 'opcional' }),
     acao: 'Salvar os horários',
     aoAbrir: function (f) {
-      ['ida', 'volta'].forEach(function (sentido) {
+      /* só o retorno tem tela desde 24/11/2026; a ida viaja no campo
+         escondido e não tem nada para ligar */
+      ['volta'].forEach(function (sentido) {
         var guardadas = f.querySelector('[name="h-' + sentido + '"]');
         function sincronizar() {
           var m = [];
@@ -1717,8 +1733,8 @@ B12.formHorariosDia = function (iso, depois) {
       var opc = { vagas: dd.vagas, marinheiro: dd.marinheiro };
       var idas = String(dd['h-ida'] || '').split(',').filter(Boolean);
       var voltas = String(dd['h-volta'] || '').split(',').filter(Boolean);
-      if (!idas.length && !voltas.length) {
-        return { erro: 'Marque pelo menos um horário de ida ou de volta.' };
+      if (!voltas.length) {
+        return { erro: 'Marque pelo menos um horário de retorno.' };
       }
       var r1 = idas.length ? B12.abrirSaidas(iso, 'ida', idas, opc) : { total: 0 };
       if (r1.erro) return r1;
@@ -1728,8 +1744,8 @@ B12.formHorariosDia = function (iso, depois) {
     },
     depois: function (r) {
       if (r && r.ok) {
-        B12.aviso('Horários de ' + B12.dataBR(iso) + ' salvos: ' + r.idas +
-          ' de ida e ' + r.voltas + ' de volta.', 'bom');
+        B12.aviso('Retornos de ' + B12.dataBR(iso) + ' salvos: ' + r.voltas +
+          (r.voltas === 1 ? ' horário.' : ' horários.'), 'bom');
       }
       if (depois) depois(r);
     }

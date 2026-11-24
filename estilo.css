@@ -2018,7 +2018,14 @@ body:not(.adm) .va-nome small{color:var(--tinta-3)}
 .mp-txt small{display:block;font-size:12px;color:var(--gelo-3);margin-top:2px}
 .mp-bts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0}
 .mp-bts .btn:disabled{opacity:.42}
-@media (max-width:430px){ .mp-bts{grid-template-columns:minmax(0,1fr)} }
+/* no celular, três botões empilhados comiam a tela e empurravam a lista de
+   gente para fora. O WhatsApp é o caminho principal — fica inteiro em cima;
+   os outros dois dividem a linha de baixo (24/11/2026). */
+@media (max-width:430px){
+  .mp-bts{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .mp-bts .btn:first-child{grid-column:1 / -1}
+  .mp-lista{max-height:30vh}
+}
 body:not(.adm) .mp-linha{background:var(--carta-2);border-color:var(--risco)}
 body:not(.adm) .mp-txt small{color:var(--tinta-3)}
 
@@ -2038,3 +2045,8 @@ body:not(.adm) .mp-txt small{color:var(--tinta-3)}
 body:not(.adm) .sino-item{background:var(--carta-2);border-color:var(--risco)}
 body:not(.adm) .sino-topo span{color:var(--tinta-3)}
 body:not(.adm) .sino-item p{color:var(--tinta-2)}
+
+/* o aviso com o conserto dentro: problema e botão encostados, não em
+   dois lugares da mesma tela (24/11/2026) */
+.mp-pessoal{margin:0 0 10px}
+.mp-pessoal .btn{margin:10px 0 0}

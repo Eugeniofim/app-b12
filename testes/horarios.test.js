@@ -71,8 +71,26 @@ eh('diz o que cada coisa faz',
 console.log('\n— a grade do código é só sugestão —');
 eh('a grade do dono manda, e a do código é o último recurso',
   /B12\.DB\.ajustes\.grade \|\| B12\.GRADE_PADRAO/.test(nucleo));
+/* 24/11/2026, "eliminar horário de ida": a ida é livre — a lancha sai quando
+   tem gente, e quem atende registra no Cadastro. A tela de montar passou a
+   ser só dos RETORNOS, que é o que ele monta na véspera olhando quem está na
+   Ilha e como está o mar. */
 eh('salvar exige pelo menos um horário, mas não impõe quais',
-  /Marque pelo menos um horário de ida ou de volta/.test(form));
+  /Marque pelo menos um horário de retorno/.test(form));
+eh('o bloco das idas saiu da tela de montar',
+  !/bloco\('ida',/.test(form));
+eh('e o laço que liga os chips não procura mais por ele',
+  /\['volta'\]\.forEach\(function \(sentido\)/.test(form),
+  'procurar #hx-ida que não existe mais quebraria a tela inteira ao abrir');
+eh('mas os horários de ida que já existem viajam escondidos',
+  /<input type="hidden" name="h-ida" value="/.test(form),
+  'sem isso, salvar o retorno apagaria saídas de ida que ainda têm passageiro');
+eh('o cartão de Horários mostra só os retornos',
+  !/tira\(idas, 'Idas/.test(
+    require('fs').readFileSync(require('path').join(__dirname, '..', 'adm.js'), 'utf8')));
+eh('e o lembrete cobra só o retorno',
+  /Faltam os horários de retorno de ' \+ nome/.test(
+    require('fs').readFileSync(require('path').join(__dirname, '..', 'adm.js'), 'utf8')));
 
 console.log('\n— o dedo alcança os botõezinhos —');
 eh('✎ e × têm 44px de altura',
