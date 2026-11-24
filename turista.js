@@ -1203,9 +1203,14 @@ B12.calcular = function () {
       valor(reg));
 
   var p = cotar(F.produto);
-  document.getElementById('est-txt').textContent = dd + (dd > 1 ? ' diárias' : ' diária') +
-    (mostra ? ' de ' + B12.brl(B12.DB.ajustes.diaria) : '');
-  document.getElementById('est-val').textContent = mostra ? B12.brl(B12.DB.ajustes.diaria * dd) : 'sob consulta';
+  /* 24/11/2026: com o preço desligado, "1 diária · sob consulta" era um número
+     que não é número. Sem preço na tela, o cartão só diz o que a pessoa escolheu. */
+  document.getElementById('est-txt').textContent = mostra
+    ? dd + (dd > 1 ? ' diárias' : ' diária') + ' de ' + B12.brl(B12.DB.ajustes.diaria)
+    : 'a B12 separa a vaga e combina o valor com você';
+  var ev = document.getElementById('est-val');
+  ev.hidden = !mostra;
+  ev.textContent = mostra ? B12.brl(B12.DB.ajustes.diaria * dd) : '';
   document.getElementById('est-sim').classList.toggle('on', !!F.estac);
   document.getElementById('est-nao').classList.toggle('on', !F.estac);
   var bp = document.getElementById('bloco-placa'); if (bp) bp.hidden = !F.estac;
@@ -1219,14 +1224,19 @@ B12.calcular = function () {
   if (tit) tit.textContent = mostra ? 'Sua conta' : 'Resumo da sua viagem';
   var rot = document.getElementById('c-total-rot');
   if (rot) rot.textContent = mostra ? 'Total' : 'Valor';
-  document.getElementById('c-trav').textContent = (mostra && p) ? B12.brl(p.travessia) : 'sob consulta';
+  /* a conta inteira dizia "sob consulta" em cada linha. Com o preço desligado ela
+     some, e sobra a frase que importa, logo abaixo. */
+  var cxConta = document.querySelector('.conta');
+  if (cxConta) cxConta.classList.toggle('conta-sem-preco', !mostra);
+  document.getElementById('c-trav').textContent = (mostra && p) ? B12.brl(p.travessia) : '';
   document.getElementById('c-lin-est').style.display = F.estac ? 'flex' : 'none';
   document.getElementById('c-est-desc').textContent = 'Estacionamento · ' + dd +
     (dd > 1 ? ' diárias' : ' diária');
-  document.getElementById('c-est').textContent = mostra ? B12.brl(p ? p.estacionamento : 0) : 'sob consulta';
+  document.getElementById('c-est').textContent = mostra ? B12.brl(p ? p.estacionamento : 0) : '';
   document.getElementById('c-lin-desc').style.display = (mostra && p && p.desconto) ? 'flex' : 'none';
   document.getElementById('c-desc-val').textContent = '− ' + B12.brl(p ? p.desconto : 0);
   document.getElementById('c-total').textContent = (mostra && p) ? B12.brl(p.total) : 'a combinar';
+  document.getElementById('c-lin-est').style.display = (mostra && F.estac) ? 'flex' : 'none';
   var cri = F.cri
     ? F.cri + (F.cri > 1 ? ' crianças' : ' criança') + ' até ' + B12.DB.ajustes.idadeCortesia + ' anos sem cobrança. '
     : 'Crianças até ' + B12.DB.ajustes.idadeCortesia + ' anos não pagam. ';
@@ -1253,7 +1263,8 @@ function erroReserva(msg, campo) {
   if (c) setTimeout(function () { try { c.focus({ preventScroll: true }); } catch (x) {} }, 320);
   var b = document.getElementById('b-reservar');
   if (b && b.dataset.ocupado) { delete b.dataset.ocupado; b.removeAttribute('aria-busy'); b.disabled = false;
-    b.innerHTML = 'Pedir minha reserva'; }
+    /* devolve o rótulo com o ícone, senão o botão volta sem o WhatsApp */
+    b.innerHTML = B12.ZAP_ICONE + '<span>Pedir meu orçamento</span>'; }
   return { erro: msg };
 }
 B12.reservar = function () {

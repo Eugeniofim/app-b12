@@ -2050,3 +2050,27 @@ body:not(.adm) .sino-item p{color:var(--tinta-2)}
    dois lugares da mesma tela (24/11/2026) */
 .mp-pessoal{margin:0 0 10px}
 .mp-pessoal .btn{margin:10px 0 0}
+
+/* enquanto o preço está desligado, a conta do turista não mostra linhas
+   vazias nem "sob consulta": sobra o rótulo e a frase que explica (24/11/2026) */
+.conta.conta-sem-preco .l:not(.total){display:none !important}
+.conta.conta-sem-preco .l.total .num{font-size:15px;font-weight:700}
+
+/* o botão de pedir orçamento: ícone do WhatsApp e texto na mesma linha,
+   centrados, sem o ícone grudar na letra (24/11/2026) */
+#b-reservar{display:flex;align-items:center;justify-content:center;gap:9px}
+
+/* ====================================================================
+   24/11/2026 — O `hidden` QUE NÃO ESCONDIA
+
+   Escondi o cartão de "Táxi Náutico" com `hidden` e ele continuou na tela.
+   A causa é a regra mais antiga do CSS e a mais fácil de esquecer: o
+   navegador aplica `[hidden]{display:none}` com peso de folha-do-usuário,
+   e QUALQUER `display` escrito numa classe nossa ganha dele. `.escolhas`
+   diz `display:grid` — e o grid vencia o hidden, calado.
+
+   O app usa `hidden` em 32 lugares do index. Esta regra vale para todos:
+   quando alguém marca hidden, some. Sem exceção, e por isso o !important —
+   é o único jeito de ganhar de uma classe que já venceu uma vez.
+   ==================================================================== */
+[hidden]{display:none !important}

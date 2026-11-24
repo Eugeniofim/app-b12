@@ -25,7 +25,7 @@ var B12 = window.B12 || {};
    Para ligar quando ele quiser, é uma linha: pôr o endereço do cofre de volta
    (plano do estúdio) ou ele põe a própria chave da Anthropic em
    Estação → Assistente, que fica só no aparelho dele. */
-B12.VERSAO = 'b12-v2.7.0';   /* tem que bater com o CACHE do sw.js */
+B12.VERSAO = 'b12-v2.8.0';   /* tem que bater com o CACHE do sw.js */
 
 B12.IA = { cofre: '',
            modelo: 'claude-haiku-4-5' };
@@ -386,6 +386,10 @@ B12.FICAR = [
   { nome:'Hospedagem parceira', foto:'fotos/ilha-ficar-1.jpg', pos:'center 58%',
     txt:'A B12 trabalha com as pousadas abaixo. Quem reserva pelo app pode escolher a pousada na hora.' },
 ];
+
+/* o ícone do WhatsApp, para quem precisa remontar um botão depois de usá-lo
+   (o B12.ocupar troca o innerHTML e precisa devolver igual) */
+B12.ZAP_ICONE = '<svg viewBox="0 0 24 24" width="19" height="19" fill="currentColor" aria-hidden="true" style="flex:none"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22h.01c5.46 0 9.9-4.45 9.9-9.91C21.95 6.45 17.5 2 12.04 2zm5.8 14.17c-.24.68-1.42 1.3-1.95 1.34-.5.04-.96.22-3.23-.67-2.72-1.07-4.44-3.85-4.58-4.03-.13-.18-1.1-1.46-1.1-2.79 0-1.33.7-1.98.94-2.25.25-.27.54-.34.72-.34h.52c.17 0 .4-.06.62.48.24.57.8 1.97.87 2.11.07.14.12.3.02.48-.1.18-.14.3-.28.46-.14.16-.3.36-.42.48-.14.14-.29.29-.12.57.16.27.73 1.2 1.56 1.95 1.07.95 1.97 1.25 2.25 1.39.27.14.43.12.6-.07.16-.18.68-.79.86-1.07.18-.27.36-.22.6-.13.25.09 1.57.74 1.84.87.27.14.45.2.52.32.07.11.07.66-.17 1.3z"/></svg>';
 
 B12.CREDITOS = [
   {a:"ilha-aerea.jpg", autor:"Mural Nativo", lic:"CC BY-SA 4.0", url:"https://commons.wikimedia.org/wiki/File:Vista_A%C3%A9rea_Praia_de_Fora_-_Farol_das_Conchas.jpg"},
