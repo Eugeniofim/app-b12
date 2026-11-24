@@ -48,9 +48,24 @@ eh('e a etiqueta não repete quando ela tem duas reservas',
   'saía "volta hoje · volta hoje · na Ilha · na Ilha" na mesma linha');
 eh('tem caixa por pessoa', /class="mp-cx"/.test(msg));
 eh('e os atalhos Todos / Nenhum', /id="mp-todos"/.test(msg) && /id="mp-nenhum"/.test(msg));
+/* 24/11, ele: "avisa no app... não entendi". O nome virou NOTIFICAÇÃO, que é
+   o que a coisa é — e o que ele mesmo chamou de notificação. */
 eh('cada linha diz por quais canais aquela pessoa é alcançável',
   /if \(p\.whats\) canais\.push\('WhatsApp'\)/.test(msg) &&
-  /if \(p\.clienteId\) canais\.push\('app'\)/.test(msg));
+  /if \(p\.clienteId\) canais\.push\('notificação'\)/.test(msg));
+eh('e o botão diz quando NINGUÉM tem o app, em vez de mostrar zero',
+  /: 'Ninguém tem o app';/.test(msg),
+  '"Aviso no app · 0" parece um canal como os outros; não é');
+eh('a tela explica que só chega em quem instalou',
+  require('fs').readFileSync(require('path').join(raiz, 'formularios.js'), 'utf8')
+    .indexOf('instalou o app ') > 0);
+eh('e que quem só reservou pelo site NÃO recebe',
+  require('fs').readFileSync(require('path').join(raiz, 'formularios.js'), 'utf8')
+    .indexOf('reservou pelo site <b>não recebe</b>') > 0,
+  'é a parte que ele precisa saber antes de confiar no canal');
+eh('existe o convite para instalar, que é o que faz o canal existir',
+  /B12\.conviteApp = function/.test(msg) && /id="fc-convite"/.test(
+    require('fs').readFileSync(require('path').join(raiz, 'formularios.js'), 'utf8')));
 eh('quem não tem contato nenhum é marcado como tal', /sem contato<\/b>/.test(msg));
 eh('e a tela avisa quando não há ninguém na Ilha',
   /Não há ninguém na Ilha nem voltando nos próximos dias/.test(msg));
@@ -167,7 +182,7 @@ eh('o aviso no app vai um por pessoa, com o nome dela',
 eh('e o resultado conta quantos realmente receberam',
   /rs\.filter\(function \(r\) \{ return r && r\.enviados > 0; \}\)\.length/.test(msg));
 eh('ninguém com o app instalado não vira "enviado"',
-  /Nenhuma dessas pessoas tem o app instalado/.test(msg));
+  /Nenhuma dessas pessoas instalou o app da B12/.test(msg));
 eh('o e-mail usa a lista de ids, que o servidor confere',
   /para: 'escolhidos',\s*\n?\s*ids: alvos\.map/.test(msg));
 eh('o asterisco do negrito sai do texto do push (lá não existe negrito)',

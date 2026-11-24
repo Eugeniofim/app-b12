@@ -264,6 +264,40 @@ B12.modelo = function (id) {
   return B12.MODELOS.filter(function (m) { return m.id === id; })[0] || null;
 };
 
+/* ======================================= O CONVITE PARA INSTALAR O APP
+   24/11/2026. Ele olhou o botão "Avisa no app" e disse: "não entendi".
+
+   A confusão é o sintoma; a doença é esta: a NOTIFICAÇÃO só chega em quem
+   instalou o app da B12 no celular. Quem reserva pelo site e vai embora não
+   instalou — então, para a maioria dos clientes, aquele canal vale ZERO.
+
+   Um canal que não alcança ninguém não se conserta mudando o nome do botão.
+   Conserta-se fazendo as pessoas instalarem. E o melhor momento para isso
+   não é o site: é o BALCÃO, com a pessoa ali, esperando a lancha, com o
+   celular na mão e um motivo imediato — ver o horário da volta dela.
+
+   Por isso o convite vira uma mensagem de WhatsApp que ele manda em um
+   toque, com o link e o código dela dentro. */
+B12.conviteApp = function (d) {
+  d = d || {};
+  var pri = String(d.nome || '').trim().split(' ')[0];
+  return [
+    (pri ? 'Oi, ' + pri + '! ' : 'Oi! ') + 'Aqui é da *Estação B12*.',
+    '',
+    'Instale o nosso app no seu celular — é rápido e não ocupa espaço:',
+    B12.enderecoApp(),
+    '',
+    'Com ele você:',
+    '• vê os *horários de retorno* assim que a gente abre',
+    '• recebe aviso de *mudança de horário e de mar agitado*',
+    '• marca a sua volta sem precisar ligar',
+    (d.cod ? '' : null),
+    (d.cod ? 'Seu código é *' + d.cod + '* — toque em "Já tenho um código".' : null),
+    '',
+    'Abra o link, toque em *compartilhar* e depois em *Adicionar à Tela de Início*. 📲'
+  ].filter(function (l) { return l !== null; }).join('\n');
+};
+
 /* ============================================ QUANDO ELE COMPRAR A LINHA
    24/11/2026: "se ele comprar a linha do WhatsApp no futuro, ele possa enviar
    em MASSA para os grupos dele".
@@ -554,7 +588,7 @@ B12.formMandarPara = function (msg, opc) {
   function linha(p, i) {
     var canais = [];
     if (p.whats) canais.push('WhatsApp');
-    if (p.clienteId) canais.push('app');
+    if (p.clienteId) canais.push('notificação');
     if (p.email && p.email.indexOf('@') > 0) canais.push('e-mail');
     return '<label class="mp-linha">' +
       '<input type="checkbox" class="mp-cx" data-i="' + i + '"' +
@@ -610,8 +644,11 @@ B12.formMandarPara = function (msg, opc) {
       '<p style="margin-top:8px"><b>Um a um:</b> o app abre uma conversa de cada vez e vai ' +
       'marcando quem já foi. Serve quando são duas ou três pessoas — e quem aperta enviar ' +
       'é você, sempre.</p>' +
-      '<p style="margin-top:8px"><b>Aviso no app</b> e <b>e-mail</b> saem todos de uma vez, ' +
-      'sozinhos.</p></div>' +
+      '<p style="margin-top:8px"><b>Notificação:</b> aparece no celular da pessoa como a do ' +
+      'banco, mesmo com a tela bloqueada. Só chega em <b>quem instalou o app da B12</b> ' +
+      'na tela de início — quem só reservou pelo site não recebe.</p>' +
+      '<p style="margin-top:8px"><b>E-mail:</b> chega em quem deixou o endereço. ' +
+      'Notificação e e-mail saem todos de uma vez, sozinhos.</p></div>' +
     '</div>' +
     /* 24/11/2026, depois de ele contar como trabalha de verdade:
 
@@ -636,7 +673,7 @@ B12.formMandarPara = function (msg, opc) {
     '<div class="folha-pe"><div class="mp-bts mp-bts-4">' +
       '<button type="button" class="btn sec" style="margin:0" id="mp-grupo">Num grupo</button>' +
       '<button type="button" class="btn sec" style="margin:0" id="mp-zap">Um a um</button>' +
-      '<button type="button" class="btn sec" style="margin:0" id="mp-app">Aviso no app</button>' +
+      '<button type="button" class="btn sec" style="margin:0" id="mp-app">Notificação</button>' +
       '<button type="button" class="btn sec" style="margin:0" id="mp-mail">E-mail</button>' +
     '</div></div></div>';
   document.body.appendChild(f);
@@ -657,7 +694,15 @@ B12.formMandarPara = function (msg, opc) {
     f.querySelector('#mp-conta').textContent = e.length +
       (e.length === 1 ? ' pessoa escolhida' : ' pessoas escolhidas');
     f.querySelector('#mp-zap').textContent = 'Um a um · ' + z;
-    f.querySelector('#mp-app').textContent = 'Aviso no app · ' + a;
+    /* 24/11/2026, ele: "avisa no app... não entendi". E com razão — "app" ali
+       pode ser o app DELE (o painel) ou o do cliente. O que é de verdade:
+       uma NOTIFICAÇÃO no celular da pessoa, como a do banco, e só chega em
+       quem INSTALOU o app da B12 na tela de início. Para a maioria dos
+       turistas, que reserva e vai embora, isso é zero — e o botão tem de
+       dizer isso em vez de parecer um canal como os outros. */
+    f.querySelector('#mp-app').textContent = a
+      ? 'Notificação · ' + a
+      : 'Ninguém tem o app';
     f.querySelector('#mp-mail').textContent = 'E-mail · ' + m;
     f.querySelector('#mp-zap').disabled = !z;
     f.querySelector('#mp-app').disabled = !a;
@@ -753,8 +798,8 @@ B12.formMandarPara = function (msg, opc) {
       aoMandar(alvos.filter(function (p, i) { return rs[i] && rs[i].enviados > 0; }));
       fechar();
       B12.aviso(chegou
-        ? 'Aviso no app entregue para ' + chegou + ' de ' + alvos.length + '.'
-        : 'Nenhuma dessas pessoas tem o app instalado. Use o WhatsApp.',
+        ? 'Notificação entregue em ' + chegou + ' de ' + alvos.length + ' celulares.'
+        : 'Nenhuma dessas pessoas instalou o app da B12. Use o WhatsApp.',
         chegou ? 'bom' : 'aviso');
     });
   };

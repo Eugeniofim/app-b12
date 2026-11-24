@@ -1999,7 +1999,7 @@ function blocoVoltamAmanha(raiz, amanha, quando) {
         '</button>' +
         '<div class="va-bts">' +
         (p.whats ? '<button type="button" class="mini-btn" data-va-zap="' + esc(p.id) + '">WhatsApp</button>' : '') +
-        (p.clienteId ? '<button type="button" class="mini-btn" data-va-push="' + esc(p.id) + '">No app</button>' : '') +
+        (p.clienteId ? '<button type="button" class="mini-btn" data-va-push="' + esc(p.id) + '">Notificar</button>' : '') +
         '</div></div>';
     }).join('') + '</div>' +
     (gente.length > 8 && !vaAbertos[amanha]

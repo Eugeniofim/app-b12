@@ -1342,7 +1342,10 @@ B12.fichaCliente = function (id, depois) {
     (zap ? '<button type="button" class="btn sec" id="fc-zap">WhatsApp</button>' : '') +
     /* 24/11/2026: o aviso que aparece no app que a pessoa instalou. Fica ao
        lado do WhatsApp porque são os dois caminhos da mesma conversa. */
-    '<button type="button" class="btn sec" id="fc-push">Avisar no app</button>' +
+    '<button type="button" class="btn sec" id="fc-push">Notificar no celular</button>' +
+    /* 24/11/2026: o jeito de a notificação passar a valer alguma coisa é mais
+       gente ter o app. O momento é o balcão, com a pessoa ali. */
+    (zap ? '<button type="button" class="btn sec" id="fc-convite">Mandar o app</button>' : '') +
     (c.instagram ? '<button type="button" class="btn sec" id="fc-ig">Instagram</button>' : '') +
     (c.email ? '<button type="button" class="btn sec" id="fc-mail">E-mail</button>' : '') +
     '</div>' +
@@ -1371,6 +1374,12 @@ B12.fichaCliente = function (id, depois) {
     B12.escolherMensagem({ nome: c.nome, whats: c.whats, cod: ult.cod || '',
       data: ult.volta || ult.ida || '', hora: ult.horaVolta || ult.hora || '',
       ida: ult.ida || '', volta: ult.volta || '' });
+  };
+  var bConv = form.querySelector('#fc-convite');
+  if (bConv) bConv.onclick = function () {
+    var ult = (d.reservasLista || []).slice().sort(function (a, b) {
+      return String(b.ida || '') < String(a.ida || '') ? -1 : 1; })[0] || {};
+    B12.abrirWhats(c.whats, B12.conviteApp({ nome: c.nome, cod: ult.cod || '' }));
   };
   form.querySelector('#fc-push').onclick = function () {
     B12.formAvisarPessoa(c, (d.reservasLista || []).slice().sort(function (a, b) {
@@ -1401,8 +1410,8 @@ B12.formAvisarPessoa = function (c, reserva) {
   var r = reserva || {};
   var pri = String(c.nome || '').split(' ')[0];
   B12.folha({
-    titulo: 'Avisar ' + pri + ' no app',
-    sub: 'Chega como notificação no celular dela',
+    titulo: 'Notificar ' + pri + ' no celular',
+    sub: 'aparece como a notificação do banco, mesmo com a tela bloqueada',
     corpo:
       campo('Título', 'titulo', { valor: 'Estação B12', max: 48, obrig: true }) +
       '<label for="c-texto">Recado</label>' +
@@ -1413,9 +1422,11 @@ B12.formAvisarPessoa = function (c, reserva) {
         ? '<button type="button" class="btn sec" id="av-retorno" style="margin-top:10px">' +
           'Usar o recado do retorno</button>'
         : '') +
-      '<div class="cx nota" style="margin-top:14px"><p>Isto chega só em quem ' +
-      '<b>instalou o app</b> e aceitou receber aviso. Se ela não instalou, o app ' +
-      'avisa você e aí vale o WhatsApp.</p></div>',
+      '<div class="cx nota" style="margin-top:14px"><p>Só chega em quem <b>instalou o app ' +
+      'da B12</b> na tela de início do celular e aceitou receber aviso. Quem apenas ' +
+      'reservou pelo site <b>não recebe</b> — para essa pessoa, WhatsApp.</p>' +
+      '<p style="margin-top:8px">Se ela não tiver instalado, o app avisa você e ' +
+      '<b>não manda para mais ninguém</b>.</p></div>',
     acao: 'Mandar o aviso',
     aoAbrir: function (form) {
       var b = form.querySelector('#av-retorno');
