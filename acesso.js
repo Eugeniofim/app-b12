@@ -19,6 +19,44 @@ var B12 = window.B12 || {};
 var SESSAO = 'b12_sessao', ERROS = 'b12_pin_erros', BLOQ = 'b12_pin_bloq',
     PINS   = 'b12_pins';
 var DURACAO = 12 * 60 * 60 * 1000;          /* 12 horas sem pedir de novo */
+
+/* ================================================= O PAINEL PEDE SEMPRE
+   24/11/2026, dele: "sempre quando entrar no Painel pedir PIN, pois às vezes
+   é a funcionária mexendo".
+
+   O buraco era real e grande: a sessão durava DOZE HORAS. Bastava o Dhalsin
+   entrar de manhã e, pelo resto do dia, qualquer pessoa que pegasse aquele
+   tablet entrava no painel do dono — Caixa, Lançamentos, Contas, Preços.
+   Num balcão onde o aparelho passa de mão em mão, isso é a porta destrancada.
+
+   Duas travas, porque o risco tem duas formas:
+
+   1. ENTRAR no painel pede o PIN SEMPRE. A folga de 90 s existe só para não
+      perguntar duas vezes no mesmo gesto (o portão entra, e a volta dele
+      chama B12.ir('adm') de novo).
+   2. O painel se TRANCA sozinho quando o app fica 2 minutos fora da frente.
+      É o caso de verdade: o tablet largado no balcão, aberto no painel, e a
+      funcionária pegando para atender alguém.
+
+   A área da EQUIPE não muda: ela é o trabalho do dia inteiro, e pedir PIN a
+   cada atendimento faria ela deixar o app aberto de propósito — o oposto. */
+var CONF = 'b12_painel_ok';
+var FOLGA_PAINEL = 90 * 1000;          /* só para o mesmo gesto */
+var TRANCA_FUNDO = 2 * 60 * 1000;      /* 2 min fora da frente = tranca */
+
+B12.painelConfirmar = function () {
+  try { localStorage.setItem(CONF, String(Date.now())); } catch (e) {}
+};
+B12.painelTrancar = function () {
+  try { localStorage.removeItem(CONF); } catch (e) {}
+};
+/* o painel pode abrir agora sem perguntar? */
+B12.painelLiberado = function () {
+  if (!B12.pode('dono')) return false;
+  var t = 0;
+  try { t = +localStorage.getItem(CONF) || 0; } catch (e) {}
+  return t > 0 && (Date.now() - t) < FOLGA_PAINEL;
+};
 var MAX_ERROS = 5, TEMPO_BLOQ = 60 * 1000;   /* 5 erros = 1 minuto de espera */
 
 B12.PIN_PADRAO = { dono: '2026', equipe: '1234' };   /* trocáveis em Ajustes */
@@ -76,10 +114,13 @@ B12.papel = function () {
 B12.entrar = function (papel) {
   try { localStorage.setItem(SESSAO, JSON.stringify({ papel: papel, ate: Date.now() + DURACAO })); }
   catch (e) {}
+  /* digitou o PIN agora: o painel abre neste gesto */
+  if (papel === 'dono') B12.painelConfirmar(); else B12.painelTrancar();
   if (B12.iaBolhaFlutuante) B12.iaBolhaFlutuante();
 };
 B12.sair = function () {
   try { localStorage.removeItem(SESSAO); } catch (e) {}
+  B12.painelTrancar();
   if (B12.iaFecharGaveta) B12.iaFecharGaveta();
   if (B12.iaBolhaFlutuante) B12.iaBolhaFlutuante();
   B12.ir('inicio');
@@ -127,16 +168,27 @@ B12.escolherPorta = function (depois) {
     '<div class="portao-cx">' +
       '<div class="portao-selo">' + (B12.FAROL || '') + '</div>' +
       '<h2>Quem está entrando?</h2>' +
-      '<p>Cada um tem o seu PIN. São áreas diferentes.</p>' +
+      /* 24/11/2026, proposta dele, e é melhor do que "pedir o PIN sempre" que
+         eu tinha acabado de fazer: em vez de uma trava invisível, DUAS PORTAS
+         à vista, cada uma com o PIN dela.
+
+           Painel do proprietário · 2026
+           Painel B12             · 1234
+
+         Para quem está no balcão isso é explicável apontando a tela, e é
+         exatamente o que ele precisa quando "às vezes é a funcionária
+         mexendo": ela toca na porta dela e entra com o PIN dela, sem nunca
+         chegar perto do painel do dono. */
+      '<p>Cada painel tem o seu PIN.</p>' +
       '<div class="portas">' +
         '<button type="button" class="porta" data-papel="dono">' +
           '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21h18M5 21V8l7-5 7 5v13"/>' +
           '<path d="M9 21v-6h6v6"/></svg>' +
-          '<b>Proprietário</b><small>Tudo, inclusive o dinheiro</small></button>' +
+          '<b>Painel do proprietário</b><small>Tudo, inclusive o dinheiro</small></button>' +
         '<button type="button" class="porta" data-papel="equipe">' +
           '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>' +
           '<circle cx="12" cy="7" r="4"/></svg>' +
-          '<b>Funcionário</b><small>O dia a dia. Sem o financeiro.</small></button>' +
+          '<b>Painel B12</b><small>O dia a dia. Sem o financeiro.</small></button>' +
       '</div>' +
       '<button type="button" class="btn sec" id="porta-voltar">Voltar</button>' +
     '</div>';
@@ -148,14 +200,19 @@ B12.escolherPorta = function (depois) {
     b.onclick = function () {
       var papel = b.dataset.papel;
       fechar();
-      B12.portao(papel, depois, { exato: true });
+      /* `recontar`: cada porta pede o SEU PIN, mesmo que a sessão ainda valha.
+         É o que faz as duas portas serem portas de verdade e não enfeite. */
+      B12.portao(papel, depois, { exato: true, recontar: true });
     };
   });
 };
 
 B12.portao = function (papelMinimo, depois, opc) {
   opc = opc || {};
-  if (B12.pode(papelMinimo)) { if (depois) depois(B12.papel()); return; }
+  /* `recontar` força o PIN mesmo com sessão válida. É o que faz o painel
+     perguntar sempre: sem isto, a sessão de 12 h deixava a porta aberta
+     para quem pegasse o tablet (24/11/2026). */
+  if (!opc.recontar && B12.pode(papelMinimo)) { if (depois) depois(B12.papel()); return; }
   var antiga = document.getElementById('portao'); if (antiga) antiga.remove();
 
   var f = document.createElement('div');
@@ -163,8 +220,12 @@ B12.portao = function (papelMinimo, depois, opc) {
   f.innerHTML =
     '<div class="portao-cx">' +
       '<div class="portao-selo">' + (B12.FAROL || '') + '</div>' +
-      '<h2>Área restrita</h2>' +
-      '<p>' + (papelMinimo === 'dono' ? 'Só o proprietário entra aqui.' : 'Equipe e proprietário da Estação B12.') + '</p>' +
+      /* o título diz em QUAL porta ele está: a pessoa acabou de escolher, e
+         a tela precisa confirmar a escolha dela (24/11/2026) */
+      '<h2>' + (papelMinimo === 'dono' ? 'Painel do proprietário' : 'Painel B12') + '</h2>' +
+      '<p>' + (papelMinimo === 'dono'
+        ? 'Digite o seu PIN. Só o proprietário entra aqui.'
+        : 'Digite o PIN da equipe. O dia a dia, sem o financeiro.') + '</p>' +
       '<form class="portao-form" novalidate>' +
         '<input id="portao-pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" ' +
         'autocomplete="off" placeholder="••••" aria-label="PIN">' +
@@ -183,8 +244,11 @@ B12.portao = function (papelMinimo, depois, opc) {
   function fechar() { f.remove(); document.body.style.overflow = ''; }
   f.querySelector('#portao-voltar').onclick = function () {
     fechar();
+    /* quem já está logado e só está reabrindo o painel volta para o início,
+       não para a escolha de porta — ele não está trocando de pessoa */
+    if (opc.recontar) B12.ir('inicio');
     /* veio da entradinha: volta para a escolha, não para fora do app */
-    if (opc.exato) B12.escolherPorta(depois); else B12.ir('inicio');
+    else if (opc.exato) B12.escolherPorta(depois); else B12.ir('inicio');
   };
 
   /* ------------------------------------------------ esqueci meu PIN

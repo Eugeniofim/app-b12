@@ -119,19 +119,19 @@ B12.MODELOS = [
       'Leve protetor solar, água e documento. Até amanhã! ☀️'
     ].join('\n'); } },
 
+  /* 24/11/2026: este modelo tinha HORÁRIOS INVENTADOS por padrão
+     (09h30, 12h00, 16h00, 18h00) e um texto próprio. Eram três recados de
+     retorno diferentes no app, e a pessoa recebia o de qual tela ele tivesse
+     passado. Agora ele devolve a MENSAGEM PADRÃO da B12, com os horários de
+     verdade daquele dia — a mesma de todo lugar. */
   { id:'volta', nome:'Horários de volta', quando:'no dia do retorno',
     cor:'#0E7A6E', icone:'🔁',
-    texto: function (d) { return [
-      '🔁 *Sua volta é hoje, ' + pri(d.nome) + '*',
-      '',
-      'Estes são os horários de retorno de hoje da Ilha do Mel:',
-      '',
-      (d.horarios || ['09h30', '12h00', '16h00', '18h00'])
-        .map(function (h) { return '• ' + h; }).join('\n'),
-      '',
-      'Me responde qual horário você prefere que eu já reservo seu lugar.',
-      'Chegue no trapiche 15 minutos antes. 🛥️'
-    ].join('\n'); } },
+    texto: function (d) {
+      var dia = d.volta || d.data || B12.hoje();
+      var pr = pri(d.nome);
+      return (pr && pr !== 'tudo bem' ? 'Oi, ' + pr + '!\n\n' : '') +
+             B12.recadoDeVolta(dia).texto;
+    } },
 
   { id:'mar', nome:'Mar agitado / mudança', quando:'quando o tempo vira',
     cor:'#D9932B', icone:'🌊',

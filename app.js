@@ -34,19 +34,31 @@ B12.ir = function (nome) {
   /* "painel" nao e tela: e a porta. Dono cai no painel, equipe na operacao, e
      quem ainda nao entrou ve o PIN uma vez so. */
   if (nome === 'painel') {
-    /* já entrou e a sessão vale: não pergunta de novo */
-    if (B12.pode('equipe')) return B12.ir(B12.papel() === 'dono' ? 'adm' : 'equipe');
-    /* 12/11/2026: a porta pergunta QUEM está entrando antes de pedir o PIN.
-       Ver B12.escolherPorta, em acesso.js. */
+    /* 24/11/2026, proposta dele: "ou faz dois caminhos — Painel PROPRIETÁRIO
+       / pin 2026, PAINEL B12 / pin 1234".
+
+       A tira das duas portas aparece SEMPRE, mesmo com sessão aberta, e cada
+       uma pede o seu PIN. Antes, quem tivesse entrado de manhã caía direto no
+       painel pelo resto do dia — e num balcão onde o tablet passa de mão em
+       mão isso é a porta destrancada.
+
+       Mostrar as duas portas é melhor do que uma trava invisível: ele explica
+       para a equipe apontando a tela. */
     return B12.escolherPorta(function (papel) { B12.ir(papel === 'dono' ? 'adm' : 'equipe'); });
   }
   if (TELAS.indexOf(nome) < 0) nome = 'inicio';
   if (nome === 'passeio' && !B12.passeioAtual) nome = 'passeios';
   var hashAlvo = nome === 'passeio' ? '/passeio/' + B12.passeioAtual : '/' + nome;
 
-  /* o portão: dono entra no painel; dono e equipe entram na operação */
-  if (nome === 'adm' && !B12.pode('dono'))
-    return B12.portao('dono', function () { B12.ir('adm'); });
+  /* O PORTÃO DO PAINEL. 24/11/2026, dele: "sempre quando entrar no Painel
+     pedir PIN, pois às vezes é a funcionária mexendo".
+
+     Antes bastava `B12.pode('dono')` — e a sessão dura 12 horas, então
+     entrar uma vez de manhã deixava o painel aberto o dia todo para quem
+     pegasse o tablet. Agora o PIN é pedido a cada entrada; a folga de 90 s
+     só evita perguntar duas vezes no mesmo gesto. */
+  if (nome === 'adm' && !B12.painelLiberado())
+    return B12.portao('dono', function () { B12.ir('adm'); }, { exato: true, recontar: true });
   if (nome === 'equipe' && !B12.pode('equipe'))
     return B12.portao('equipe', function (papel) { B12.ir(papel === 'dono' ? 'equipe' : 'equipe'); });
 
@@ -380,6 +392,23 @@ function comecar() {
   document.getElementById('b-atualizar').onclick = aplicarNova;
   document.getElementById('b-sair').onclick = B12.sair;
   /* o sininho: a caixa de avisos deste aparelho (24/11/2026) */
+  /* 24/11/2026: o painel se tranca quando o app fica fora da frente. É o
+     caso de verdade do pedido dele — o tablet largado no balcão, aberto no
+     painel, e a funcionária pegando para atender alguém. Dois minutos: menos
+     que isso trancaria ele só por atender o telefone. */
+  var saiuEm = 0;
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) { saiuEm = Date.now(); return; }
+    if (!saiuEm) return;
+    var fora = Date.now() - saiuEm;
+    saiuEm = 0;
+    if (fora < 2 * 60 * 1000) return;
+    if (!B12.painelTrancar) return;
+    B12.painelTrancar();
+    /* se ele estava DENTRO do painel, sai para a frente e pede de novo */
+    if (document.body.classList.contains('adm')) B12.ir('inicio');
+  });
+
   var bs = document.getElementById('b-sino');
   if (bs) {
     bs.onclick = function () { B12.folhaSino(); };

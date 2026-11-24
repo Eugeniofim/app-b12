@@ -3904,7 +3904,6 @@ function pVolta(raiz) {
         return p.clienteId && p.contato && p.contato.email &&
                p.contato.email.indexOf('@') > 0; });
       if (!gente.length) return B12.aviso('Ninguém deste dia tem e-mail no cadastro.');
-      var horas = B12.saidasDoDia(dia, 'volta').map(function (s) { return s.hora; });
       var qd = dia === B12.hoje() ? 'hoje'
              : dia === B12.diaMais(B12.hoje(), 1) ? 'amanhã' : 'dia ' + B12.dataBR(dia);
       B12.folha({
@@ -3915,10 +3914,9 @@ function pVolta(raiz) {
             B12.dataBR(dia), max: 90, obrig: true }) +
           '<label for="c-texto">Mensagem</label>' +
           '<textarea' + B12.SEM_AUTO + ' id="c-texto" name="texto" rows="7" maxlength="1200">' +
-          esc('Os horários de retorno ' + qd + ' são: ' +
-            (horas.length ? horas.join(' · ') : 'a confirmar') + '.\n\n' +
-            'Esteja no trapiche uns 10 minutos antes do horário escolhido. ' +
-            'Qualquer coisa, é só falar com a gente.') + '</textarea>' +
+          /* a MESMA mensagem padrão do WhatsApp — não uma versão de e-mail
+             escrita à parte. Uma empresa, um recado (24/11/2026). */
+          esc(B12.recadoDeVolta(dia).texto) + '</textarea>' +
           '<div class="ajuda">Cada pessoa recebe com o próprio nome. Vai só para quem ' +
           'está voltando neste dia.</div>' +
           '<div class="lista" style="margin-top:10px">' + gente.map(function (p) {
@@ -3955,12 +3953,24 @@ function pVolta(raiz) {
   });
 }
 
+/* 24/11/2026 — ERRO MEU, e ele achou testando de verdade.
+
+   Eu criei a mensagem padrão da B12 (B12.recadoDeVolta, o texto que ELE
+   escreveu e colou aqui) e liguei ela só nos blocos "Voltam hoje / amanhã"
+   da tela Hoje. Esta tela, "Quem volta", continuou mandando um texto curto
+   improvisado que eu tinha escrito antes — "Os horários de retorno dia
+   26/11/2026 são: 09:30 · 12:00…".
+
+   Resultado: DUAS mensagens de retorno diferentes no mesmo app, e a que
+   saía dependia de por qual tela ele passou. Ele mandou um teste e viu a
+   errada.
+
+   Agora existe UMA. Esta função só acrescenta o "Oi, Fulano!" quando o
+   recado vai para uma pessoa — no grupo ele sai sem nome. */
 function textoVolta(nome, dia) {
-  var horas = B12.saidasDoDia(dia, 'volta').map(function (s) { return s.hora; });
-  var qd = dia === B12.hoje() ? 'hoje' : dia === B12.diaMais(B12.hoje(), 1) ? 'amanhã' : 'dia ' + B12.dataBR(dia);
-  return 'Oi, ' + String(nome || '').split(' ')[0] + '! Aqui é da Estação B12.\n\n' +
-    'Os horários de retorno ' + qd + ' são: ' + (horas.length ? horas.join(' · ') : 'a confirmar') + '.\n\n' +
-    'Esteja no trapiche uns 10 minutos antes. Qualquer coisa, é só responder por aqui.';
+  var rec = B12.recadoDeVolta(dia);
+  var pri = String(nome || '').trim().split(' ')[0];
+  return (pri ? 'Oi, ' + pri + '!\n\n' : '') + rec.texto;
 }
 
 /* Abrir vinte conversas de uma vez não funciona: o navegador bloqueia. Uma de

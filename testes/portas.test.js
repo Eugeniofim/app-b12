@@ -31,8 +31,29 @@ eh('e a tela diz, em português, o que cada uma abre',
   /Tudo, inclusive o dinheiro/.test(acesso) && /O dia a dia\. Sem o financeiro\./.test(acesso));
 eh('o botão Painel passa pela escolha',
   /B12\.escolherPorta\(function \(papel\)/.test(app));
-eh('quem já entrou não é perguntado de novo',
-  /if \(B12\.pode\('equipe'\)\) return B12\.ir/.test(app));
+/* 24/11/2026 — A REGRA VIROU AO CONTRÁRIO, a pedido dele:
+
+     "sempre quando entrar no Painel pedir PIN, pois às vezes é a funcionária
+      mexendo" — e, logo depois, a solução dele, melhor que a minha:
+     "ou faz dois caminhos: Painel PROPRIETÁRIO / pin 2026, PAINEL B12 / pin 1234".
+
+   Até aqui, quem entrava de manhã não era perguntado de novo — e a sessão
+   dura DOZE HORAS. Num balcão onde o tablet passa de mão em mão, isso
+   deixava o painel do dono (Caixa, Lançamentos, Contas, Preços) aberto o dia
+   inteiro para quem pegasse o aparelho.
+
+   Agora as duas portas aparecem SEMPRE e cada uma pede o seu PIN. É mais
+   seguro e é mais fácil de explicar: ele aponta a tela e mostra para a
+   equipe qual é a porta dela. */
+eh('as duas portas aparecem sempre, mesmo com sessão aberta',
+  !/if \(B12\.pode\('equipe'\)\) return B12\.ir/.test(app),
+  'o atalho que pulava a escolha era o que deixava a porta destrancada');
+eh('e cada porta pede o SEU PIN',
+  /B12\.portao\(papel, depois, \{ exato: true, recontar: true \}\)/.test(acesso));
+eh('os nomes são os que ele escolheu',
+  /<b>Painel do proprietário<\/b>/.test(acesso) && /<b>Painel B12<\/b>/.test(acesso));
+eh('e o título da tela de PIN confirma em qual porta ele está',
+  /\(papelMinimo === 'dono' \? 'Painel do proprietário' : 'Painel B12'\)/.test(acesso));
 eh('a escolha leva ao painel ou à tela da equipe, conforme o papel',
   /B12\.ir\(papel === 'dono' \? 'adm' : 'equipe'\)/.test(app));
 
