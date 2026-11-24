@@ -14,10 +14,20 @@ var B12 = window.B12 || {};
 
 /* ---------------------------------------------------------------- identidade */
 /* o cofre: o servidor da Ti Artes que guarda a chave da IA. Vazio = assistente
-   desligado (o app continua funcionando igual, só sem o chat). */
-B12.VERSAO = 'b12-v2.3.1';   /* tem que bater com o CACHE do sw.js */
+   desligado (o app continua funcionando igual, só sem o chat).
 
-B12.IA = { cofre: 'https://uopfqlogjzuqpabptxkb.supabase.co/functions/v1/cofre',
+   23/11/2026 — DESLIGADO PARA A ENTREGA, a pedido do Eugênio.
+   Enquanto apontava para o cofre do estúdio, TODA pergunta que o Dhalsin
+   fizesse ao assistente saía da conta da Anthropic DO EUGÊNIO. O saldo de lá
+   não tem recarga automática: um cliente curioso no primeiro dia derrubaria
+   junto os robôs de todos os outros clientes.
+
+   Para ligar quando ele quiser, é uma linha: pôr o endereço do cofre de volta
+   (plano do estúdio) ou ele põe a própria chave da Anthropic em
+   Estação → Assistente, que fica só no aparelho dele. */
+B12.VERSAO = 'b12-v2.3.2';   /* tem que bater com o CACHE do sw.js */
+
+B12.IA = { cofre: '',
            modelo: 'claude-haiku-4-5' };
 
 B12.EMPRESA = {

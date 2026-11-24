@@ -383,6 +383,14 @@ B12.formBalcao = function (depois, dentro) {
         '<div>' + campo('Volta', 'volta', { tipo:'date' }) + '</div>' +
         '<div>' + campo('Hora', 'horaVolta', { tipo:'time' }) + '</div>' +
       '</div>' +
+      /* 24/11/2026, pedido do Eugênio: campo vazio podia ser "ainda não sei"
+         ou "esqueci de preencher", e quem atende não sabia o que fazer. Agora
+         "a definir" é uma escolha com nome. Continua entrando na lista de quem
+         está na Ilha sem volta — a pessoa ainda precisa voltar, e a lancha
+         precisa ser marcada; a caixinha só diz que foi combinado assim. */
+      marca('A volta fica a definir', 'voltaADefinir', false,
+        'Marque quando a pessoa ainda não sabe o dia. Ela continua na lista de ' +
+        'quem precisa marcar a volta.') +
       campo('Placa', 'placa', { max:8, dica:'deixe vazio se não deixou carro' }) +
       campo('Celular', 'whats', { tipo:'tel', modo:'tel', dica:'(41) 90000-0000' }) +
       '<div class="par">' +
@@ -415,7 +423,8 @@ B12.formBalcao = function (depois, dentro) {
         campo('Observação', 'obs', { max:140, dica:'o que mais precisa ficar registrado' }) +
       '</div>' +
       '<div class="cx aviso" id="carro-sem-volta" hidden style="margin-top:14px">' +
-        '<p>O carro fica no pátio, mas falta a <b>data da volta</b> — sem ela não dá para contar a estadia.</p></div>' +
+        '<p id="carro-sem-volta-txt">O carro fica no pátio, mas falta a <b>data da volta</b> — ' +
+        'sem ela não dá para contar a estadia.</p></div>' +
       '<div class="conta" id="conta-balcao" hidden></div>' +
       '<div class="previa" id="previa-balcao"></div>' +
 
@@ -475,6 +484,30 @@ B12.formBalcao = function (depois, dentro) {
         calcular();
       });
 
+      /* "a definir" apaga e tranca os dois campos: dois jeitos de dizer a
+         mesma coisa na tela é como nasce dado contraditório */
+      var aDef = form.querySelector('[name=voltaADefinir]');
+      var cVolta = form.querySelector('[name=volta]'), cHoraV = form.querySelector('[name=horaVolta]');
+      if (aDef) {
+        var aplicaDef = function () {
+          var on = aDef.checked;
+          [cVolta, cHoraV].forEach(function (c) {
+            if (!c) return;
+            c.disabled = on;
+            if (on) c.value = '';
+            c.style.opacity = on ? '.45' : '';
+          });
+          calcular();
+        };
+        aDef.onchange = aplicaDef;
+        /* digitou uma data: não é mais "a definir" */
+        [cVolta, cHoraV].forEach(function (c) {
+          if (c) c.addEventListener('input', function () {
+            if (c.value && aDef.checked) { aDef.checked = false; aplicaDef(); }
+          });
+        });
+      }
+
       /* a hora da ida escolhe a faixa sozinha: uma decisão a menos para quem atende */
       var hora = form.querySelector('[name=hora]'), faixa = form.querySelector('[name=faixa]');
       hora.onchange = function () {
@@ -532,7 +565,17 @@ B12.formBalcao = function (depois, dentro) {
         /* o carro ficou e ninguem marcou a volta: a estadia nao tem como ser
            contada, e e melhor dizer isso do que somar zero calado */
         var avisoCarro = form.querySelector('#carro-sem-volta');
-        if (avisoCarro) avisoCarro.hidden = !(placa && !volta);
+        if (avisoCarro) {
+          avisoCarro.hidden = !(placa && !volta);
+          var txt = form.querySelector('#carro-sem-volta-txt');
+          /* escolheu "a definir": não é esquecimento, é combinado. O recado
+             deixa de cobrar e passa a dizer o que acontece. */
+          if (txt) txt.innerHTML = (aDef && aDef.checked)
+            ? 'Volta <b>a definir</b>: a estadia do carro vai ser contada na saída, ' +
+              'quando ele voltar e você marcar o dia.'
+            : 'O carro fica no pátio, mas falta a <b>data da volta</b> — ' +
+              'sem ela não dá para contar a estadia.';
+        }
 
         if (!travessia && !estac) {
           el.innerHTML = '<span>Falta o valor' + nota + '</span><b>combine e digite</b>';
@@ -914,6 +957,8 @@ B12.formEditarReserva = function (id, depois) {
         '<div>' + campo('Volta', 'volta', { tipo:'date', valor:r.volta || '' }) + '</div>' +
         '<div>' + campo('Hora', 'horaVolta', { tipo:'time', valor:r.horaVolta || '' }) + '</div>' +
       '</div>' +
+      marca('A volta fica a definir', 'voltaADefinir', !r.volta && !!r.voltaADefinir,
+        'A pessoa ainda não sabe o dia.') +
       (carro && !carro.saidaReal
         ? '<div class="ajuda" style="margin:-4px 12px 10px">O carro <b>' + esc(r.placa) +
           '</b> está no pátio. Mudar a volta muda a estadia que vai ser cobrada na saída.</div>'

@@ -2910,10 +2910,21 @@ function pIA(raiz) {
   B12.iaTestar().then(function (e) {
     var el = document.getElementById('ia-estado'); if (!el) return;
     el.innerHTML = e.ligado ? '' :
-      '<div class="cx aviso" style="margin:12px 0 0"><h3>Assistente ainda não liberado</h3>' +
-      '<p>' + (e.motivo === 'endereço ainda não liberado no cofre'
-        ? 'Falta o Eugênio liberar este endereço no cofre. É um passo de um minuto. Enquanto isso, o resto do painel funciona normalmente.'
-        : 'Falta o Eugênio ligar a chave. O resto do painel funciona normalmente.') + '</p></div>';
+      /* 23/11/2026: o recado precisa fazer sentido para QUEM LÊ. "sem cofre"
+         é o assistente desligado de propósito na entrega — é uma escolha dele
+         ligar, não uma pendência nossa. Os outros motivos continuam como
+         estavam, porque aí é configuração mesmo. */
+      '<div class="cx nota" style="margin:12px 0 0"><h3>' +
+      (e.motivo === 'sem cofre' ? 'O assistente está desligado' : 'Assistente ainda não liberado') +
+      '</h3><p>' + (
+        e.motivo === 'sem cofre'
+        ? 'Ele é um extra do app: um chat que lê os seus números e responde ' +
+          '"como foi o mês", "quem está na Ilha sem volta", "quanto dá para retirar". ' +
+          'Para ligar, fale com a Ti Artes — ou ponha a sua própria chave de IA ' +
+          'aqui mesmo, logo abaixo. <b>O resto do painel funciona normalmente.</b>'
+        : e.motivo === 'endereço ainda não liberado no cofre'
+        ? 'Falta liberar este endereço no cofre. É um passo de um minuto. Enquanto isso, o resto do painel funciona normalmente.'
+        : 'Falta ligar a chave. O resto do painel funciona normalmente.') + '</p></div>';
   });
 
   var area = document.getElementById('ia-conversa');
