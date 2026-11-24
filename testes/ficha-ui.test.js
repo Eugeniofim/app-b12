@@ -71,8 +71,9 @@ eh('o resto vai para a segunda',
   /\[data-aba="balcao"\] > \*\{grid-column:2/.test(umaLinha.replace(/\s+/g, ' ')));
 
 console.log('\n— e o CSS continua íntegro —');
-eh('as chaves estão equilibradas',
-  (css.match(/\{/g) || []).length === (css.match(/\}/g) || []).length);
+/* contar não basta — ver testes/ajuda-css.js */
+var est1 = require('./ajuda-css.js').conferirCSS(css);
+eh('as chaves estão equilibradas E na ordem certa', est1.ok, est1.erros.join(' · '));
 
 console.log('\n' + ok + ' passaram, ' + falhou + ' falharam');
 process.exit(falhou ? 1 : 0);

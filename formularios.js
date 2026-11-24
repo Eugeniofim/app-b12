@@ -22,7 +22,9 @@ B12.folha = function (opc) {
   f.className = inline ? 'folha-inline' : 'folha';
   f.innerHTML =
     (inline ? '' : '<div class="folha-fundo"></div>') +
-    '<form class="folha-cx" novalidate>' +
+    /* autocomplete="off" no formulário inteiro: alguns navegadores só olham
+       aqui, e não campo a campo. Os dois juntos é que seguram. */
+    '<form class="folha-cx" novalidate autocomplete="off">' +
       (inline ? '' : '<div class="folha-alca"></div>') +
       (inline && opc.semTopo ? '' :
       '<div class="folha-topo">' +
@@ -114,10 +116,30 @@ B12.fecharFolha = function () {
 document.addEventListener('keydown', function (e) { if (e.key === 'Escape') B12.fecharFolha(); });
 
 /* ---------------------------------------------------------- peças de campo */
+/* ---------------------------------------------- o preenchimento automático
+   24/11/2026. Ele mandou um retrato da tela "Nova mensagem" com o NOME DELE
+   escrito no campo "Nome da mensagem", e disse que o app estava todo zoado.
+   Estava mesmo, e a causa era uma linha que faltava aqui.
+
+   Nenhum campo do app dizia `autocomplete`. Então o navegador olhava o nome
+   técnico do campo — `nome`, `email`, `cpf`, `cidade`, `whats` — reconhecia
+   como ficha de pessoa e oferecia os dados guardados do DONO DO APARELHO.
+
+   No balcão isso é pior que feio: o tablet é compartilhado, e o campo "Nome"
+   da ficha do cliente é o mesmo `nome`. Um toque errado grava o nome de
+   outra pessoa no cadastro de quem está viajando.
+
+   Fica desligado em todo campo do app, mais as marcas que os gerenciadores
+   de senha leem para não se meterem. */
+var SEM_AUTO = ' autocomplete="off" autocorrect="off" spellcheck="false" ' +
+               'data-lpignore="true" data-form-type="other" data-1p-ignore';
+B12.SEM_AUTO = SEM_AUTO;
+
 function campo(rot, nome, opc) {
   opc = opc || {};
   return '<label for="c-' + nome + '">' + rot + (opc.obrig ? ' *' : '') + '</label>' +
     '<input id="c-' + nome + '" name="' + nome + '" type="' + (opc.tipo || 'text') + '"' +
+    (opc.auto ? ' autocomplete="' + opc.auto + '"' : SEM_AUTO) +
     (opc.modo ? ' inputmode="' + opc.modo + '"' : '') +
     (opc.passo ? ' step="' + opc.passo + '"' : '') +
     (opc.valor != null ? ' value="' + String(opc.valor).replace(/"/g, '&quot;') + '"' : '') +
@@ -127,7 +149,7 @@ function campo(rot, nome, opc) {
 }
 function lista(rot, nome, itens, sel) {
   return '<label for="c-' + nome + '">' + rot + '</label><select id="c-' + nome +
-    '" name="' + nome + '">' + itens.map(function (i) {
+    '" name="' + nome + '"' + SEM_AUTO + '>' + itens.map(function (i) {
       var v = Array.isArray(i) ? i[0] : i, t = Array.isArray(i) ? i[1] : i;
       return '<option value="' + v + '"' + (v === sel ? ' selected' : '') + '>' + t + '</option>';
     }).join('') + '</select>';
@@ -156,8 +178,18 @@ function grupo(titulo) { return '<div class="grupo">' + titulo + '</div>'; }
 B12.f_campo = campo; B12.f_lista = lista; B12.f_marca = marca;
 B12.f_listaLivre = listaLivre;
 
+/* 24/11/2026 — "A definir" entra na lista a pedido do Eugênio.
+   Na B12 o cliente paga NA SAÍDA: na hora do cadastro quem atende muitas vezes
+   não sabe como vai ser. Sem esta opção, todo atendimento saía marcado como
+   Pix, e o relatório por forma de pagamento virava invenção.
+
+   Fica por último, depois das formas de verdade — é um estado, não um jeito
+   de pagar. Quem não cobra taxa de maquininha e não dá desconto de dinheiro
+   continua certo: taxa desconhecida conta zero, e o desconto só olha
+   'dinheiro'. */
 var PAGAMENTOS = [['pix','Pix'],['dinheiro','Dinheiro'],['credito','Cartão de crédito'],
-                  ['debito','Cartão de débito'],['transferencia','Transferência']];
+                  ['debito','Cartão de débito'],['transferencia','Transferência'],
+                  ['adefinir','A definir']];
 
 /* ======================================================== LANÇAMENTO (R$) */
 B12.formLancamento = function (tipo, prefill, depois) {
@@ -290,32 +322,65 @@ B12.formEntradaPatio = function (depois) {
       campo('Saída prevista', 'saidaPrevista', { tipo:'date',
         ajuda:'Com a data prevista o app já diz quanto vai dar, e cobra agora se for o caso.' }) +
       campo('Vaga', 'vaga', { dica:'opcional, ex: A12', max:8 }) +
-      campo('Valor da diária', 'diaria', { tipo:'number', passo:'1', modo:'numeric',
-        valor: B12.DB.ajustes.diaria }) +
-      B12.f_lista('Tarifa', 'tarifa', [
-        ['balcao', 'Balcão · ' + B12.brl(B12.DB.ajustes.diaria)],
-        ['combinada', 'Combinada · ' + B12.brl(B12.DB.ajustes.diariaEspecial)]], 'balcao') +
-      lista('Quando cobrar', 'cobrarAgora', [['0','Na saída, pelo tempo real'],
-        ['1','Agora, pelo tempo previsto (acerta a diferença na saída)']],
-        cfg.cobranca === 'chegada' ? '1' : '0') +
-      lista('Forma de pagamento (se cobrar agora)', 'pg', PAGAMENTOS, 'pix') +
+      '<div class="par">' +
+        '<div>' + campo('Valor da diária', 'diaria', { tipo:'number', passo:'1', modo:'numeric',
+          valor: B12.DB.ajustes.diaria }) + '</div>' +
+        /* 24/11/2026, "tirar tarifa do estacionamento". A lista Tarifa saía por
+           duas razões, e as duas doem:
+
+           1. Ela APAGAVA o "Valor da diária" digitado logo acima. Quem atende
+              escrevia 40, escolhia "Combinada", e o 40 virava outra coisa sem
+              ninguém ver.
+           2. Ela mostrava a tarifa combinada escrita por extenso, numa tela
+              usada no balcão com o cliente do lado. Esse valor é decisão do
+              Dhalsin e nunca pode aparecer para quem está viajando.
+
+           No lugar entra o mesmo campo da ficha do balcão: um preço combinado
+           pela estadia inteira, escrito na hora. Vazio = conta pela diária. */
+        '<div>' + campo('Combinado pela estadia', 'combinado', { tipo:'number', passo:'0.01',
+          modo:'decimal', dica:'R$' }) + '</div>' +
+      '</div>' +
+      '<div class="ajuda" style="margin:-4px 12px 10px">Deixe o combinado vazio para contar pela ' +
+      'diária. Escrevendo um valor, é ele que vale pela estadia toda do carro.</div>' +
+      /* 24/11/2026, "tirar esse também": a lista "Quando cobrar" repetia, carro
+         a carro, uma decisão que já está tomada uma vez em Ajustes → Quando
+         cobrar, por padrão. E na B12 a resposta é sempre a mesma: paga na
+         saída. Quem decide continua sendo o ajuste; esta tela só obedece.
+
+         A forma de pagamento vem junto: só faz sentido se o ajuste mandar
+         cobrar na chegada. Com "na saída" ela some, porque não há o que pagar
+         agora — e campo que não serve para nada é campo que atrasa a fila. */
+      (cfg.cobranca === 'chegada'
+        ? '<div class="ajuda" style="margin:0 12px 10px">O ajuste manda <b>cobrar na chegada</b>: ' +
+          'este carro paga o previsto agora e acerta a diferença na saída.</div>' +
+          lista('Forma de pagamento', 'pg', PAGAMENTOS, 'pix')
+        : '') +
       '<div class="previa" id="previa-patio"><span>Previsto</span><b>—</b></div>',
     acao: 'Registrar entrada',
     aoAbrir: function (form) {
       function calc() {
         var d = form.querySelector('[name=entrada]').value, h = form.querySelector('[name=hora]').value;
         var sp = form.querySelector('[name=saidaPrevista]').value, di = +form.querySelector('[name=diaria]').value || 0;
+        var cb = Math.max(0, Number(form.querySelector('[name=combinado]').value) || 0);
         var falso = { entrada: d, entradaEm: B12.instante(d, h), diaria: di };
         var dias = sp ? B12.diariasDe(falso, B12.instante(sp, h)) : 1;
-        form.querySelector('#previa-patio').innerHTML = '<span>' + (sp ? dias + (dias > 1 ? ' diárias previstas' : ' diária prevista') : 'sem data de saída: 1 diária') +
-          '</span><b>' + B12.brl(dias * di) + '</b>';
+        form.querySelector('#previa-patio').innerHTML = '<span>' +
+          (cb > 0
+            ? 'Combinado' + (sp ? ' · ' + dias + (dias > 1 ? ' diárias' : ' diária') : '')
+            : sp ? dias + (dias > 1 ? ' diárias previstas' : ' diária prevista')
+                 : 'sem data de saída: 1 diária') +
+          '</span><b>' + B12.brl(cb > 0 ? cb : dias * di) + '</b>';
       }
       form.querySelectorAll('[name=entrada],[name=hora],[name=saidaPrevista],[name=diaria]')
-        .forEach(function (c) { c.oninput = calc; c.onchange = calc; });
+      form.querySelector('[name=combinado]').oninput = calc;
       calc();
     },
     aoSalvar: function (d) {
-      if (d.tarifa === 'combinada') d.diaria = B12.DB.ajustes.diariaEspecial; d.cobrarAgora = d.cobrarAgora === '1'; return B12.entradaPatio(d); },
+      /* sem a lista na tela, quem responde "cobrar agora?" é o ajuste do dono:
+         entradaPatio só decide sozinho quando cobrarAgora vem nulo. */
+      delete d.cobrarAgora;
+      return B12.entradaPatio(d);
+    },
     depois: depois
   });
 };
@@ -330,25 +395,52 @@ B12.confirmarSaidaPatio = function (id, depois) {
     corpo:
       campo('Hora da saída', 'hora', { tipo:'time', valor: B12.horaBR(new Date().toISOString()) }) +
       '<div class="resumo-saida" id="resumo-patio"></div>' +
+      /* 24/11/2026, "isso precisa ser editável sempre". O número vem feito da
+         conta acima, e continua se refazendo quando ele mexe na hora — até o
+         instante em que ele escreve com o próprio dedo. A partir daí a conta
+         para de mandar nele, senão o app apagaria o acerto que ele acabou de
+         fazer com a pessoa na frente. Apagar o campo devolve a conta. */
+      campo('A cobrar agora', 'cobrar', { tipo:'number', passo:'0.01', modo:'decimal',
+        ajuda:'Vem da conta acima e dá para mudar. Apague para voltar ao calculado.' }) +
+      '<div class="ajuda cx aviso" id="saida-mao" hidden style="margin:-4px 12px 12px"></div>' +
       lista('Como pagou', 'pg', PAGAMENTOS, 'pix'),
     acao: 'Confirmar saída',
     aoAbrir: function (form) {
+      var cCob = form.querySelector('[name=cobrar]');
+      cCob.addEventListener('input', function () {
+        if (cCob.value === '') { delete cCob.dataset.naMao; calc(); }
+        else { cCob.dataset.naMao = '1'; pintar(); }
+      });
+      function pintar() {
+        var h = form.querySelector('[name=hora]').value;
+        var c = B12.valorPatio(v, B12.instante(B12.hoje(), h));
+        var vai = cCob.value === '' ? c.resta : Math.max(0, Number(cCob.value) || 0);
+        var d = form.querySelector('#saida-mao');
+        if (d) {
+          var mudou = cCob.dataset.naMao && Math.abs(vai - c.resta) > 0.009;
+          d.hidden = !mudou;
+          if (mudou) d.innerHTML = '<p>Escrito à mão: vai entrar <b>' + B12.brl(vai) +
+            '</b> no caixa, no lugar dos ' + B12.brl(c.resta) + ' da conta.</p>';
+        }
+        form.querySelector('button[type=submit]').textContent = vai ? 'Confirmar saída e cobrar' : 'Confirmar saída';
+      }
       function calc() {
         var h = form.querySelector('[name=hora]').value;
         var c = B12.valorPatio(v, B12.instante(B12.hoje(), h));
+        if (!cCob.dataset.naMao) cCob.value = String(Math.round(c.resta * 100) / 100);
         form.querySelector('#resumo-patio').innerHTML =
           '<div><span>Entrou</span><b>' + B12.dataBR(v.entrada) + (v.entradaEm ? ' às ' + B12.horaBR(v.entradaEm) : '') + '</b></div>' +
           '<div><span>Regra</span><b>' + (cfg.regra === '24h' ? 'a cada 24 h' : 'por dia') + '</b></div>' +
           '<div><span>Diárias</span><b>' + c.dias + '</b></div>' +
           '<div><span>Valor da diária</span><b>' + B12.brl(v.diaria) + '</b></div>' +
           (c.pago ? '<div><span>Já pago na chegada</span><b>− ' + B12.brl(c.pago) + '</b></div>' : '') +
-          '<div class="tot"><span>' + (c.resta ? 'A cobrar agora' : 'Nada a cobrar') + '</span><b>' + B12.brl(c.resta) + '</b></div>' +
+          '<div class="tot"><span>' + (c.resta ? 'Pela conta' : 'Nada a cobrar') + '</span><b>' + B12.brl(c.resta) + '</b></div>' +
           (c.credito ? '<div><span>Ficou a menos do que o pago</span><b>' + B12.brl(c.credito) + ' de crédito</b></div>' : '');
-        form.querySelector('button[type=submit]').textContent = c.resta ? 'Confirmar saída e cobrar' : 'Confirmar saída';
+        pintar();
       }
       form.querySelector('[name=hora]').onchange = calc; form.querySelector('[name=hora]').oninput = calc; calc();
     },
-    aoSalvar: function (d) { return B12.saidaPatio(id, d.pg, d.hora); },
+    aoSalvar: function (d) { return B12.saidaPatio(id, d.pg, d.hora, d.cobrar); },
     depois: depois
   });
 };
@@ -370,18 +462,41 @@ B12.formBalcao = function (depois, dentro) {
       '<div class="par">' +
         '<div style="grid-column:span 2">' + campo('Nome', 'nome', { obrig:true, max:60, dica:'como a pessoa se chama' }) + '</div>' +
       '</div>' +
+      /* 24/11/2026: "o náutico e o estacionamento é uma coisa só, está dentro
+         do cadastro. Quem cadastrar o atendimento vai preencher se é só
+         estacionamento, ou só náutico, ou os dois."
+
+         Antes disto, SÓ ESTACIONAMENTO era impossível: o app exigia valor de
+         travessia e recusava com "Falta o valor". Quem deixava o carro e ia
+         de barco de outra pessoa não cabia no cadastro.
+
+         A escolha só esconde o que não serve — nada fica travado, e trocar
+         de ideia no meio não apaga o que já foi digitado. */
+      lista('O que ele vai usar', 'servico', [
+        ['ambos','Náutico e estacionamento'],
+        ['nautico','Só náutico — travessia'],
+        ['estacionamento','Só estacionamento — deixa o carro']], 'ambos') +
       '<div class="par">' +
         '<div>' + campo('Pessoas no veículo', 'pax', { tipo:'number', modo:'numeric', valor:1, passo:'1' }) + '</div>' +
         '<div>' + campo('Pagantes', 'pagantes', { tipo:'number', modo:'numeric', valor:1, passo:'1',
           ajuda:'é este número que faz o preço' }) + '</div>' +
       '</div>' +
-      '<div class="par">' +
+      /* 24/11/2026: "precisa ter do lado de IDA o valor da ida, e na VOLTA o
+         valor da volta" — e logo depois: "deixar pra preencher SEM preço da
+         tabela, livre pra pôr à mão". Os dois campos nascem VAZIOS de
+         propósito. Quem atende combina no balcão e digita; a tabela some da
+         conta e fica só como sugestão, lá embaixo, até ele escrever algo. */
+      '<div class="trio">' +
         '<div>' + campo('Ida', 'data', { tipo:'date', valor: B12.hoje() }) + '</div>' +
         '<div>' + campo('Hora', 'hora', { tipo:'time', valor: horaAgora }) + '</div>' +
+        '<div>' + campo('Valor da ida', 'valorIda', { tipo:'number', passo:'0.01',
+          modo:'decimal', dica:'R$' }) + '</div>' +
       '</div>' +
-      '<div class="par">' +
+      '<div class="trio">' +
         '<div>' + campo('Volta', 'volta', { tipo:'date' }) + '</div>' +
         '<div>' + campo('Hora', 'horaVolta', { tipo:'time' }) + '</div>' +
+        '<div>' + campo('Valor da volta', 'valorVolta', { tipo:'number', passo:'0.01',
+          modo:'decimal', dica:'R$' }) + '</div>' +
       '</div>' +
       /* 24/11/2026, pedido do Eugênio: campo vazio podia ser "ainda não sei"
          ou "esqueci de preencher", e quem atende não sabia o que fazer. Agora
@@ -391,11 +506,32 @@ B12.formBalcao = function (depois, dentro) {
       marca('A volta fica a definir', 'voltaADefinir', false,
         'Marque quando a pessoa ainda não sabe o dia. Ela continua na lista de ' +
         'quem precisa marcar a volta.') +
-      campo('Placa', 'placa', { max:8, dica:'deixe vazio se não deixou carro' }) +
+      /* 24/11/2026, dois pedidos seguidos sobre o mesmo canto da ficha:
+         "são preços feitos diferentes na hora" e "diária de estacionamento,
+         preencher à mão, editável". São dois jeitos de cobrar e os dois
+         precisam caber:
+
+           DIÁRIA     — quanto custa cada dia. Multiplica pelos dias.
+           COMBINADO  — o preço do carro inteiro, não importa quantos dias.
+
+         A diária já vem escrita com o valor de Preços, para ele só mudar
+         quando for diferente. O combinado nasce vazio e, quando escrito,
+         manda em tudo. */
+      '<div class="trio" id="caixa-carro">' +
+        '<div>' + campo('Placa', 'placa', { max:8, dica:'deixe vazio se não deixou carro' }) + '</div>' +
+        '<div>' + campo('Diária', 'diariaCarro', { tipo:'number', passo:'1', modo:'numeric',
+          valor: B12.DB.ajustes.diaria, dica:'R$ por dia' }) + '</div>' +
+        '<div>' + campo('Combinado', 'valorEstacionamento', { tipo:'number', passo:'0.01',
+          modo:'decimal', dica:'R$ pela estadia' }) + '</div>' +
+      '</div>' +
+      '<div class="ajuda" id="ajuda-carro" style="margin:-4px 12px 10px">A <b>diária</b> ' +
+      'multiplica pelos dias. O <b>combinado</b>, se você escrever, vale pela estadia toda ' +
+      'e ganha da diária.</div>' +
       campo('Celular', 'whats', { tipo:'tel', modo:'tel', dica:'(41) 90000-0000' }) +
       '<div class="par">' +
-        '<div>' + campo('Valor a cobrar', 'valorManual', { tipo:'number', passo:'0.01', modo:'decimal',
-          dica:'quanto foi combinado' }) + '</div>' +
+        '<div>' + campo('Total a cobrar', 'valorManual', { tipo:'number', passo:'0.01', modo:'decimal',
+          dica:'quanto foi combinado',
+          ajuda:'soma ida + volta sozinho. Dá para escrever outro valor por cima.' }) + '</div>' +
         '<div>' + lista('Pagamento', 'pg', PAGAMENTOS, 'pix') + '</div>' +
       '</div>' +
       /* 13/10: saiu a faixa "Pela tabela daria R$ X". O preço aqui é de quem
@@ -518,7 +654,14 @@ B12.formBalcao = function (depois, dentro) {
       function calcular() {
         var pax = +cPax.value || 1;
         var pag = Math.max(0, Math.min(+cPag.value || 0, pax));
-        var manual = Number(form.querySelector('[name=valorManual]').value) || 0;
+        var campoTotal = form.querySelector('[name=valorManual]');
+        /* os dois trechos digitados a mao. Somam sozinhos no total, e o total
+           continua podendo ser escrito por cima (pacote, desconto, cortesia). */
+        var cIda = form.querySelector('[name=valorIda]'), cVolta = form.querySelector('[name=valorVolta]');
+        var vIda = Number(cIda && cIda.value) || 0, vVolta = Number(cVolta && cVolta.value) || 0;
+        var porMao = vIda + vVolta;
+        if (porMao > 0 && !campoTotal.dataset.naMao) campoTotal.value = String(Math.round(porMao * 100) / 100);
+        var manual = Number(campoTotal.value) || 0;
         /* ---- 12/11/2026: o estacionamento entra na conta ----
            `diarias` vinha fixo em 0 e o carro saia de graca da soma do balcao.
            So conta quando tem PLACA: sem carro nao ha estadia. */
@@ -535,7 +678,14 @@ B12.formBalcao = function (depois, dentro) {
         var naoPag = pax - pag;
         var nota = naoPag > 0 ? ' · ' + naoPag + (naoPag > 1 ? ' não pagam' : ' não paga') : '';
         var travessia = manual > 0 ? manual : (pr ? pr.travessia : 0);
-        var estac = pr ? pr.estacionamento : 0;
+        var cEst = form.querySelector('[name=valorEstacionamento]');
+        var cDia = form.querySelector('[name=diariaCarro]');
+        var estMao = Math.max(0, Number(cEst && cEst.value) || 0);
+        var diaMao = Math.max(0, Number(cDia && cDia.value) || 0);
+        var estac = !placa ? 0
+          : estMao > 0 ? estMao
+          : diaMao > 0 ? diaMao * diarias
+          : (pr ? pr.estacionamento : 0);
         var total = travessia + cons.total + estac;
 
         /* A conta aberta, linha por linha. O Eugenio pediu para ver a soma:
@@ -543,16 +693,24 @@ B12.formBalcao = function (depois, dentro) {
            confere — e no balcao a pessoa esta olhando junto. */
         var linhas = [];
         if (travessia) {
-          if (manual > 0) {
+          /* digitou trecho a trecho: a conta mostra o que ELE escreveu. So
+             cai na tabela quando nao escreveu nada em lugar nenhum. */
+          if (porMao > 0) {
+            if (vIda) linhas.push(['Ida', vIda]);
+            if (vVolta) linhas.push(['Volta', vVolta]);
+            if (manual && Math.abs(manual - porMao) > 0.009) linhas.push(['Total escrito por cima', manual]);
+          } else if (manual > 0) {
             linhas.push(['Valor combinado', manual]);
           } else if (pr) {
             var porTrecho = pr.travessia / pr.trechos;
-            linhas.push(['Ida · ' + pr.pagantes + (pr.pagantes > 1 ? ' pagantes' : ' pagante'), porTrecho]);
-            if (pr.trechos > 1) linhas.push(['Volta · mesma tabela', porTrecho]);
+            linhas.push(['Sugestão da tabela · ida', porTrecho]);
+            if (pr.trechos > 1) linhas.push(['Sugestão da tabela · volta', porTrecho]);
           }
         }
-        if (estac) linhas.push(['Estacionamento · ' + diarias +
-          (diarias > 1 ? ' diárias' : ' diária') + ' × ' + B12.brl(B12.DB.ajustes.diaria), estac]);
+        if (estac) linhas.push([estMao > 0
+          ? 'Estacionamento · combinado' + (diarias ? ' · ' + diarias + (diarias > 1 ? ' diárias' : ' diária') : '')
+          : 'Estacionamento · ' + diarias + (diarias > 1 ? ' diárias' : ' diária') +
+            ' × ' + B12.brl(diaMao > 0 ? diaMao : B12.DB.ajustes.diaria), estac]);
         if (cons.total) linhas.push(['Consumo', cons.total]);
 
         var conta = form.querySelector('#conta-balcao');
@@ -580,7 +738,8 @@ B12.formBalcao = function (depois, dentro) {
         if (!travessia && !estac) {
           el.innerHTML = '<span>Falta o valor' + nota + '</span><b>combine e digite</b>';
         } else {
-          el.innerHTML = '<span>' + (manual > 0 ? 'Valor combinado' : 'Pela tabela') + nota +
+          el.innerHTML = '<span>' + (porMao > 0 ? 'Ida + volta, como você digitou'
+              : manual > 0 ? 'Valor combinado' : 'Sugestão da tabela') + nota +
             (estac ? ' · com estacionamento' : '') + '</span>' +
             '<b>' + B12.brl(total) + '</b>';
         }
@@ -590,8 +749,36 @@ B12.formBalcao = function (depois, dentro) {
           ? 'Consumo · ' + B12.brl(cons.total) : 'Consumo e observação';
       }
       form.querySelectorAll('[name=produto],[name=faixa],[name=pg],[name=valorManual],[name^=qtd_],' +
-        '[name=data],[name=volta],[name=horaVolta],[name=placa]')
+        '[name=data],[name=volta],[name=horaVolta],[name=placa],[name=valorIda],' +
+        '[name=valorVolta],[name=valorEstacionamento],[name=diariaCarro],[name=servico]')
         .forEach(function (c) { c.oninput = calcular; c.onchange = calcular; });
+
+      /* o que não serve some da tela; o que foi digitado continua lá */
+      var cServ = form.querySelector('[name=servico]');
+      function mostrar() {
+        var v = cServ.value;
+        /* só os dois trios dos TRECHOS. O do carro é .trio também, e varrer
+           todos escondia o carro junto para depois a linha de baixo trazer de
+           volta — funcionava por ordem, que é o jeito de quebrar depois. */
+        var trechos = form.querySelectorAll('.trio:not(#caixa-carro)');
+        [].forEach.call(trechos, function (t) { t.hidden = (v === 'estacionamento'); });
+        var ajudaTr = form.querySelector('#ajuda-trechos');
+        if (ajudaTr) ajudaTr.hidden = (v === 'estacionamento');
+        var caixaCar = form.querySelector('#caixa-carro');
+        if (caixaCar) caixaCar.hidden = (v === 'nautico');
+        var ajudaCar = form.querySelector('#ajuda-carro');
+        if (ajudaCar) ajudaCar.hidden = (v === 'nautico');
+        var cTot = form.querySelector('[name=valorManual]').parentElement.parentElement;
+        if (cTot) cTot.hidden = (v === 'estacionamento');
+      }
+      cServ.addEventListener('change', function () { mostrar(); calcular(); });
+      mostrar();
+      /* escreveu no total com o proprio dedo: a soma dos trechos para de
+         mandar nele. Apagou o total: volta a somar sozinho. */
+      var cTot = form.querySelector('[name=valorManual]');
+      cTot.addEventListener('input', function () {
+        if (cTot.value === '') delete cTot.dataset.naMao; else cTot.dataset.naMao = '1';
+      });
       calcular();
     },
     aoSalvar: function (d) {
@@ -712,7 +899,7 @@ B12.formPasseio = function (p, depois) {
         valor: p && p.precoCrianca != null ? p.precoCrianca : '', ajuda: 'Vazio = criança paga o mesmo do adulto.' }) +
       B12.f_campo('Saída', 'saida', { valor: p ? (p.saida || '') : '', dica: 'Manhã ou tarde, do trapiche da B12', max: 80 }) +
       (extra ? B12.f_campo('Resumo (uma linha)', 'resumo', { valor: p ? p.resumo : '', max: 90, dica: 'Duas horas de barco com o sol se pondo atrás da serra.' }) +
-        '<label for="c-texto">Descrição</label><textarea id="c-texto" name="texto" rows="4">' + (p ? (p.texto || '') : '') + '</textarea>'
+        '<label for="c-texto">Descrição</label><textarea' + B12.SEM_AUTO + ' id="c-texto" name="texto" rows="4">' + (p ? (p.texto || '') : '') + '</textarea>'
         : '<div class="ajuda">O roteiro passo a passo, as fotos e os textos deste passeio ficam com o Eugênio por enquanto. Aqui você muda o que é seu: preço, duração, saída e se ele aparece.</div>') +
       B12.f_marca('Aparece para o cliente', 'ativo', p ? p.ativo !== false : true, 'Desligue para esconder sem apagar.'),
     acao: novo ? 'Criar passeio' : 'Salvar',
@@ -949,21 +1136,35 @@ B12.formEditarReserva = function (id, depois) {
           valor: r.pagantes == null ? (r.pax || 1) : r.pagantes, passo:'1',
           ajuda:'é este número que faz o preço' }) + '</div>' +
       '</div>' +
-      '<div class="par">' +
+      '<div class="trio">' +
         '<div>' + campo('Ida', 'ida', { tipo:'date', valor:r.ida }) + '</div>' +
         '<div>' + campo('Hora', 'hora', { tipo:'time', valor:r.hora || '' }) + '</div>' +
+        '<div>' + campo('Valor da ida', 'valorIda', { tipo:'number', passo:'0.01',
+          modo:'decimal', valor: r.valorIda == null ? '' : r.valorIda, dica:'R$' }) + '</div>' +
       '</div>' +
-      '<div class="par">' +
+      '<div class="trio">' +
         '<div>' + campo('Volta', 'volta', { tipo:'date', valor:r.volta || '' }) + '</div>' +
         '<div>' + campo('Hora', 'horaVolta', { tipo:'time', valor:r.horaVolta || '' }) + '</div>' +
+        '<div>' + campo('Valor da volta', 'valorVolta', { tipo:'number', passo:'0.01',
+          modo:'decimal', valor: r.valorVolta == null ? '' : r.valorVolta, dica:'R$' }) + '</div>' +
       '</div>' +
+      '<div class="ajuda" style="margin:-4px 12px 10px">Escreveu os dois trechos? O ' +
+      '<b>valor combinado</b> lá embaixo soma sozinho.</div>' +
       marca('A volta fica a definir', 'voltaADefinir', !r.volta && !!r.voltaADefinir,
         'A pessoa ainda não sabe o dia.') +
       (carro && !carro.saidaReal
         ? '<div class="ajuda" style="margin:-4px 12px 10px">O carro <b>' + esc(r.placa) +
           '</b> está no pátio. Mudar a volta muda a estadia que vai ser cobrada na saída.</div>'
         : '') +
-      campo('Placa', 'placa', { valor:r.placa || '', max:8, dica:'deixe vazio se não deixou carro' }) +
+      '<div class="par">' +
+        '<div>' + campo('Placa', 'placa', { valor:r.placa || '', max:8,
+          dica:'deixe vazio se não deixou carro' }) + '</div>' +
+        '<div>' + campo('Estacionamento', 'valorEstacionamento', { tipo:'number', passo:'0.01',
+          modo:'decimal', valor: (carro && carro.combinado) ? carro.combinado : '',
+          dica:'R$ combinado' }) + '</div>' +
+      '</div>' +
+      '<div class="ajuda" style="margin:-4px 12px 10px">Vazio conta pela diária da tabela. ' +
+      'Com valor escrito, é ele que vale pela estadia toda do carro.</div>' +
       campo('Celular', 'zap', { tipo:'tel', modo:'tel', valor:r.zap || '', dica:'(41) 90000-0000' }) +
       '<div class="par">' +
         '<div>' + campo('Valor combinado', 'total', { tipo:'number', passo:'0.01', modo:'decimal',
@@ -977,6 +1178,20 @@ B12.formEditarReserva = function (id, depois) {
       '<div class="ajuda" style="margin-top:12px">O que você mudar aqui anda junto na ficha da ' +
       'pessoa, no carro do pátio e no caixa. Não é só esta tela.</div>',
     acao: 'Guardar a correção',
+    aoAbrir: function (form) {
+      /* escreveu os trechos: o valor combinado soma sozinho. Mexeu no valor
+         combinado com o próprio dedo, a soma para de mandar nele. */
+      var cI = form.querySelector('[name=valorIda]'), cV = form.querySelector('[name=valorVolta]');
+      var cT = form.querySelector('[name=total]');
+      function somar() {
+        var t = (Number(cI.value) || 0) + (Number(cV.value) || 0);
+        if (t > 0 && !cT.dataset.naMao) cT.value = String(Math.round(t * 100) / 100);
+      }
+      [cI, cV].forEach(function (c) { c.addEventListener('input', somar); });
+      cT.addEventListener('input', function () {
+        if (cT.value === '') delete cT.dataset.naMao; else cT.dataset.naMao = '1';
+      });
+    },
     aoSalvar: function (d) { return B12.editarReserva(id, d); },
     depois: function (res) {
       if (res && res.ok) {
@@ -1045,6 +1260,20 @@ B12.fichaCliente = function (id, depois) {
       l('Costuma ficar em', esc(d.pousada)),
       l('Costuma vir em', d.pessoasTipicas ? d.pessoasTipicas +
         (d.pessoasTipicas > 1 ? ' pessoas' : ' pessoa') : ''),
+      /* 24/11/2026: "vai estar o que ele usou, se foi náutico, ou só
+         estacionamento, ou os dois" */
+      l('O que usa', (function () {
+        var c = { nautico: 0, estacionamento: 0, ambos: 0 };
+        (d.reservasLista || []).forEach(function (r) {
+          var k = r.servico === 'nautico' || r.servico === 'estacionamento' ? r.servico : 'ambos';
+          c[k]++;
+        });
+        var p = [];
+        if (c.ambos) p.push('náutico e estacionamento · ' + c.ambos + 'x');
+        if (c.nautico) p.push('só náutico · ' + c.nautico + 'x');
+        if (c.estacionamento) p.push('só estacionamento · ' + c.estacionamento + 'x');
+        return p.join('<br>');
+      })()),
       l('Carro', d.placas.length ? esc(d.placas.join(', ')) +
         (d.estadiasPatio ? ' · ' + d.estadiasPatio + ' vez' + (d.estadiasPatio > 1 ? 'es' : '') +
           ' no pátio' : '') +
@@ -1106,6 +1335,9 @@ B12.fichaCliente = function (id, depois) {
 
   var acoes = '<div class="ficha-acoes">' +
     (zap ? '<button type="button" class="btn sec" id="fc-zap">WhatsApp</button>' : '') +
+    /* 24/11/2026: o aviso que aparece no app que a pessoa instalou. Fica ao
+       lado do WhatsApp porque são os dois caminhos da mesma conversa. */
+    '<button type="button" class="btn sec" id="fc-push">Avisar no app</button>' +
     (c.instagram ? '<button type="button" class="btn sec" id="fc-ig">Instagram</button>' : '') +
     (c.email ? '<button type="button" class="btn sec" id="fc-mail">E-mail</button>' : '') +
     '</div>' +
@@ -1121,10 +1353,23 @@ B12.fichaCliente = function (id, depois) {
     depois: function () { if (depois) depois(); }
   });
 
+  /* 24/11/2026: o botão abria uma saudação fixa de uma linha e jogava fora
+     todas as mensagens que ele tinha escrito. Agora abre a escolha — as dele
+     em cima, já com o nome, o código e a data desta pessoa no lugar das
+     marcas; os modelos da casa embaixo. */
   var bz = form.querySelector('#fc-zap');
   if (bz) bz.onclick = function () {
-    var txt = 'Olá, ' + String(c.nome).split(' ')[0] + '! Aqui é a Estação B12.';
-    window.open('https://wa.me/' + zap + '?text=' + encodeURIComponent(txt), '_blank');
+    /* `d.reservas` é a CONTAGEM, não a lista — a lista é reservasLista. Pego
+       a mais recente pela data de ida, que é a viagem de que se vai falar. */
+    var ult = (d.reservasLista || []).slice().sort(function (a, b) {
+      return String(b.ida || '') < String(a.ida || '') ? -1 : 1; })[0] || {};
+    B12.escolherMensagem({ nome: c.nome, whats: c.whats, cod: ult.cod || '',
+      data: ult.volta || ult.ida || '', hora: ult.horaVolta || ult.hora || '',
+      ida: ult.ida || '', volta: ult.volta || '' });
+  };
+  form.querySelector('#fc-push').onclick = function () {
+    B12.formAvisarPessoa(c, (d.reservasLista || []).slice().sort(function (a, b) {
+      return String(b.ida || '') < String(a.ida || '') ? -1 : 1; })[0] || {});
   };
   var bi = form.querySelector('#fc-ig');
   if (bi) bi.onclick = function () {
@@ -1138,6 +1383,59 @@ B12.fichaCliente = function (id, depois) {
     B12.fecharFolha();
     B12.formCliente(c, function () { if (depois) depois(); });
   };
+};
+
+/* ------------------------------------------------ avisar UMA pessoa no app
+   24/11/2026: "tem que ter botão de notificação fácil de cada cliente para
+   chegar no app baixado o push de notificação".
+
+   O texto vem curto de propósito: push não é carta. E a tela diz, antes de
+   mandar, que isso só chega em quem instalou — e diz de novo, depois, quando
+   não chegou em ninguém. Avisar e não avisar não podem parecer a mesma coisa. */
+B12.formAvisarPessoa = function (c, reserva) {
+  var r = reserva || {};
+  var pri = String(c.nome || '').split(' ')[0];
+  B12.folha({
+    titulo: 'Avisar ' + pri + ' no app',
+    sub: 'Chega como notificação no celular dela',
+    corpo:
+      campo('Título', 'titulo', { valor: 'Estação B12', max: 48, obrig: true }) +
+      '<label for="c-texto">Recado</label>' +
+      '<textarea' + SEM_AUTO + ' id="c-texto" name="texto" rows="3" maxlength="180" ' +
+      'placeholder="duas linhas bastam"></textarea>' +
+      '<div class="ajuda">Até 180 letras. O recado inteiro aparece na tela de bloqueio.</div>' +
+      (r.volta
+        ? '<button type="button" class="btn sec" id="av-retorno" style="margin-top:10px">' +
+          'Usar o recado do retorno</button>'
+        : '') +
+      '<div class="cx nota" style="margin-top:14px"><p>Isto chega só em quem ' +
+      '<b>instalou o app</b> e aceitou receber aviso. Se ela não instalou, o app ' +
+      'avisa você e aí vale o WhatsApp.</p></div>',
+    acao: 'Mandar o aviso',
+    aoAbrir: function (form) {
+      var b = form.querySelector('#av-retorno');
+      if (b) b.onclick = function () {
+        var rec = B12.recadoDeVolta(r.volta);
+        form.querySelector('[name=titulo]').value = 'Seu retorno é amanhã';
+        form.querySelector('[name=texto]').value = rec.semGrade
+          ? 'Seu retorno com a Estação B12 é amanhã. Os horários saem ainda hoje — qualquer coisa, chame no WhatsApp.'
+          : 'Seu retorno é amanhã. Horários saindo da Ilha: ' + rec.horas.join(' · ') +
+            '. Chegue 10 min antes.';
+      };
+    },
+    aoSalvar: function (d) {
+      if (!String(d.texto || '').trim()) return { erro: 'Escreva o recado.' };
+      if (!B12.avEnviarPara) return { erro: 'O aviso no celular não está ligado neste app.' };
+      return B12.avEnviarPara({ clienteId: c.id, titulo: d.titulo, texto: d.texto });
+    },
+    depois: function (res) {
+      if (!res) return;
+      if (res.erro) return B12.aviso(res.erro, 'ruim');
+      if (res.aviso) return B12.aviso(res.aviso, 'aviso');
+      B12.aviso('Avisado em ' + res.enviados +
+        (res.enviados === 1 ? ' aparelho.' : ' aparelhos.'), 'bom');
+    }
+  });
 };
 
 /* --------------------------------------------------- regras de fidelidade
@@ -1331,7 +1629,7 @@ B12.formHorariosDia = function (iso, depois) {
     corpo:
       bloco('ida', 'Idas — levar para a Ilha',
         'Os horários em que a lancha sai do trapiche da B12.', B12.idasSugeridas()) +
-      bloco('volta', 'Voltas — buscar na Ilha',
+      bloco('volta', 'Retornos — buscar na Ilha',
         'Os horários em que a lancha vai buscar quem está lá.', B12.voltasSugeridas()) +
       '<div class="grupo">Para as duas</div>' +
       campo('Lugares por saída', 'vagas', { tipo:'number', modo:'numeric', valor: B12.CAPACIDADE,

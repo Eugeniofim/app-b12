@@ -204,9 +204,15 @@ var GRUPOS = [
      chega e o atendente cadastra DUAS coisas — a travessia dela e o carro
      que ela deixou. São o mesmo momento, a mesma conversa. Horário de
      travessia volta a ser só a escala da lancha. */
+  /* 24/11/2026, "excluir marinheiros": a sub-aba saiu. O cadastro de
+     marinheiro era uma tela inteira para uma equipe que não muda — do mesmo
+     jeito que a de funcionários saiu em 18/11. Quem levou a lancha continua
+     sendo escrito à mão no atendimento, que é como ele já fazia no papel.
+     A tela `pMarinheiros` fica no código, sem porta: se ele pedir de volta,
+     é uma linha. Os dados em B12.DB.marinheiros não são tocados. */
   { id:'balcao',    nome:'Cadastro',
     sub:[['balcao','Náutico'], ['patio','Estacionamento'],
-         ['clientes','Clientes'], ['marinheiros','Marinheiros'],
+         ['clientes','Clientes'],
          ['msgs','Mensagens'], ['prosp','Prospecção', 'dono']] },
   /* "Quem volta" morava em Hoje e o Eugênio foi procurar a criação dos
      horários de retorno aqui, na Travessia — que é onde a cabeça dele põe
@@ -430,7 +436,7 @@ function pVisao(raiz) {
       '<div class="cx entra entra-6"><h3>Como as pessoas pagaram</h3>' +
       '<p>Cada ponto de taxa de maquininha sai daqui. Pix não tem taxa.</p>' +
       pgs.map(function (k) {
-        return linhaBarra(k, v.porPg[k], v.entradas, k === 'pix' ? C.turq : C.azul);
+        return linhaBarra(B12.pgNome(k), v.porPg[k], v.entradas, k === 'pix' ? C.turq : C.azul);
       }).join('') + '</div>'
     ));
   }
@@ -847,6 +853,13 @@ function pHoje(raiz) {
     '</div>');
   raiz.appendChild(bD);
   try { grafLinha(bD.querySelector('#db-graf'), serie, { altura: 120, brl: true }); } catch (e) {}
+
+  /* ---- 3b. o panorama de quem volta: hoje e amanhã, nome por nome.
+     24/11/2026, "dentro do Hoje a B12 precisa ter um panorama geral de todos
+     os clientes para gerir bem: saber quem volta no dia seguinte, no dia de
+     hoje, enfim". Os dois blocos usam o mesmo código, só muda o dia. ---- */
+  blocoVoltamAmanha(raiz, hoje, 'hoje');
+  blocoVoltamAmanha(raiz, B12.diaMais(hoje, 1), 'amanhã');
 
   /* ---- 4. quem está na Ilha ---- */
   var naIlha = (n.agora || []).length;
@@ -1277,7 +1290,7 @@ function pRelat(raiz) {
     '<tr><th>Forma</th><th style="text-align:right">Recebido</th>' +
     '<th style="text-align:right">Taxa</th><th style="text-align:right">Custo</th></tr>' +
     formas.map(function (f) {
-      return '<tr><td>' + f.pg + '</td><td class="n">' + B12.brl(f.v) + '</td>' +
+      return '<tr><td>' + B12.pgNome(f.pg) + '</td><td class="n">' + B12.brl(f.v) + '</td>' +
         '<td class="n">' + ((B12.DB.ajustes.taxas[f.pg]||0)*100).toFixed(2).replace('.',',') + '%</td>' +
         '<td class="n" style="color:' + (f.taxa?C.ruim:C.bom) + '">' +
         (f.taxa? '− '+B12.brl(f.taxa) : 'zero') + '</td></tr>'; }).join('') +
@@ -1867,6 +1880,165 @@ function pGestao(raiz) {
 
 /* ================================================================ ESCALA */
 var diaEscala = null;
+/* =============================================================== O SININHO
+   24/11/2026. Ele testou o push, chegou no celular, tocou na notificação, o
+   app abriu — e o texto não estava em lugar nenhum. Perguntou: "será que vai
+   lá no sininho? Manda para onde?".
+
+   Ia para a bandeja do sistema e só. Dispensou, acabou. Agora o service
+   worker grava cada aviso antes de mostrar (sw.js), e esta é a caixa onde
+   ele lê tudo de novo — inclusive o que chegou com o celular no bolso.
+
+   É POR APARELHO, e isso precisa estar escrito na tela: o aviso chegou NESTE
+   celular. O que chegou no tablet do balcão está no sininho do tablet. */
+B12.folhaSino = function () {
+  B12.avRecebidos().then(function (lista) {
+    var corpo = lista.length
+      ? '<div class="sino-lista">' + lista.map(function (a) {
+          var d = new Date(a.em);
+          var quando = B12.dataBR(a.em.slice(0, 10)) + ' · ' +
+            String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+          return '<div class="sino-item' + (a.lido ? '' : ' novo') + '">' +
+            '<div class="sino-topo"><b>' + esc(a.titulo) + '</b><span>' + quando + '</span></div>' +
+            '<p>' + esc(a.texto).replace(/\n/g, '<br>') + '</p></div>';
+        }).join('') + '</div>'
+      : '<div class="ajuda" style="text-align:center;padding:26px 14px">' +
+        'Nenhum aviso chegou neste aparelho ainda.</div>';
+
+    B12.folha({
+      titulo: 'Avisos', sub: 'o que chegou neste aparelho',
+      corpo: corpo +
+        '<div class="ajuda" style="margin-top:14px">Esta caixa é <b>deste aparelho</b>. ' +
+        'O que chegou no tablet do balcão fica no sininho do tablet — o aviso vai para ' +
+        'o celular, não para a conta.</div>' +
+        (lista.length
+          ? '<button type="button" class="btn sec" id="sino-limpar" style="margin-top:12px">' +
+            'Apagar todos</button>' : ''),
+      acao: 'Fechar',
+      aoAbrir: function (form) {
+        var b = form.querySelector('#sino-limpar');
+        if (b) b.onclick = function () {
+          B12.avApagarTudo().then(function () {
+            B12.fecharFolha(); B12.sinoContar(); B12.aviso('Caixa de avisos limpa.', 'bom');
+          });
+        };
+      },
+      aoSalvar: function () { return { ok: true }; },
+      depois: function () { B12.avMarcarLidos().then(B12.sinoContar); }
+    });
+  });
+};
+
+/* o número vermelho em cima do sino */
+B12.sinoContar = function () {
+  var i = document.getElementById('sino-conta');
+  if (!i || !B12.avNaoLidos) return;
+  B12.avNaoLidos().then(function (n) {
+    i.hidden = !n;
+    i.textContent = n > 9 ? '9+' : String(n);
+  });
+};
+
+/* ------------------------------------------------- QUEM VOLTA AMANHÃ
+   24/11/2026. Ele mandou o texto que a B12 já manda à mão no WhatsApp, e
+   perguntou: "onde o Dhalsin faz isso? Na tela HOJE?".
+
+   Aqui. É o recado que sai 24 h antes do retorno, para quem está na Ilha, e
+   a tela Hoje é onde ele está quando lembra disso. Cada pessoa tem os dois
+   caminhos lado a lado — WhatsApp e aviso no app — e some da lista de
+   pendentes quando ele manda, para não avisar duas vezes nem esquecer
+   ninguém.
+
+   Os HORÁRIOS do recado não estão escritos aqui: saem da grade de retorno de
+   amanhã, que ele monta na véspera. Mudou a grade, mudou o recado. */
+var vaAbertos = {};
+function blocoVoltamAmanha(raiz, amanha, quando) {
+  amanha = amanha || B12.diaMais(B12.hoje(), 1);
+  quando = quando || 'amanhã';
+  var gente = B12.voltamAmanha(amanha);
+  if (!gente.length) return;
+  var rec = B12.recadoDeVolta(amanha);
+  var faltam = gente.filter(function (p) { return !p.avisadoEm; });
+
+  var b = bloco(
+    '<div class="cx ' + (rec.semGrade ? 'aviso' : 'nota') + ' entra entra-2">' +
+    '<div class="cx-topo"><h3>Voltam ' + quando + '</h3>' +
+    '<button class="mini-btn" id="va-horarios">' + (rec.semGrade ? 'Montar horários' : 'Mudar horários') + '</button></div>' +
+    (rec.semGrade
+      ? '<p><b>Os horários de retorno de ' + quando + ' ainda não foram montados.</b> ' +
+        'Monte antes de mandar o recado — senão ele vai sem os horários, que é a ' +
+        'parte que a pessoa precisa.</p>'
+      : '<p>' + gente.length + (gente.length === 1 ? ' pessoa volta' : ' pessoas voltam') +
+        ' ' + quando + ' · lancha saindo da Ilha às <b>' + rec.horas.join('</b>, às <b>') + '</b>.' +
+        (faltam.length ? ' Faltam avisar <b>' + faltam.length + '</b>.' : ' Todas avisadas.') + '</p>') +
+    /* 24/11/2026: medido com 33 pessoas voltando no mesmo dia — a lista
+       virava uma parede e empurrava o resto da tela para fora. Mostra as
+       primeiras e abre o resto quando ele pedir. */
+    '<div class="va-lista">' + gente.slice(0, vaAbertos[amanha] ? gente.length : 8).map(function (p) {
+      return '<div class="va-linha' + (p.avisadoEm ? ' feito' : '') + '">' +
+        '<button type="button" class="va-nome" data-va-ficha="' + esc(p.clienteId) + '">' +
+          '<b>' + esc(p.nome) + '</b>' +
+          '<small>' + p.pax + (p.pax > 1 ? ' pessoas' : ' pessoa') +
+          (p.cod ? ' · ' + esc(p.cod) : '') +
+          (p.placa ? ' · carro ' + esc(p.placa) : '') +
+          (p.avisadoEm ? ' · avisado' : '') + '</small>' +
+        '</button>' +
+        '<div class="va-bts">' +
+        (p.whats ? '<button type="button" class="mini-btn" data-va-zap="' + esc(p.id) + '">WhatsApp</button>' : '') +
+        (p.clienteId ? '<button type="button" class="mini-btn" data-va-push="' + esc(p.id) + '">No app</button>' : '') +
+        '</div></div>';
+    }).join('') + '</div>' +
+    (gente.length > 8 && !vaAbertos[amanha]
+      ? '<button type="button" class="btn sec" id="va-mais" style="margin-top:9px">Ver as outras ' +
+        (gente.length - 8) + '</button>'
+      : '') +
+    '<button type="button" class="btn sec" id="va-ver" style="margin-top:9px">Ver o recado padrão</button>' +
+    '</div>');
+
+  var bMais = b.querySelector('#va-mais');
+  if (bMais) bMais.onclick = function () { vaAbertos[amanha] = true; B12.admDesenhar('hoje'); };
+
+  function acha(id) { return gente.filter(function (x) { return x.id === id; })[0]; }
+
+  b.querySelector('#va-horarios').onclick = function () {
+    B12.formHorariosDia(amanha, function () { B12.admDesenhar('hoje'); });
+  };
+  b.querySelector('#va-ver').onclick = function () {
+    B12.folha({ titulo: 'Recado do retorno', sub: 'o padrão da B12, com os horários de ' + quando,
+      corpo: '<div class="balao">' + esc(rec.texto).replace(/\n/g, '<br>') + '</div>' +
+        '<div class="ajuda" style="margin-top:12px">Os horários saem da grade de retorno de ' +
+        quando + '. Para mudar o texto fixo, é em <b>Ajustes do proprietário</b>; para mudar os ' +
+        'horários, em <b>Horário de travessia</b>.</div>',
+      acao: 'Copiar o recado',
+      aoSalvar: function () { B12.copiar(rec.texto); return { ok: true }; },
+      depois: function () { B12.aviso('Copiado. Cole no WhatsApp.', 'bom'); } });
+  };
+  b.querySelectorAll('[data-va-ficha]').forEach(function (x) {
+    x.onclick = function () {
+      if (!x.dataset.vaFicha) return B12.aviso('Essa reserva não tem ficha de cliente ligada.', 'aviso');
+      B12.fichaCliente(x.dataset.vaFicha, function () { B12.admDesenhar('hoje'); });
+    };
+  });
+  b.querySelectorAll('[data-va-zap]').forEach(function (x) {
+    x.onclick = function () {
+      var p = acha(x.dataset.vaZap); if (!p) return;
+      B12.abrirWhats(p.whats, B12.preencherMensagem(
+        'Oi, {nome}! ' + rec.texto, { nome: p.nome, cod: p.cod, data: amanha, hora: p.horaVolta }));
+      B12.marcarAvisoVolta(p.id);
+      B12.admDesenhar('hoje');
+    };
+  });
+  b.querySelectorAll('[data-va-push]').forEach(function (x) {
+    x.onclick = function () {
+      var p = acha(x.dataset.vaPush); if (!p) return;
+      var cli = B12.DB.clientes.filter(function (y) { return y.id === p.clienteId; })[0];
+      if (!cli) return B12.aviso('Essa reserva não tem ficha de cliente ligada.', 'aviso');
+      B12.formAvisarPessoa(cli, { volta: amanha, cod: p.cod });
+    };
+  });
+  raiz.appendChild(b);
+}
+
 /* --------------------------------------------------------- HORÁRIOS DO DIA
    A ida sai do trapiche da B12; a volta é a lancha indo buscar na Ilha. Os
    dois o Dhalsin monta na véspera. Este bloco é o lugar disso, e aparece em
@@ -1899,7 +2071,7 @@ function blocoHorarios(dia) {
       : '<p>' + idas.length + ' de ida e ' + voltas.length + ' de volta' +
         (voltam ? ' · ' + voltam + (voltam > 1 ? ' pessoas voltam' : ' pessoa volta') : '') + '.</p>') +
     tira(idas, 'Idas — levar para a Ilha') +
-    tira(voltas, 'Voltas — buscar na Ilha') +
+    tira(voltas, 'Retornos — buscar na Ilha') +
     '</div>');
   b.querySelectorAll('[data-horarios]').forEach(function (x) {
     x.onclick = function () {
@@ -2132,16 +2304,16 @@ function pEscala(raiz) {
     '<button class="btn sec" style="margin:0;width:auto;padding:11px 14px" id="b-amanha">›</button>' +
     '</div>' +
     '<div class="placar entra entra-1">' +
-      tile(e.idas.length,'Saídas de ida','n') +
+      tile(e.idas.length,'Horários de ida','n') +
       tile(totalIda,'Passageiros indo','n','destaque') +
-      tile(e.voltas.length,'Saídas de volta','n') +
-      tile(totalVolta,'Passageiros voltando','n','destaque') +
+      tile(e.voltas.length,'Horários de retorno','n') +
+      tile(totalVolta,'Passageiros no retorno','n','destaque') +
       tile(pendentes.length,'Sem volta marcada','n', pendentes.length ? 'alerta' : '') +
       tile(B12.EMBARCACOES.length,'Embarcações','n') +
     '</div>' +
     '<div class="grade2" style="margin:12px">' +
-    '<button class="btn pri" style="margin:0" id="b-nova-ida">+ Saída de ida</button>' +
-    '<button class="btn sec" style="margin:0" id="b-nova-volta">+ Saída de volta</button></div>'
+    '<button class="btn pri" style="margin:0" id="b-nova-ida">+ Horário de ida</button>' +
+    '<button class="btn sec" style="margin:0" id="b-nova-volta">+ Horário de retorno</button></div>'
   ));
   var campo = raiz.querySelector('#d-escala');
   campo.onchange = function () { diaEscala = campo.value; B12.admDesenhar('escala'); };
@@ -2320,10 +2492,39 @@ function formSaida(sentido, dia) {
 function pMsgs(raiz) {
   raiz.appendChild(bloco(
     '<div class="cx entra"><h3>Mensagens prontas</h3>' +
-    '<p>Onze modelos escritos para o WhatsApp, com o nome e os dados da pessoa já ' +
-    'preenchidos. O app monta o texto e abre a conversa. <b>Quem aperta enviar é você.</b> ' +
-    'Disparo sozinho de verdade só com a API oficial da Meta, que tem custo por conversa.</p></div>'
+    '<p>Modelos escritos para o WhatsApp, com o nome e os dados da pessoa já preenchidos. ' +
+    'O app monta o texto, deixa você <b>editar antes de mandar</b> e abre a conversa. ' +
+    '<b>Quem aperta enviar é você.</b></p>' +
+    /* 24/11/2026: ele perguntou como mandar para várias pessoas da Ilha de
+       uma vez. Este é o caminho — e ele leva para uma tela que diz, logo de
+       cara, o que cada canal faz de verdade. */
+    '<button type="button" class="btn pri" id="b-varias" style="margin-top:12px">' +
+    'Mandar para várias pessoas</button>' +
+    '<div class="ajuda" style="margin-top:8px">Escolha quem está na Ilha e mande por ' +
+    'WhatsApp (um a um, você aperta enviar), por aviso no app ou por e-mail ' +
+    '(esses dois saem todos de uma vez).</div></div>'
   ));
+  var bv = raiz.querySelector('#b-varias');
+  if (bv) bv.onclick = function () {
+    /* sem mensagem escolhida, ele escolhe primeiro qual texto vai */
+    var minhas2 = B12.minhasMensagens();
+    if (!minhas2.length) return B12.aviso('Escreva uma mensagem primeiro, aqui embaixo.', 'aviso');
+    B12.folha({ titulo: 'Qual mensagem?', sub: 'depois você escolhe para quem',
+      corpo: '<div class="escolhas">' + minhas2.map(function (m) {
+        return '<button type="button" class="escolha" data-qual="' + esc(m.id) + '">' +
+          '<span><b>' + esc(m.nome) + '</b><br><small>' + esc(m.quando || '') + '</small></span>' +
+          '</button>'; }).join('') + '</div>',
+      acao: 'Fechar', aoSalvar: function () { return { ok: true }; },
+      aoAbrir: function (form) {
+        form.querySelectorAll('[data-qual]').forEach(function (b) {
+          b.onclick = function () {
+            var m = minhas2.filter(function (x) { return x.id === b.dataset.qual; })[0];
+            B12.fecharFolha();
+            B12.formMandarPara(m);
+          };
+        });
+      } });
+  };
   /* as dele primeiro: são as que ele escreveu e usa mais */
   var minhas = B12.minhasMensagens();
   raiz.appendChild(bloco(
@@ -2389,7 +2590,7 @@ function pMsgs(raiz) {
         B12.f_campo('Quando usar', 'quando', { valor: m ? m.quando : '', max: 60,
           dica: 'na véspera da viagem' }) +
         '<label for="c-texto">Texto</label>' +
-        '<textarea id="c-texto" name="texto" rows="7" placeholder="Oi, {nome}! ...">' +
+        '<textarea' + B12.SEM_AUTO + ' id="c-texto" name="texto" rows="7" placeholder="Oi, {nome}! ...">' +
         (m ? esc(m.texto) : '') + '</textarea>' +
         '<div class="ajuda">Use *asteriscos* para negrito. As marcas {nome}, {codigo}, {data} e {hora} ' +
         'viram os dados da pessoa na hora de enviar.</div>' +
@@ -2885,8 +3086,18 @@ function pIA(raiz) {
       '<i style="width:' + (d.posto ? Math.max(0, Math.min(100, d.saldo / d.posto * 100)).toFixed(1) : 0) + '%"></i></div>' +
       '<div class="ia-credito-pe"><span>' + d.perguntas + ' pergunta' + (d.perguntas === 1 ? '' : 's') +
         ' · gasto ' + B12.brl(d.gasto, 2) + (d.perguntas ? ' · cerca de ' + B12.brl(d.media, 2) + ' cada' : '') + '</span>' +
-        '<button type="button" class="mini-btn" id="ia-recarregar">Pôr créditos</button></div>' +
-    '</div></div>'
+        '<button type="button" class="mini-btn" id="ia-recarregar">Mudar o teto</button></div>' +
+      /* 24/11/2026. Ele perguntou onde se compra crédito, e a pergunta é o
+         defeito: o número grande parecia uma carteira. Não é. É um teto que
+         ele mesmo escreve. Esta linha diz de qual conta o dinheiro sai. */
+      '<div class="ia-credito-dono">' + (
+        d.chavePropria ? 'Teto de gasto · o dinheiro sai da <b>sua conta na Anthropic</b>'
+        : d.ligado ? 'Teto de gasto · por enquanto o custo é da <b>Ti Artes</b>'
+        : 'Teto de gasto. O assistente ainda não foi ligado.') + '</div>' +
+    '</div>' +
+    '<button type="button" class="btn sec" id="ia-chave" style="margin-top:12px">' +
+      (d.chavePropria ? 'Trocar a minha chave de IA' : 'Ligar com a minha conta de IA') +
+    '</button></div>'
   );
   raiz.appendChild(cx);
 
@@ -2920,8 +3131,8 @@ function pIA(raiz) {
         e.motivo === 'sem cofre'
         ? 'Ele é um extra do app: um chat que lê os seus números e responde ' +
           '"como foi o mês", "quem está na Ilha sem volta", "quanto dá para retirar". ' +
-          'Para ligar, fale com a Ti Artes — ou ponha a sua própria chave de IA ' +
-          'aqui mesmo, logo abaixo. <b>O resto do painel funciona normalmente.</b>'
+          'Para ligar, fale com a Ti Artes — ou toque em <b>Ligar com a minha conta de IA</b> ' +
+          'aqui embaixo e cole a sua chave. <b>O resto do painel funciona normalmente.</b>'
         : e.motivo === 'endereço ainda não liberado no cofre'
         ? 'Falta liberar este endereço no cofre. É um passo de um minuto. Enquanto isso, o resto do painel funciona normalmente.'
         : 'Falta ligar a chave. O resto do painel funciona normalmente.') + '</p></div>';
@@ -2960,13 +3171,29 @@ function pIA(raiz) {
     B12.iaLimpar(); B12.admDesenhar('ia'); B12.aviso('Conversa apagada.', 'bom');
   };
   document.getElementById('ia-recarregar').onclick = function () {
-    B12.folha({ titulo: 'Pôr créditos no assistente', sub: 'Quanto você quer deixar disponível',
-      corpo: '<div class="ajuda">Cada pergunta custa cerca de R$ 0,02. Com R$ 50 dá para umas 2.500 ' +
-        'perguntas. Por enquanto o custo vai na conta do Eugênio; depois passa para a sua.</div>' +
-        B12.f_campo('Valor a acrescentar', 'valor', { tipo:'number', modo:'decimal', valor: 50, passo: '10', obrig: true }),
-      acao: 'Pôr créditos',
+    var dd = B12.iaDados();
+    B12.folha({ titulo: 'Teto de gasto do assistente', sub: 'Até quanto você aceita gastar com perguntas',
+      corpo: '<div class="ajuda"><b>Este medidor não compra nada.</b> É um teto que você escreve, ' +
+        'para o app parar de perguntar antes de passar do que você queria gastar.</div>' +
+        '<div class="ajuda">O dinheiro de verdade sai ' + (dd.chavePropria
+          ? 'da <b>sua conta na Anthropic</b>. É lá que se compra crédito: ' +
+            '<a href="https://console.anthropic.com/settings/billing" target="_blank" rel="noopener">' +
+            'console.anthropic.com</a> → Billing.'
+          : 'da conta de quem ligou o assistente. Hoje é a <b>Ti Artes</b>. Para passar para a sua, ' +
+            'feche isto e toque em <b>Ligar com a minha conta de IA</b>.') + '</div>' +
+        '<div class="ajuda">Cada pergunta custa cerca de <b>R$ 0,02</b> no motor rápido — ' +
+        'R$ 50 dão umas 2.500 perguntas.</div>' +
+        B12.f_campo('Quanto acrescentar ao teto', 'valor', { tipo:'number', modo:'decimal', valor: 50, passo: '10', obrig: true }),
+      acao: 'Subir o teto',
       aoSalvar: function (x) { return B12.iaRecarregar(x.valor); },
-      depois: function () { B12.admDesenhar('ia'); B12.aviso('Créditos atualizados.', 'bom'); } });
+      depois: function () { B12.admDesenhar('ia'); B12.aviso('Teto atualizado.', 'bom'); } });
+  };
+  document.getElementById('ia-chave').onclick = function () {
+    B12.formChaveIA(function (r) {
+      B12.admDesenhar('ia');
+      if (r && r.apagada) B12.aviso('Chave apagada deste aparelho.', 'bom');
+      else if (r && r.ok) B12.aviso('Chave guardada. O assistente já responde.', 'bom');
+    });
   };
   /* redesenha a conversa guardada */
   var h = (B12.DB.ajustes.ia || {}).historico || [];
@@ -3447,7 +3674,7 @@ function pAgenda(raiz) {
         B12.f_lista('Tipo', 'tipo', B12.TIPOS_TAREFA, t.tipo || 'compromisso') +
         B12.f_campo('Onde', 'onde', { valor: t.onde, max: 60, dica: 'opcional' }) +
         '<label for="c-obs">Observação</label>' +
-        '<textarea id="c-obs" name="obs" rows="3" maxlength="400">' + esc(t.obs || '') + '</textarea>' +
+        '<textarea' + B12.SEM_AUTO + ' id="c-obs" name="obs" rows="3" maxlength="400">' + esc(t.obs || '') + '</textarea>' +
         '<div class="ajuda">O aviso chega no seu celular mesmo com o app fechado, desde que ' +
         'a notificação esteja ligada. Depois de salvar aparece o botão de pôr no Google Agenda.</div>',
       extra: novo ? '' : '<button type="button" class="btn sec" id="b-tf-google">Pôr no Google Agenda</button>' +
@@ -3509,22 +3736,20 @@ function pVolta(raiz) {
       tile(dias.length, 'Dias com volta', 'n') +
       tile(semHorario, 'Dias sem horário', 'n', semHorario ? 'alerta' : '') +
     '</div>' +
-    '<div class="cx entra entra-1"><h3>Como funciona esta tela</h3>' +
-    '<p><b>1.</b> O app já sabe quem está na Ilha e em que dia volta. ' +
-    '<b>2.</b> Você monta os horários do barco de volta daquele dia. ' +
-    '<b>3.</b> Avisa todo mundo de uma vez, por WhatsApp ou por e-mail, com a hora dentro ' +
-    'da mensagem.</p>' +
-    '<p class="ajuda" style="margin-top:8px">Notificação no celular fica na aba ' +
-    '<b>Notificações</b>: ela vai para todos os aparelhos com o app instalado, porque ' +
-    'o app não sabe de quem é cada aparelho — serve para previsão e evento, não para ' +
-    'o horário de uma pessoa.</p></div>' +
+    /* 24/11/2026, "isso não precisa ter": saíram o "Como funciona esta tela" e
+       o cartão verde de tudo-certo. O primeiro ensinava, toda vez, uma tela
+       que ele usa todo fim de tarde; o segundo gastava um cartão inteiro para
+       dizer que não havia nada a fazer. Quem lê isto é uma pessoa só, e ela
+       já sabe. O aviso de FALTA continua — esse muda o que ele faz hoje.
+
+       O recado da notificação também saiu, e saiu porque deixou de ser
+       verdade: o push agora vai para UMA pessoa, pela ficha dela. */
     (semHorario
       ? '<div class="cx aviso entra entra-1"><h3>Falta montar horário</h3>' +
         '<p>Tem gente com volta marcada em <b>' + semHorario + ' dia' + (semHorario > 1 ? 's' : '') +
         '</b> sem nenhum horário de retorno aberto. Enquanto não abrir, o app do turista não ' +
         'mostra a que horas ele volta.</p></div>'
-      : '<div class="cx bom entra entra-1"><h3>Todo mundo com horário</h3>' +
-        '<p>Cada dia com volta marcada já tem horário aberto. O turista vê no app dele.</p></div>') +
+      : '') +
 
     (dias.length
       ? dias.map(function (x, i) {
@@ -3571,8 +3796,11 @@ function pVolta(raiz) {
               : '<div class="ajuda" style="margin-top:8px">Monte os horários primeiro — ' +
                 'o aviso leva a hora do barco dentro.</div>') +
             '</div>'; }).join('')
-      : '<div class="cx entra entra-2"><h3>Ninguém volta nos próximos 10 dias</h3>' +
-        '<p>Quando alguém viajar com data de volta marcada, o dia aparece aqui sozinho.</p></div>')
+      /* a tela vazia continua dizendo por que está vazia — senão parece
+         defeito —, mas numa linha, não num cartão inteiro */
+      : '<div class="ajuda entra entra-2" style="text-align:center;padding:22px 16px">' +
+        'Ninguém volta nos próximos 10 dias. Quando alguém viajar com data de volta ' +
+        'marcada, o dia aparece aqui sozinho.</div>')
   ));
 
   raiz.querySelectorAll('[data-horarios]').forEach(function (b) {
@@ -3602,7 +3830,7 @@ function pVolta(raiz) {
           B12.f_campo('Assunto', 'titulo', { valor: 'Seu retorno da Ilha do Mel · ' +
             B12.dataBR(dia), max: 90, obrig: true }) +
           '<label for="c-texto">Mensagem</label>' +
-          '<textarea id="c-texto" name="texto" rows="7" maxlength="1200">' +
+          '<textarea' + B12.SEM_AUTO + ' id="c-texto" name="texto" rows="7" maxlength="1200">' +
           esc('Os horários de retorno ' + qd + ' são: ' +
             (horas.length ? horas.join(' · ') : 'a confirmar') + '.\n\n' +
             'Esteja no trapiche uns 10 minutos antes do horário escolhido. ' +
@@ -3653,20 +3881,68 @@ function textoVolta(nome, dia) {
 
 /* Abrir vinte conversas de uma vez não funciona: o navegador bloqueia. Uma de
    cada vez, com o Dhalsin apertando — é mais lento e é o que de fato envia. */
+/* 24/11/2026. A fila antiga usava confirm() e dizia "Enviado para Fulano" —
+   e isso era MENTIRA: o app só tinha ABERTO a conversa. Quem aperta enviar é
+   ele, e muita vez a aba fecha sem enviar nada. Dizer "enviado" faz ele
+   riscar da cabeça alguém que nunca recebeu.
+
+   Agora é um painel na tela: a lista inteira, quem já foi, quem falta, e
+   dois botões por pessoa — "Abrir" e "já mandei". A conta só anda quando ELE
+   diz que mandou. */
 B12.filaWhats = function (lista) {
   if (!lista || !lista.length) return;
-  var i = 0;
-  function proximo() {
-    if (i >= lista.length) return;
-    var p = lista[i++];
-    B12.abrirWhats(p.zap, p.texto);
-    if (i < lista.length) {
-      setTimeout(function () {
-        if (confirm('Enviado para ' + p.nome + '.\n\nAbrir o próximo (' + lista[i].nome + ')?')) proximo();
-      }, 700);
-    }
+  var feitos = {};
+
+  var f = document.createElement('div');
+  f.className = 'folha';
+  function desenhar() {
+    var n = Object.keys(feitos).length;
+    f.innerHTML = '<div class="folha-fundo"></div><div class="folha-cx">' +
+      '<div class="folha-alca"></div>' +
+      '<div class="folha-topo"><div><h3>Mandar no WhatsApp</h3>' +
+      '<p>' + n + ' de ' + lista.length + ' · ' + (lista.length - n) + ' faltando</p></div>' +
+      '<button type="button" class="folha-x" aria-label="Fechar">' +
+      '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" ' +
+      'stroke-width="2.2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>' +
+      '<div class="folha-corpo">' +
+      '<div class="ajuda" style="margin-bottom:12px">O app abre a conversa com o texto pronto. ' +
+      '<b>Apertar enviar é com você</b> — depois volte aqui e marque <b>já mandei</b>.</div>' +
+      '<div class="va-lista">' + lista.map(function (p, i) {
+        return '<div class="va-linha' + (feitos[i] ? ' feito' : '') + '">' +
+          '<span class="va-nome"><b>' + esc(p.nome) + '</b>' +
+          '<small>' + (feitos[i] ? 'já mandei' : 'falta mandar') + '</small></span>' +
+          '<div class="va-bts">' +
+          '<button type="button" class="mini-btn" data-fw-abrir="' + i + '">Abrir</button>' +
+          '<button type="button" class="mini-btn" data-fw-ok="' + i + '">' +
+          (feitos[i] ? 'desmarcar' : 'já mandei') + '</button>' +
+          '</div></div>';
+      }).join('') + '</div></div>' +
+      '<div class="folha-pe"><button type="button" class="btn pri" style="margin-top:0" ' +
+      'id="fw-fim">' + (n >= lista.length ? 'Pronto, todos avisados' : 'Fechar') + '</button></div>' +
+      '</div>';
+    f.querySelector('.folha-x').onclick = fechar;
+    f.querySelector('.folha-fundo').onclick = fechar;
+    f.querySelector('#fw-fim').onclick = fechar;
+    f.querySelectorAll('[data-fw-abrir]').forEach(function (b) {
+      b.onclick = function () {
+        var p = lista[+b.dataset.fwAbrir];
+        B12.abrirWhats(p.zap, p.texto);
+        feitos[+b.dataset.fwAbrir] = true;   /* abriu: marca, e ele desmarca se não mandou */
+        desenhar();
+      };
+    });
+    f.querySelectorAll('[data-fw-ok]').forEach(function (b) {
+      b.onclick = function () {
+        var i = +b.dataset.fwOk;
+        if (feitos[i]) delete feitos[i]; else feitos[i] = true;
+        desenhar();
+      };
+    });
   }
-  proximo();
+  function fechar() { f.remove(); document.body.style.overflow = ''; }
+  document.body.appendChild(f);
+  document.body.style.overflow = 'hidden';
+  desenhar();
 };
 
 /* ===================================================== MARINHEIROS
@@ -3774,7 +4050,7 @@ function pAvisos(raiz) {
     '<label for="av-tit" style="margin-top:12px">Título</label>' +
     '<input id="av-tit" maxlength="48" placeholder="aparece em negrito no celular">' +
     '<label for="av-txt">Mensagem</label>' +
-    '<textarea id="av-txt" rows="4" maxlength="180" placeholder="duas linhas bastam"></textarea>' +
+    '<textarea' + B12.SEM_AUTO + ' id="av-txt" rows="4" maxlength="180" placeholder="duas linhas bastam"></textarea>' +
     '<div class="ajuda" id="av-conta">0 de 180</div>' +
     /* dois canais, o mesmo texto. Push chega em quem instalou; e-mail chega
        em quem deu o endereço — públicos diferentes, e ele escolhe. */
@@ -4177,7 +4453,7 @@ function pSobre(raiz) {
         B12.f_campo('Nota', 'nota', { tipo:'number', modo:'numeric', passo:'1',
           valor: d0.nota || 5 }) +
         '<label for="c-texto">O que a pessoa escreveu</label>' +
-        '<textarea id="c-texto" name="texto" rows="5" maxlength="400">' +
+        '<textarea' + B12.SEM_AUTO + ' id="c-texto" name="texto" rows="5" maxlength="400">' +
         esc(d0.texto || '') + '</textarea>' +
         B12.f_campo('Quando', 'quando', { valor: d0.quando, max: 24, dica: 'há 2 meses' }),
       extra: i == null ? '' : '<button type="button" class="btn sec" id="b-depo-apagar">Apagar</button>',
@@ -4266,7 +4542,7 @@ function pSobre(raiz) {
       corpo:
         B12.f_campo('Título', 'titulo', { valor: S.titulo || 'Quem somos', max: 32, obrig: true }) +
         '<label for="c-texto">Texto</label>' +
-        '<textarea id="c-texto" name="texto" rows="7" maxlength="900">' +
+        '<textarea' + B12.SEM_AUTO + ' id="c-texto" name="texto" rows="7" maxlength="900">' +
         esc(S.texto || '') + '</textarea>' +
         '<div class="ajuda">Escreva como você falaria com um cliente na frente. ' +
         'Quem é a B12, há quanto tempo, o que faz bem feito.</div>',

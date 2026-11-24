@@ -101,8 +101,16 @@ eh('mudar a data da volta recalcula a tela',
   /\[name=volta\],\[name=horaVolta\],\[name=placa\]/.test(form));
 eh('a conta aparece aberta, linha por linha',
   /id="conta-balcao"/.test(form) && /'Estacionamento · '/.test(form));
+/* 24/11/2026: a conta mostrava "Ida · 1 pagante / Volta · mesma tabela",
+   os dois pela tabela. Ele apontou para isso: "deixar pra preencher SEM
+   preço da tabela, livre pra pôr à mão". A linha agora é o que ele digitou;
+   a tabela só aparece, dizendo o nome, enquanto nada foi escrito. */
 eh('a linha da ida e a da volta aparecem separadas',
-  /'Ida · '/.test(form) && /'Volta · mesma tabela'/.test(form));
+  /linhas\.push\(\['Ida', vIda\]\)/.test(form) && /linhas\.push\(\['Volta', vVolta\]\)/.test(form));
+eh('e são o que foi digitado, não a tabela',
+  /if \(porMao > 0\) \{/.test(form));
+eh('a tabela, quando aparece, se chama de sugestão',
+  /'Sugestão da tabela · ida'/.test(form) && !/'Volta · mesma tabela'/.test(form));
 eh('carro sem data de volta é avisado, não somado como zero calado',
   /id="carro-sem-volta"/.test(form));
 eh('o total da faixa verde inclui o estacionamento',

@@ -321,6 +321,12 @@ Deno.serve(async (req) => {
   } else {
     pacotes = [{
         papel: corpo.papel ?? 'dono',
+        /* 24/11/2026: "tem que ter botão de notificação fácil de cada cliente".
+           Até aqui o push era só megafone: todos os turistas, ou só o aparelho
+           do dono. `cliente` manda para UMA pessoa — os aparelhos onde ELA
+           instalou o app. A coluna cliente_id já existia na tabela desde o
+           começo; faltava alguém usá-la. */
+        cliente: corpo.cliente ? String(corpo.cliente) : null,
         titulo: String(corpo.titulo ?? 'Estação B12').slice(0, 80),
         texto: String(corpo.texto ?? '').slice(0, 200),
         ir: corpo.ir ?? '/',
@@ -337,9 +343,12 @@ Deno.serve(async (req) => {
   for (const p of pacotes) {
     /* 'equipe' alcança o dono também: o dono é equipe com mais poder */
     const papeis = p.papel === 'equipe' ? ['equipe', 'dono'] : [p.papel];
-    const { data: inscritos } = await servidor
+    let consulta = servidor
       .from('b12_avisos').select('id, endpoint, p256dh, auth')
       .in('papel', papeis).eq('ativo', true);
+    /* um cliente só: o aviso não vaza para a lista inteira por engano */
+    if (p.cliente) consulta = consulta.eq('cliente_id', p.cliente);
+    const { data: inscritos } = await consulta;
 
     for (const i of inscritos ?? []) {
       const r = await empurrar(i, {

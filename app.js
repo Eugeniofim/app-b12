@@ -379,6 +379,18 @@ function comecar() {
   document.getElementById('b-perfil').onclick   = function () { B12.ir('reservas'); };
   document.getElementById('b-atualizar').onclick = aplicarNova;
   document.getElementById('b-sair').onclick = B12.sair;
+  /* o sininho: a caixa de avisos deste aparelho (24/11/2026) */
+  var bs = document.getElementById('b-sino');
+  if (bs) {
+    bs.onclick = function () { B12.folhaSino(); };
+    if (B12.sinoContar) B12.sinoContar();
+    /* reconta ao voltar para o app: é quando o aviso que chegou com a tela
+       apagada precisa aparecer */
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden && B12.sinoContar) B12.sinoContar();
+    });
+    if (B12.avLimparAntigos) B12.avLimparAntigos();
+  }
   document.getElementById('b-ajustes').onclick = function () { B12.formAjustes(function () { B12.admDesenhar(); }); };
   document.getElementById('b-sair-equipe').onclick = B12.sair;
 

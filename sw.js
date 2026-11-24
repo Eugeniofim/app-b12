@@ -1,5 +1,5 @@
 /* Estação B12 — service worker. SUBIR A VERSÃO A CADA PUBLICAÇÃO. */
-const CACHE = 'b12-v2.3.2';
+const CACHE = 'b12-v2.5.0';
 /* o index pede os arquivos carimbados (x.js?v=1.27.0); guardo os mesmos endereços */
 const V = CACHE.replace('b12-v', '');
 const ESSENCIAL = ['./', './index.html', './estilo.css?v=' + V, './marca.js?v=' + V, './dados.js?v=' + V, './nucleo.js?v=' + V,
@@ -38,6 +38,48 @@ self.addEventListener('fetch', e => {
 /* ======================================================= AVISOS NO CELULAR
    O empurrão chega aqui mesmo com o app fechado. O servidor manda um JSON
    com titulo, texto e para onde levar quando a pessoa tocar. */
+/* ===================================================== A CAIXA DE AVISOS
+   24/11/2026. Ele testou o push, chegou no celular, tocou — e o app abriu
+   SEM MOSTRAR O TEXTO em lugar nenhum. Perguntou: "será que vai lá no
+   sininho? Manda para onde?".
+
+   Não ia para lugar nenhum. O aviso vivia só na bandeja do sistema: fechou,
+   acabou. Um recado que some quando a pessoa toca nele não é um recado.
+
+   Agora cada aviso é gravado aqui, antes de aparecer na bandeja, num banco
+   do próprio navegador (IndexedDB — é o único que o service worker alcança;
+   localStorage não existe aqui dentro). O app lê essa caixa quando abre e
+   mostra tudo no sininho. */
+const AV_BANCO = 'b12-avisos', AV_LOJA = 'recebidos';
+function avBanco() {
+  return new Promise((ok, nao) => {
+    const p = indexedDB.open(AV_BANCO, 1);
+    p.onupgradeneeded = () => {
+      const db = p.result;
+      if (!db.objectStoreNames.contains(AV_LOJA))
+        db.createObjectStore(AV_LOJA, { keyPath: 'id' });
+    };
+    p.onsuccess = () => ok(p.result);
+    p.onerror = () => nao(p.error);
+  });
+}
+function avGuardar(d) {
+  return avBanco().then(db => new Promise(ok => {
+    const t = db.transaction(AV_LOJA, 'readwrite');
+    t.objectStore(AV_LOJA).put({
+      id: 'av' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      titulo: d.titulo || 'Estação B12',
+      texto: d.texto || '',
+      ir: d.ir || '/',
+      importante: !!d.importante,
+      em: new Date().toISOString(),
+      lido: false
+    });
+    t.oncomplete = () => ok(true);
+    t.onerror = () => ok(false);
+  })).catch(() => false);
+}
+
 self.addEventListener('push', e => {
   let d = { titulo: 'Estação B12', texto: 'Você tem um aviso novo.', ir: '/' };
   try { if (e.data) d = Object.assign(d, e.data.json()); }
@@ -54,7 +96,9 @@ self.addEventListener('push', e => {
      No iPhone, o som só existe com o app INSTALADO na tela de início: no
      Safari solto o push nem chega. É por isso que a vitrine insiste em
      instalar antes de pedir o aviso. */
-  e.waitUntil(self.registration.showNotification(d.titulo, {
+  /* grava ANTES de mostrar: se a pessoa tocar e dispensar na mesma hora, o
+     texto já está guardado no sininho */
+  e.waitUntil(avGuardar(d).then(() => self.registration.showNotification(d.titulo, {
     body: d.texto,
     icon: './icon-192.png',
     badge: './icon-192.png',
@@ -65,7 +109,7 @@ self.addEventListener('push', e => {
     requireInteraction: !!d.importante,
     timestamp: Date.now(),
     data: { ir: d.ir || '/' }
-  }));
+  })));
 });
 
 /* tocou no aviso: traz o app para a frente na tela certa, sem abrir outra aba */

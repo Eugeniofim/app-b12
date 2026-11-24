@@ -153,6 +153,14 @@ B12.carregar = function () {
   /* 12/10/2026: missão e visão. Quem já tinha o app ganha as duas listas sem
      perder o texto nem os destaques que já estavam gravados. */
   if (!A.contador) A.contador = { nome: '', email: '', obs: '' };
+  /* 24/11/2026: limpeza única do estrago da grade automática. Enquanto ela
+     existiu, cada aparelho montava o mesmo dia por conta própria e a nuvem
+     juntava tudo — ele viu doze saídas de ida onde eram seis. Roda uma vez
+     por aparelho; depois a causa não existe mais. */
+  if (!A.saidasLimpas) {
+    try { if (B12.limparSaidasRepetidas) B12.limparSaidasRepetidas(); } catch (e) {}
+    A.saidasLimpas = true;
+  }
   /* 12/11/2026: o PIN sai de `ajustes` e vai para uma chave só dele neste
      aparelho (acesso.js). Aqui é onde o banco de quem já usava se limpa: na
      primeira abertura depois da atualização, o PIN muda de casa e a próxima
@@ -296,6 +304,11 @@ B12.semear = function () {
 
   D.semeado = true;
   D.demoDia = hoje;
+  /* 24/11/2026: a demonstração também criava horário repetido no mesmo dia —
+     eu vi 09:30 duas vezes e 18:00 duas vezes na tela. Horário repetido não
+     pode existir em lugar nenhum: ele divide os passageiros entre duas
+     lanchas que são a mesma. */
+  try { B12.limparSaidasRepetidas(); } catch (e) {}
   try { localStorage.setItem(CHAVE, JSON.stringify(D)); } catch (e) {}
 };
 
@@ -319,7 +332,7 @@ function semearTurista(D, hoje) {
   /* 2. chegando hoje com carro, volta marcada daqui a dois dias */
   var depois = B12.diaMais(hoje, 2);
   var ida10 = D.saidas.filter(function (x) { return x.data === hoje && x.sentido === 'ida' && x.hora === '10:00'; })[0];
-  B12.materializarDia(depois);
+  B12.abrirIdas(depois, B12.idasSugeridas());
   B12.abrirVoltas(depois, B12.voltasSugeridas());
   var volta16 = D.saidas.filter(function (x) { return x.data === depois && x.sentido === 'volta' && x.hora === '16:00'; })[0];
   D.reservas.unshift({ id: 'rs-app-demo-2', cod: 'B12-5809', origem: 'app', demo: true,
@@ -522,6 +535,15 @@ B12.diariasBalcao = function (ida, hora, volta, horaVolta) {
   var falso = { entrada: ida, entradaEm: B12.instante(ida, hora || '12:00'),
                 diaria: B12.DB.ajustes.diaria };
   return B12.diariasDe(falso, B12.instante(volta, horaVolta || hora || '12:00'));
+};
+
+/* O nome de uma forma de pagamento para a TELA. As telas de relatório
+   escreviam a chave crua — "credito", "debito", "transferencia" — e com a
+   opção nova apareceria "adefinir". Chave é para o banco; gente lê nome. */
+B12.pgNome = function (k) {
+  return ({ pix:'Pix', dinheiro:'Dinheiro', credito:'Cartão de crédito',
+            debito:'Cartão de débito', transferencia:'Transferência',
+            adefinir:'A definir' })[k] || k || '—';
 };
 
 B12.diarias = function (ida, volta) {
@@ -933,16 +955,53 @@ B12.situacaoTxt = function (r) {
    Ilha na véspera, olhando quem está lá e como está o mar. Por isso o dia
    nasce com as idas prontas e as voltas em aberto — e o app diz isso ao
    passageiro em vez de inventar horário que pode não existir. */
+/* Sugestões para ele tocar, dos DOIS lados. Nada disto vira saída sozinho:
+   quem cria horário é ele, na véspera (24/11/2026). */
 B12.GRADE_PADRAO = { ida: ['08:30','10:00','11:30','13:00','15:00','17:00'],
                      voltaSugerida: ['09:30','12:00','16:00','18:00'], vagas: B12.CAPACIDADE };
-B12.materializarDia = function (iso) {
-  if (iso < B12.hoje()) return false;                       /* passado não ganha grade */
-  if (B12.DB.saidas.some(function (s) { return s.data === iso; })) return false;
-  var g = B12.DB.ajustes.grade || B12.GRADE_PADRAO;
-  g.ida.forEach(function (h) { B12.DB.saidas.push({ id: novoId('sd'), data: iso, hora: h, sentido: 'ida',
-    destino: 'Brasília', embarcacao: 'l01', marinheiro: '', vagas: g.vagas || B12.CAPACIDADE, ocupadas: 0, grade: true }); });
+/* 24/11/2026. Ele mandou um retrato com DOZE saídas de ida num dia: 08:30,
+   08:30, 10:00, 10:00… cada horário duplicado. E disse, na mesma hora:
+   "HORÁRIO DE IDA É LIVRE, NÃO TEM DEFINIÇÃO".
+
+   As duas coisas tinham a mesma raiz. A trava desta função ("já existe saída
+   neste dia? então não cria") só enxergava ESTE aparelho. Com a nuvem ligada,
+   o tablet do balcão e o celular dele montavam o mesmo dia, cada um com ids
+   próprios, e a sincronia juntava os dois: seis viravam doze. Com três
+   aparelhos, dezoito.
+
+   Parar de inventar a grade resolve o defeito e atende o pedido ao mesmo
+   tempo: dia nasce vazio, dos dois lados. A ida é livre como a volta sempre
+   foi — ele monta na véspera, olhando quem tem e como está o mar. Os
+   horários de tabela continuam existindo como SUGESTÃO para ele tocar em vez
+   de digitar, em Horário de travessia. */
+B12.materializarDia = function () { return false; };
+
+/* Limpa o estrago que a grade automática já fez: horário repetido no mesmo
+   dia e sentido. Fica o que tem passageiro; entre dois vazios, fica o mais
+   antigo (é o que os outros aparelhos provavelmente já conhecem). */
+B12.limparSaidasRepetidas = function () {
+  var vistos = {}, fora = [];
+  function peso(s) {
+    return B12.DB.reservas.filter(function (r) {
+      return !r.apagado && (r.saidaId === s.id || r.saidaVoltaId === s.id); }).length;
+  }
+  B12.DB.saidas.slice().sort(function (a, b) {
+    return String(a.id) < String(b.id) ? -1 : 1; }).forEach(function (s) {
+    var k = s.data + '|' + s.sentido + '|' + s.hora;
+    var ja = vistos[k];
+    if (!ja) { vistos[k] = s; return; }
+    /* o que carrega gente fica; o outro sai */
+    if (peso(s) > peso(ja)) { fora.push(ja.id); vistos[k] = s; }
+    else fora.push(s.id);
+  });
+  if (!fora.length) return { ok: true, tirados: 0 };
+  B12.DB.saidas = B12.DB.saidas.filter(function (s) { return fora.indexOf(s.id) < 0; });
+  B12.DB.reservas.forEach(function (r) {
+    if (fora.indexOf(r.saidaId) >= 0) r.saidaId = null;
+    if (fora.indexOf(r.saidaVoltaId) >= 0) r.saidaVoltaId = null;
+  });
   B12.salvar();
-  return true;
+  return { ok: true, tirados: fora.length };
 };
 /* os horários sugeridos, para o Dhalsin tocar em vez de digitar */
 B12.voltasSugeridas = function () {
@@ -1000,7 +1059,6 @@ B12.idasSugeridas = function () {
 };
 
 B12.saidasDoDia = function (iso, sentido) {
-  B12.materializarDia(iso);
   return B12.DB.saidas.filter(function (s) {
     return s.data === iso && (!sentido || s.sentido === sentido);
   }).sort(function(a,b){ return a.hora < b.hora ? -1 : 1; });
@@ -1480,6 +1538,11 @@ B12.entradaPatio = function (v) {
     saidaPrevista: v.saidaPrevista || '',
     vaga: String(v.vaga || '').trim(),
     diaria: Number(v.diaria) || B12.DB.ajustes.diaria,
+    /* 24/11/2026, pedido dele: "deixar espaço pra pôr o valor combinado do
+       estacionamento na mão, pois são preços feitos diferentes na hora".
+       Combinado > 0 manda na conta inteira do carro: não é diária vezes dia,
+       é o que foi acertado no balcão. Vazio = volta a contar pela tabela. */
+    combinado: Math.max(0, Number(v.combinado) || 0),
     saidaReal: null, saidaEm: null, pago: false, valorPago: 0,
     pagoNaEntrada: 0, pgEntrada: null,
     criadoEm: new Date().toISOString()
@@ -1514,28 +1577,48 @@ B12.diariasDe = function (reg, ate) {
 };
 /* a conta de um carro: diárias até agora (ou até a saída), o que já foi pago e o que resta */
 B12.valorPatio = function (reg, ate) {
-  var dias = B12.diariasDe(reg, ate), total = dias * reg.diaria;
+  var dias = B12.diariasDe(reg, ate);
+  var combinado = Math.max(0, Number(reg.combinado) || 0);
+  var total = combinado > 0 ? combinado : dias * reg.diaria;
   var pago = reg.pagoNaEntrada || 0;
   return { dias: dias, total: total, pago: pago, resta: Math.max(0, total - pago),
-           credito: Math.max(0, pago - total) };
+           credito: Math.max(0, pago - total), combinado: combinado };
 };
-B12.saidaPatio = function (id, pg, hora) {
+/* 24/11/2026, "isso precisa ser editável sempre": a saída mostrava "A cobrar
+   agora R$ 400" como número fechado, sem onde mexer. Mas é justamente no
+   portão que o preço se acerta — o carro ficou um dia a mais, foi feriado,
+   era cliente de pousada parceira. `valor` vindo preenchido manda na cobrança;
+   vindo vazio, vale a conta de sempre. */
+B12.saidaPatio = function (id, pg, hora, valor) {
   var reg = B12.DB.patio.filter(function (x) { return x.id === id; })[0];
   if (!reg) return { erro: 'Veículo não encontrado.' };
   if (reg.saidaReal) return { erro: 'Esse carro já saiu.' };
+  var mao = !(valor === undefined || valor === null || valor === '');
+  var cobrar = mao ? Number(valor) : 0;
+  if (mao && !(cobrar >= 0)) return { erro: 'O valor a cobrar não pode ser negativo.' };
+
   reg.saidaReal = B12.hoje();
   reg.saidaEm = B12.instante(reg.saidaReal, hora || B12.horaBR(new Date().toISOString()));
   var c = B12.valorPatio(reg);
-  reg.valorPago = c.pago + c.resta;
+  if (!mao) cobrar = c.resta;
+  var mudouAMao = mao && Math.abs(cobrar - c.resta) > 0.009;
+
+  reg.valorPago = c.pago + cobrar;
   reg.pago = true; reg.diariasCobradas = c.dias;
-  if (c.resta > 0) B12.salvarLancamento({
+  /* o combinado passa a ser o que foi cobrado de verdade: assim a tela do
+     carro, o relatório e a conta continuam contando a mesma história depois. */
+  if (mudouAMao) reg.combinado = reg.valorPago;
+  if (cobrar > 0) B12.salvarLancamento({
     data: reg.saidaReal, tipo: 'entrada', cat: 'Estacionamento', centro: 'Estacionamento',
     desc: 'Placa ' + reg.placa + ' · ' + c.dias + (c.dias > 1 ? ' diárias' : ' diária') +
+          (c.combinado > 0 || mudouAMao ? ' · valor combinado' : '') +
           (c.pago ? ' · acerto na saída' : ''),
-    valor: c.resta, pg: pg || 'pix', clienteId: reg.clienteId
+    valor: cobrar, pg: pg || 'pix', clienteId: reg.clienteId
   });
   B12.salvar();
-  return { ok: true, veiculo: reg, dias: c.dias, valor: c.resta, total: reg.valorPago, credito: c.credito };
+  return { ok: true, veiculo: reg, dias: c.dias, valor: cobrar, total: reg.valorPago,
+           credito: mudouAMao ? Math.max(0, c.pago - reg.valorPago) : c.credito,
+           peloCalculo: c.resta, aMao: mudouAMao };
 };
 B12.patioHoje = function () {
   return B12.DB.patio.filter(function (v) { return !v.saidaReal; })
@@ -1583,22 +1666,35 @@ B12.atenderBalcao = function (a) {
   var p = B12.preco({ produto: a.produto || 'regular', pax: a.pax || 1,
     pagantes: a.pagantes, criancas: a.criancas || 0,
     faixa: a.faixa || B12.faixaHora(a.hora), diarias: 0, pg: a.pg });
+  /* 24/11/2026: "a pessoa vai preencher se é só estacionamento, ou só
+     náutico, ou os dois". Antes disto o app EXIGIA travessia e recusava o
+     atendimento de quem só deixava o carro — e essa pessoa existe todo dia
+     na B12: deixa o carro e atravessa com outro. */
+  var serv = a.servico === 'estacionamento' || a.servico === 'nautico' ? a.servico : 'ambos';
+  var temNautico = serv !== 'estacionamento';
+  var temPatio = serv !== 'nautico' && !!a.placa;
+  if (serv === 'estacionamento' && !a.placa)
+    return { erro: 'Só estacionamento sem placa não dá: escreva a placa do carro.' };
+
   /* quem atende manda: valor digitado ganha da tabela. É assim no papel. */
   var combinado = Number(a.valorManual) || 0;
-  var travessia = combinado > 0 ? combinado : (p ? p.travessia : 0);
-  if (travessia <= 0) return { erro: 'Falta o valor: combine com a pessoa e digite quanto foi.' };
+  var travessia = !temNautico ? 0 : (combinado > 0 ? combinado : (p ? p.travessia : 0));
+  if (temNautico && travessia <= 0)
+    return { erro: 'Falta o valor: combine com a pessoa e digite quanto foi.' };
 
   /* o consumo é outra venda: entra em Bar e loja, não em Travessias, senão o
      relatório diz que a lancha faturou o que foi a cerveja */
   var cons = a.consumo || { itens: [], total: 0 };
   var valor = travessia + cons.total;
 
-  var lan = B12.salvarLancamento({
+  /* sem náutico não há venda de travessia: lançamento de R$ 0 em Travessias
+     mentiria no relatório do mês */
+  var lan = travessia > 0 ? B12.salvarLancamento({
     data: a.data || B12.hoje(), tipo: 'entrada', cat: 'Travessias', centro: 'Lancha',
     desc: (a.pagantes || a.pax || 1) + ' pagantes · ' + (a.pax || 1) + ' no veículo · ' + cli.nome,
     valor: travessia, pg: a.pg || 'pix', responsavel: a.responsavel || '',
     embarcacao: 'l01', clienteId: cli.id
-  });
+  }) : { ok: false };
   if (cons.total > 0) {
     B12.salvarLancamento({
       data: a.data || B12.hoje(), tipo: 'entrada', cat: 'Bar e loja', centro: 'Receptivo B12',
@@ -1611,9 +1707,11 @@ B12.atenderBalcao = function (a) {
   cli.gasto = (cli.gasto || 0) + valor;
 
   var veic = null;
-  if (a.placa) {
+  if (temPatio) {
     var e = B12.entradaPatio({ placa: a.placa, modelo: a.modelo, cor: a.cor,
       clienteId: cli.id, nome: cli.nome, whats: cli.whats,
+      combinado: a.valorEstacionamento,
+      diaria: a.diariaCarro,
       saidaPrevista: a.saidaPrevista || a.volta, vaga: a.vaga });
     if (!e.erro) veic = e.veiculo;
   }
@@ -1621,7 +1719,8 @@ B12.atenderBalcao = function (a) {
   /* quem chega no balcão também ganha código: é ele que marca a volta depois */
   var faixa = a.faixa || B12.faixaHora(a.hora), t = faixa === 'fora' ? null : B12.DB.ajustes.tabela[faixa];
   var dia = a.data || B12.hoje();
-  var saida = B12.proximaSaida(dia, faixa, a.pax || 1);
+  /* quem só deixou o carro não ocupa lugar na lancha */
+  var saida = temNautico ? B12.proximaSaida(dia, faixa, a.pax || 1) : null;
   var r = B12.novaReserva({
     nome: cli.nome, zap: cli.whats, email: cli.email, pax: a.pax || 1, criancas: a.criancas || 0,
     ida: dia, volta: a.volta || a.saidaPrevista || '', destino: a.destino || 'Brasília',
@@ -1631,10 +1730,17 @@ B12.atenderBalcao = function (a) {
     placa: a.placa || '', pg: a.pg || 'pix', total: valor, clienteId: cli.id, instagram: a.instagram,
     idades: a.idades || '', hora: a.hora || '', horaVolta: a.horaVolta || '',
     pagantes: a.pagantes || a.pax || 1, consumo: cons.itens, consumoTotal: cons.total,
+    /* o que foi combinado trecho a trecho fica guardado: é o que a ficha
+       mostra de volta quando ele abre para corrigir. */
+    valorIda: Math.max(0, Number(a.valorIda) || 0),
+    valorVolta: Math.max(0, Number(a.valorVolta) || 0),
+    /* o que a pessoa usou fica gravado na reserva E na ficha dela: é a
+       pergunta que ele faz quando alguém volta ("você já veio aqui?") */
+    servico: serv,
     obs: a.obs || ''
   });
   r.origem = 'balcao';                         /* feita pela B12, não pelo celular do turista */
-  r.lancamentoId = lan.ok ? lan.lancamento.id : null;
+  r.lancamentoId = lan && lan.ok ? lan.lancamento.id : null;
   r.patioId = veic ? veic.id : null;
   if (saida) { r.saidaId = saida.id; r.situacao = 'confirmada'; r.confirmadaEm = new Date().toISOString();
     saida.ocupadas = (saida.ocupadas || 0) + (a.pax || 1); }
@@ -1702,6 +1808,8 @@ B12.editarReserva = function (id, d) {
   põe('pg', d.pg || r.pg, 'pagamento');
   põe('obs', d.obs == null ? r.obs : d.obs, 'observação');
   põe('total', total, 'valor');
+  if (d.valorIda !== undefined) põe('valorIda', Math.max(0, Number(d.valorIda) || 0), 'valor da ida');
+  if (d.valorVolta !== undefined) põe('valorVolta', Math.max(0, Number(d.valorVolta) || 0), 'valor da volta');
 
   /* 2. o carro no pátio: a data de volta é a saída prevista dele, e é por ela
         que a diária é contada. Sem isto, mudar a volta não muda a cobrança. */
@@ -1711,6 +1819,14 @@ B12.editarReserva = function (id, d) {
     carro.saidaPrevista = volta || '';
     carro.nome = nome;
     if (r.zap) carro.whats = r.zap;
+    /* o preço combinado do carro se corrige aqui junto com o resto. Campo
+       deixado vazio apaga o combinado e volta a contar pela diária. */
+    if (d.valorEstacionamento !== undefined) {
+      var novoC = Math.max(0, Number(d.valorEstacionamento) || 0);
+      if ((Number(carro.combinado) || 0) !== novoC) {
+        carro.combinado = novoC; mudou.push('estacionamento');
+      }
+    }
   }
   r.estacionamento = (carro && volta) ? B12.diariasBalcao(ida, r.hora, volta, r.horaVolta) : 0;
 
@@ -2045,12 +2161,100 @@ B12.apagarMinhaMensagem = function (id) {
 /* troca as marcas pelo que a pessoa tem */
 B12.preencherMensagem = function (texto, d) {
   d = d || {};
-  return String(texto)
+  var t = String(texto)
     .replace(/\{nome\}/gi, (d.nome || '').split(' ')[0] || 'tudo bem')
     .replace(/\{codigo\}/gi, d.cod || '')
     .replace(/\{data\}/gi, d.data ? B12.dataBR(d.data) : B12.dataBR(B12.hoje()))
     .replace(/\{hora\}/gi, d.hora || '')
     .replace(/\{empresa\}/gi, B12.EMPRESA.nome);
+
+  /* 24/11/2026. Medido na ficha do Carlos Menezes: a reserva dele não tinha
+     hora de volta, e a mensagem pronta para mandar dizia
+
+         "seu retorno é amanhã, 24/11/2026, às ."
+
+     Marca vazia não pode deixar a frase quebrada: isso sai no WhatsApp de um
+     cliente de verdade. Aqui a costura é desfeita — o conector órfão some, o
+     negrito vazio some, e a pontuação se junta de novo. */
+  return t
+    .replace(/\*\s*\*/g, '')                                  /* *{codigo}* vazio */
+    .replace(/[ \t]+(às|as|ás)[ \t]*(?=[.,;:!?)\]]|\n|$)/gi, '')  /* "às" sem hora */
+    .replace(/[ \t]*,[ \t]*(?=[.,;:!?]|\n|$)/g, '')             /* vírgula no vazio */
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/[ \t]+(?=[.,;:!?])/g, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .trim();
+};
+
+/* ================================================ O RECADO DA VOLTA
+   24/11/2026. Ele mandou o texto que a B12 já usa hoje, à mão, no WhatsApp,
+   e perguntou: "onde o Dhalsin faz isso? Na tela HOJE?".
+
+   Faz sentido ser lá: é o recado que sai 24 h antes do retorno, para quem
+   está na Ilha. O texto é padrão, e os HORÁRIOS SÃO EDITÁVEIS — eles não
+   ficam escritos aqui. Saem da grade de volta que ele monta na véspera, em
+   Horário de travessia → Volta, olhando quem está lá e como está o mar.
+   Mudou a grade, mudou o recado: um lugar só para mexer. */
+B12.recadoDeVolta = function (iso) {
+  var dia = iso || B12.diaMais(B12.hoje(), 1);
+  var horas = B12.saidasDoDia(dia, 'volta').map(function (s) { return s.hora; })
+    .filter(Boolean).sort();
+  var a = B12.DB.ajustes || {};
+  var trapiche = String(a.trapiche || 'trapiche principal').trim();
+  var antes = Number(a.minutosAntes) || 10;
+  var bagagem = Number(a.minutosBagagem) || 30;
+  /* "Amanhã" só quando for amanhã mesmo: ele manda o mesmo recado para quem
+     volta HOJE, e o app não pode escrever um dia errado no WhatsApp de um
+     cliente (24/11/2026). */
+  var hoje = B12.hoje();
+  var palavra = dia === hoje ? 'Hoje' : dia === B12.diaMais(hoje, 1) ? 'Amanhã'
+              : 'Dia ' + B12.dataBR(dia);
+  var corpo = [
+    palavra + ' nossos horários de retorno saindo do ' + trapiche + ' serão:',
+    '',
+    horas.length
+      ? horas.map(function (h) { return '🛥️ ' + h; }).join('\n')
+      : '(os horários de amanhã ainda não foram montados)',
+    '',
+    '⚠️ Vale lembrar que, para garantir o horário que vocês têm interesse, é importante ' +
+    'marcar com antecedência, pois a lancha tem limite de passageiros.',
+    '',
+    '🚨 Se precisarem de transporte de bagagem 🧳, agendem com antecedência na recepção, ' +
+    'para o transporte sair ' + bagagem + ' minutos antes do horário de saída da lancha 🛥️.',
+    '',
+    '🚨 Por gentileza, cheguem com ' + antes + ' minutos de antecedência na embarcação, para que ' +
+    'o marinheiro possa organizar as bagagens e sairmos no horário combinado, respeitando ' +
+    'os demais passageiros do mesmo horário!',
+    '',
+    'Muito obrigado 🙏🏽🛟⚓️'
+  ].join('\n');
+  return { dia: dia, horas: horas, texto: corpo, semGrade: !horas.length };
+};
+
+/* quem está na Ilha e volta AMANHÃ: é a lista que o recado alcança.
+   Vem com o contato e a ficha, porque o recado é por pessoa, não por lote. */
+B12.voltamAmanha = function (iso) {
+  var dia = iso || B12.diaMais(B12.hoje(), 1);
+  var hoje = B12.hoje();
+  return B12.DB.reservas.filter(function (r) {
+    return r.situacao === 'confirmada' && !r.apagado && r.volta === dia && r.ida <= dia;
+  }).map(function (r) {
+    var c = r.clienteId ? B12.DB.clientes.filter(function (x) { return x.id === r.clienteId; })[0] : null;
+    return { id: r.id, cod: r.cod, nome: r.nome, pax: r.pax || 1,
+             clienteId: r.clienteId || '', whats: (r.zap || (c && c.whats) || '').replace(/\D/g, ''),
+             horaVolta: r.horaVolta || '', placa: r.placa || '',
+             avisadoEm: r.avisoVoltaEm || '' };
+  }).sort(function (a, b) { return a.nome < b.nome ? -1 : 1; });
+};
+
+/* marca que esta pessoa já recebeu o recado da volta, para ele não mandar
+   duas vezes para a mesma e não esquecer ninguém */
+B12.marcarAvisoVolta = function (reservaId) {
+  var r = B12.reservaPorId(reservaId);
+  if (!r) return { erro: 'Não achei essa reserva.' };
+  r.avisoVoltaEm = new Date().toISOString();
+  B12.salvar();
+  return { ok: true };
 };
 
 B12.mostraPrecos = function () { return !!B12.DB.ajustes.mostrarPrecos; };

@@ -214,8 +214,9 @@ eh('o app não procura mais por ele (getElementById de nada = tela branca)',
 eh('o menu que ele abria saiu do código', !/B12\.menuMais/.test(form4));
 eh('e o ajudante que só ele usava também', !/function acao\(id, titulo/.test(form4));
 eh('o estilo saiu inteiro, inclusive das telas largas', !/mais-btn/.test(css4));
-eh('as chaves do CSS continuam equilibradas',
-  (css4.match(/\{/g) || []).length === (css4.match(/\}/g) || []).length);
+/* contar não basta — ver testes/ajuda-css.js */
+var est4 = require('./ajuda-css.js').conferirCSS(css4);
+eh('as chaves do CSS continuam equilibradas E na ordem certa', est4.ok, est4.erros.join(' · '));
 
 eh('o Assistente volta para o canto de baixo',
   /\.ia-bolha-flut\{position:fixed;right:12px;bottom:calc\(84px/.test(css4));

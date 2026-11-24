@@ -51,8 +51,11 @@ eh('e não sobrou o grid duplicado no bloco de 1100',
   'duas definições iguais em media queries diferentes brigam entre si');
 
 console.log('\n— o CSS continua íntegro —');
-eh('as chaves estão equilibradas',
-  (css.match(/\{/g) || []).length === (css.match(/\}/g) || []).length);
+/* contar não basta: dois erros opostos se anulam na conta e o arquivo
+   continua quebrado. Ver testes/ajuda-css.js */
+var conferirCSS = require('./ajuda-css.js').conferirCSS;
+var estrutura = conferirCSS(css);
+eh('as chaves estão equilibradas E na ordem certa', estrutura.ok, estrutura.erros.join(' · '));
 eh('nenhuma faixa deixa buraco entre 700 e 1100',
   /max-width: 899px/.test(css) && /min-width: 900px/.test(css),
   'uma faixa terminando em 899 exige a seguinte começando em 900');

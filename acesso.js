@@ -455,6 +455,52 @@ B12.formAjustes = function (depois) {
   });
 };
 
+/* ---------------------------------- a chave de IA do dono
+   24/11/2026. Ele perguntou: "como que ele põe a chave de IA dele, onde ele
+   compra créditos?" — e a pergunta é a prova do defeito. O campo existia, só
+   que escondido no fim dos Ajustes, depois de PINs, grade e pátio. Pior: a
+   tela do assistente dizia "ponha a sua própria chave aqui mesmo, logo
+   abaixo" e não havia campo nenhum abaixo.
+
+   Aqui as duas coisas que ninguém separava ficam separadas:
+   · a CHAVE é de onde o dinheiro sai de verdade (a conta dele na Anthropic);
+   · os CRÉDITOS do app são só um teto que ele mesmo escreve, para o app
+     avisar antes de passar do que ele queria gastar. Não compram nada. */
+B12.formChaveIA = function (depois) {
+  if (!B12.pode('dono')) return B12.portao('dono', function () { B12.formChaveIA(depois); });
+  B12.folha({
+    titulo: 'Ligar o assistente com a sua conta',
+    sub: 'A chave fica guardada só neste aparelho',
+    corpo:
+      '<div class="ajuda">O assistente pensa na <b>Anthropic</b>, a dona do Claude, e cada pergunta custa ' +
+      'alguns centavos. Para ele responder, precisa de uma conta lá com crédito.</div>' +
+      '<div class="grupo">1 · Onde comprar o crédito</div>' +
+      '<div class="ajuda">Entre em <a href="https://console.anthropic.com/settings/billing" target="_blank" ' +
+      'rel="noopener">console.anthropic.com</a>, crie a conta e ponha crédito no cartão, em <b>Billing</b>. ' +
+      'Com <b>R$ 50</b> dá para umas <b>2.500 perguntas</b> no motor rápido.</div>' +
+      '<div class="grupo">2 · Onde pegar a chave</div>' +
+      '<div class="ajuda">No mesmo site, em <b>API Keys</b> → <b>Create key</b>. Ela começa com ' +
+      '<b>sk-ant-</b> e só aparece uma vez: copie na hora.</div>' +
+      '<div class="grupo">3 · Cole aqui</div>' +
+      B12.f_campo('Chave da Anthropic', 'chaveIA', { tipo:'password', valor: B12.iaChave ? B12.iaChave() : '',
+        dica:'sk-ant-…',
+        ajuda:'Fica guardada neste aparelho e em mais nenhum: não sobe para a nuvem nem viaja para os ' +
+              'outros aparelhos da B12 — em cada um você cola de novo. Deixe vazio para apagar.' }) +
+      B12.f_lista('Qual motor', 'motor', (B12.MOTORES || []).map(function (m) { return [m[0], m[1]]; }),
+        B12.iaMotor ? B12.iaMotor() : '') +
+      '<div class="ajuda">Sem chave nenhuma o assistente fica desligado e <b>o resto do painel funciona ' +
+      'normalmente</b> — ele é um extra do app.</div>',
+    acao: 'Guardar a chave',
+    aoSalvar: function (d) {
+      if (B12.iaTrocarMotor && d.motor) B12.iaTrocarMotor(d.motor);
+      var r = B12.iaGuardarChave(d.chaveIA);
+      if (r.erro) return { erro: r.erro };
+      return { ok: true, apagada: !!r.apagada };
+    },
+    depois: depois
+  });
+};
+
 /* ---------------------------------- recuperar reserva pelo código */
 B12.formRecuperar = function (depois) {
   B12.folha({

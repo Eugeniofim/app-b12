@@ -267,6 +267,14 @@ body.adm input,body.adm select,body.adm textarea{background:var(--noite-3);
   border-color:var(--noite-risco);color:var(--gelo)}
 input:focus,select:focus{border-color:var(--turq-500)}
 .par{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+/* 24/11/2026: data, hora e o valor daquele trecho na mesma linha. No celular
+   estreito o valor desce para a linha de baixo, inteiro, em vez de espremer
+   três caixas que ninguém acerta com o dedo. */
+.trio{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.8fr) minmax(0,.85fr);gap:10px}
+@media (max-width:430px){
+  .trio{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .trio>div:nth-child(3){grid-column:1 / -1}
+}
 .contador{display:flex;align-items:center;gap:13px}
 .contador button{width:46px;height:46px;border-radius:12px;border:1px solid var(--risco);
   background:var(--carta);font-size:22px;font-weight:600;color:var(--azul-700);
@@ -368,7 +376,7 @@ body.adm .linha .d small{color:var(--gelo-3)}
 .adm-topo>*:not(canvas){position:relative}
 .adm-topo .rot{font-size:12px;letter-spacing:.2em;text-transform:uppercase;opacity:.72;font-weight:700}
 .adm-topo h2{font-size:17px;margin-top:1px;line-height:1.15}
-.adm-topo p{font-size:12px;opacity:.78;margin-top:2px;display:none}}
+.adm-topo p{font-size:12px;opacity:.78;margin-top:2px;display:none}
 @media (min-width:720px){ .adm-topo p{display:block} }
 
 /* a tira de abas: o esmaecido na direita avisa que tem mais coisa para o lado */
@@ -1938,6 +1946,14 @@ body.adm :where(button, a, input, select, textarea, summary, [tabindex]):focus-v
     justify-content:flex-end;margin-bottom:4px}
   .adm-topo h2{display:none}
   .logo-adm{height:20px;margin-bottom:2px}
+}
+/* ^ 24/11/2026: esta chave NÃO EXISTIA. O @media (max-width:719px) acima
+   ficava aberto até o fim do arquivo, e TUDO que foi escrito depois dele
+   desde 12/11 — .btn.solto, o rodapé dos créditos do assistente, a lista de
+   quem volta — só valia em tela de até 719px. No tablet e no computador
+   essas regras simplesmente não existiam, e a tela saía desmontada sem
+   nenhum erro em lugar nenhum. Foi assim que eu descobri: medindo o
+   `display` de um elemento no navegador em vez de confiar no arquivo. */
 
 /* =====================================================================
    12/11/2026 — AS TRÊS TELAS QUE ROLAVAM DE LADO NO CELULAR
@@ -1959,3 +1975,66 @@ body.adm :where(button, a, input, select, textarea, summary, [tabindex]):focus-v
    tela com `margin:12px` vira 100% + 24px. Por isso existe `.btn.solto`.
    ===================================================================== */
 .btn.solto{width:calc(100% - 24px);margin:15px 12px 0}
+
+/* de qual conta sai o dinheiro do assistente — a linha que faltava para o
+   número grande dos créditos parar de parecer uma carteira (24/11/2026) */
+.ia-credito-dono{margin-top:9px;padding-top:9px;border-top:1px solid var(--noite-risco);
+  font-size:12px;line-height:1.4;color:var(--gelo-3)}
+.ia-credito-dono b{color:var(--gelo);font-weight:700}
+body:not(.adm) .ia-credito-dono{border-top-color:var(--risco);color:var(--tinta-3)}
+body:not(.adm) .ia-credito-dono b{color:var(--tinta)}
+
+/* quem volta amanhã, na tela Hoje — o recado das 24 h (24/11/2026) */
+.va-lista{display:flex;flex-direction:column;gap:7px;margin-top:11px}
+.va-linha{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:11px;
+  background:var(--noite-3);border:1px solid var(--noite-risco)}
+.va-linha.feito{opacity:.62}
+.va-nome{flex:1;min-width:0;text-align:left;background:none;border:0;padding:0;color:inherit}
+.va-nome b{display:block;font-size:13.5px;line-height:1.25}
+.va-nome small{display:block;font-size:12px;color:var(--gelo-3);margin-top:2px}
+.va-bts{display:flex;gap:6px;flex-shrink:0}
+@media (max-width:430px){
+  .va-linha{flex-direction:column;align-items:stretch}
+  .va-bts{justify-content:flex-end}
+}
+body:not(.adm) .va-linha{background:var(--carta-2);border-color:var(--risco)}
+body:not(.adm) .va-nome small{color:var(--tinta-3)}
+
+/* o texto da mensagem, editável antes de mandar (24/11/2026) */
+.balao-edit{display:block;width:100%;resize:vertical;min-height:160px;
+  font:inherit;line-height:1.5;white-space:pre-wrap}
+.balao-edit:focus{outline:2px solid var(--turq-500);outline-offset:1px}
+
+/* escolher quem recebe: a lista com caixas (24/11/2026) */
+.mp-cab{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+.mp-cab b{font-size:12.5px;color:var(--gelo-3);font-weight:700}
+.mp-lista{display:flex;flex-direction:column;gap:6px;max-height:40vh;overflow-y:auto;
+  -webkit-overflow-scrolling:touch;padding-right:2px}
+.mp-linha{display:flex;align-items:center;gap:10px;padding:10px;border-radius:11px;
+  background:var(--noite-3);border:1px solid var(--noite-risco);cursor:pointer;min-height:44px}
+.mp-linha input{width:20px;height:20px;flex-shrink:0;accent-color:var(--turq-500)}
+.mp-txt{flex:1;min-width:0}
+.mp-txt b{display:block;font-size:13.5px;line-height:1.25}
+.mp-txt small{display:block;font-size:12px;color:var(--gelo-3);margin-top:2px}
+.mp-bts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0}
+.mp-bts .btn:disabled{opacity:.42}
+@media (max-width:430px){ .mp-bts{grid-template-columns:minmax(0,1fr)} }
+body:not(.adm) .mp-linha{background:var(--carta-2);border-color:var(--risco)}
+body:not(.adm) .mp-txt small{color:var(--tinta-3)}
+
+/* o sininho e a caixa de avisos deste aparelho (24/11/2026) */
+#b-sino{position:relative}
+#b-sino i{position:absolute;top:-3px;right:-4px;min-width:16px;height:16px;padding:0 3px;
+  border-radius:9px;background:var(--ruim);color:#fff;font-size:12px;font-weight:800;
+  font-style:normal;line-height:16px;text-align:center;box-shadow:0 0 0 2px var(--noite-1)}
+.sino-lista{display:flex;flex-direction:column;gap:9px}
+.sino-item{padding:11px 12px;border-radius:12px;background:var(--noite-3);
+  border:1px solid var(--noite-risco)}
+.sino-item.novo{border-color:var(--turq-600);background:var(--noite-2)}
+.sino-topo{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:4px}
+.sino-topo b{font-size:13.5px;line-height:1.25}
+.sino-topo span{font-size:12px;color:var(--gelo-3);white-space:nowrap;flex:none}
+.sino-item p{font-size:13px;line-height:1.45;color:var(--gelo-2)}
+body:not(.adm) .sino-item{background:var(--carta-2);border-color:var(--risco)}
+body:not(.adm) .sino-topo span{color:var(--tinta-3)}
+body:not(.adm) .sino-item p{color:var(--tinta-2)}

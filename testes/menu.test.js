@@ -143,11 +143,22 @@ eh('e a aba Clientes continua tendo como criar ficha',
 eh('a ficha do cliente continua existindo para quem já é cliente',
   /B12\.fichaCliente\(/.test(adm));
 
-/* ------------- Marinheiros no Cadastro e "Na Ilha" fundida (12/11/2026) */
-console.log('\n— Marinheiros entrou no Cadastro —');
-eh('Marinheiros é sub-aba do Cadastro', subs(cadastro).includes('Marinheiros'),
+/* ------------- Marinheiros saiu de vez (24/11/2026) ------------- */
+/* 12/11 ela tinha acabado de MUDAR de lugar, de Horário de travessia para o
+   Cadastro. Em 24/11 ele pediu para excluir: "excluir marinheiros". É a
+   mesma conclusão da aba de funcionários, em 18/11 — equipe que não muda não
+   compensa tela de cadastro. Quem levou a lancha continua sendo escrito à
+   mão no atendimento, como no papel. */
+console.log('\n— Marinheiros saiu do menu —');
+eh('não é mais sub-aba do Cadastro', !subs(cadastro).includes('Marinheiros'),
   subs(cadastro).join(' · '));
-eh('e saiu de Horário de travessia', !subs(travessia).includes('Marinheiros'));
+eh('nem de Horário de travessia', !subs(travessia).includes('Marinheiros'));
+eh('e não ficou numa terceira aba por engano',
+  !GRUPOS.some(function (g) { return subs(g).includes('Marinheiros'); }));
+eh('os dados dos marinheiros NÃO foram apagados do app',
+  /B12\.DB\.marinheiros = B12\.MARINHEIROS\.slice\(\)/.test(
+    require('fs').readFileSync(require('path').join(__dirname, '..', 'nucleo.js'), 'utf8')),
+  'tirar a tela é uma decisão de menu; apagar o dado dele não foi pedido');
 
 console.log('\n— "Na Ilha" saiu da tira, mas a tela não foi perdida —');
 eh('não existe mais a aba "Na Ilha"',

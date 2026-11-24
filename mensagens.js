@@ -296,11 +296,19 @@ B12.folhaMensagem = function (modeloId, dados) {
     '<button type="button" class="folha-x" aria-label="Fechar">' +
     '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" ' +
     'stroke-width="2.2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>' +
-    '<div class="folha-corpo"><div class="balao" id="txt-msg">' +
-    texto.replace(/&/g,'&amp;').replace(/</g,'&lt;')
-         .replace(/\*(.+?)\*/g, '<b>$1</b>').replace(/\n/g, '<br>') + '</div>' +
-    '<p class="ajuda" style="margin-top:12px">Você pode editar depois de colar no WhatsApp. ' +
-    'O app não envia nada sozinho.</p></div>' +
+    /* 24/11/2026, "deixar msn editáveis": o texto era um balão só de ler, e
+       a frase embaixo mandava editar DEPOIS de colar no WhatsApp — ou seja,
+       o trabalho ficava sempre do outro lado. Agora é um campo: ele ajusta
+       aqui, e o que sai é o que está na tela.
+
+       Fica em texto cru, com os *asteriscos* à mostra de propósito: é assim
+       que o WhatsApp entende negrito, e é isso que vai ser colado. */
+    '<div class="folha-corpo">' +
+    '<textarea class="balao balao-edit" id="txt-msg" rows="10" ' +
+    'aria-label="Texto da mensagem">' +
+    texto.replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</textarea>' +
+    '<p class="ajuda" style="margin-top:10px">Pode mudar o texto aqui antes de mandar. ' +
+    'Os <b>*asteriscos*</b> viram negrito no WhatsApp. O app não envia nada sozinho.</p></div>' +
     '<div class="folha-pe"><div class="grade2" style="margin:0">' +
     '<button class="btn sec" style="margin:0" id="b-copiar">Copiar texto</button>' +
     '<button class="btn zap" style="margin:0" id="b-zap">Abrir no WhatsApp</button>' +
@@ -310,24 +318,284 @@ B12.folhaMensagem = function (modeloId, dados) {
   function fechar() { f.remove(); document.body.style.overflow = ''; }
   f.querySelector('.folha-x').onclick = fechar;
   f.querySelector('.folha-fundo').onclick = fechar;
+  /* o que sai é o que está na tela, não o que a função gerou */
+  function agora() { return f.querySelector('#txt-msg').value; }
   f.querySelector('#b-zap').onclick = function () {
-    B12.abrirWhats(dados && dados.whats, texto); fechar(); };
+    B12.abrirWhats(dados && dados.whats, agora()); fechar(); };
   f.querySelector('#b-copiar').onclick = function () {
     var b = f.querySelector('#b-copiar');
-    B12.copiar(texto).then(function () { b.textContent = 'Copiado ✓';
+    B12.copiar(agora()).then(function () { b.textContent = 'Copiado ✓';
       setTimeout(function () { b.textContent = 'Copiar texto'; }, 1600); });
   };
 };
 
-/* escolher qual modelo mandar para alguém */
+/* a mesma folha, para uma mensagem escrita por ele — o texto já vem com as
+   marcas trocadas pelos dados de quem vai receber */
+B12.folhaMinhaMensagem = function (msg, dados) {
+  if (!msg) return;
+  var d = dados || {};
+  var texto = B12.preencherMensagem(msg.texto, d);
+  var f = document.createElement('div');
+  f.className = 'folha';
+  f.innerHTML = '<div class="folha-fundo"></div><div class="folha-cx">' +
+    '<div class="folha-alca"></div>' +
+    '<div class="folha-topo"><div><h3>' + escM(msg.nome) + '</h3>' +
+    '<p>' + (d.nome ? 'para ' + escM(d.nome) : escM(msg.quando || '')) + '</p></div>' +
+    '<button type="button" class="folha-x" aria-label="Fechar">' +
+    '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" ' +
+    'stroke-width="2.2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>' +
+    '<div class="folha-corpo">' +
+    '<textarea class="balao balao-edit" id="txt-msg" rows="10" ' +
+    'aria-label="Texto da mensagem">' + escM(texto) + '</textarea>' +
+    '<p class="ajuda" style="margin-top:10px">Pode mudar o texto aqui antes de mandar. ' +
+    'Os <b>*asteriscos*</b> viram negrito no WhatsApp. O app não envia nada sozinho.</p></div>' +
+    '<div class="folha-pe"><div class="grade2" style="margin:0">' +
+    '<button class="btn sec" style="margin:0" id="b-copiar">Copiar texto</button>' +
+    '<button class="btn zap" style="margin:0" id="b-zap">Abrir no WhatsApp</button>' +
+    '</div></div></div>';
+  document.body.appendChild(f);
+  document.body.style.overflow = 'hidden';
+  function fechar() { f.remove(); document.body.style.overflow = ''; }
+  f.querySelector('.folha-x').onclick = fechar;
+  f.querySelector('.folha-fundo').onclick = fechar;
+  function agora() { return f.querySelector('#txt-msg').value; }
+  f.querySelector('#b-zap').onclick = function () { B12.abrirWhats(d.whats, agora()); fechar(); };
+  f.querySelector('#b-copiar').onclick = function () {
+    var b = f.querySelector('#b-copiar');
+    B12.copiar(agora()).then(function () { b.textContent = 'Copiado ✓';
+      setTimeout(function () { b.textContent = 'Copiar texto'; }, 1600); });
+  };
+};
+function escM(x) {
+  return String(x == null ? '' : x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* ================================================ MANDAR PARA VÁRIAS PESSOAS
+   24/11/2026. Ele olhou a aba Mensagens e perguntou: "como a gente faz para
+   enviar para mais pessoas que estão na Ilha do Mel? Aqui está direcionado só
+   ao Paulo, e lá tem o Paulo, o Eugênio, outras pessoas. Talvez uma mensagem
+   genérica, sem nome, e uma caixa para clicar em quais pessoas enviar."
+
+   A verdade que a tela precisa dizer, e não dizia:
+
+   · WHATSAPP NÃO MANDA EM LOTE. O link wa.me abre UMA conversa de cada vez, e
+     quem aperta enviar é ele. Disparo de verdade só com a API oficial da Meta,
+     que cobra por conversa. Então aqui vira FILA: ele escolhe quem, e o app
+     abre uma por uma, marcando quem já foi. É o que ele já fazia — só que
+     sem perder a conta de quem ficou para trás.
+   · AVISO NO APP manda em lote de verdade, de uma vez, e de graça. Mas só
+     chega em quem instalou o app.
+   · E-MAIL também manda em lote, e chega em quem deu o endereço.
+
+   Sobre o nome: não precisa tirar. A marca {nome} é trocada POR PESSOA, uma
+   mensagem de cada vez — cada um recebe com o nome dele. Texto sem {nome}
+   também funciona e vai igual para todos. A tela diz qual dos dois é. */
+B12.formMandarPara = function (msg, opc) {
+  opc = opc || {};
+  var hoje = B12.hoje(), amanha = B12.diaMais(hoje, 1);
+  var ilha = B12.naIlha(hoje) || {};
+
+  /* cada pessoa entra UMA vez, mesmo aparecendo em duas listas */
+  var vistos = {}, gente = [];
+  function juntar(lista, etiqueta) {
+    (lista || []).forEach(function (p) {
+      var chave = p.clienteId || p.cod || p.nome;
+      if (vistos[chave]) {
+        /* a mesma pessoa pode ter duas reservas: a etiqueta entra UMA vez,
+           senão sai "volta hoje · volta hoje · na Ilha · na Ilha" */
+        if (etiqueta && vistos[chave].etiquetas.indexOf(etiqueta) < 0)
+          vistos[chave].etiquetas.push(etiqueta);
+        return;
+      }
+      var reg = {
+        chave: chave, nome: p.nome, pessoas: p.pessoas || 1, cod: p.cod || '',
+        clienteId: p.clienteId || '',
+        whats: (p.contato && p.contato.whats) || '',
+        email: (p.contato && p.contato.email) || '',
+        volta: p.volta || '', etiquetas: etiqueta ? [etiqueta] : []
+      };
+      vistos[chave] = reg; gente.push(reg);
+    });
+  }
+  juntar((ilha.voltam || []), 'volta hoje');
+  juntar(B12.DB.reservas.filter(function (r) {
+    return r.situacao === 'confirmada' && !r.apagado && r.volta === amanha;
+  }).map(function (r) {
+    var c = r.clienteId ? B12.DB.clientes.filter(function (x) { return x.id === r.clienteId; })[0] : null;
+    return { nome: r.nome, pessoas: r.pax, cod: r.cod, clienteId: r.clienteId,
+             contato: { whats: (r.zap || (c && c.whats) || '').replace(/\D/g, ''),
+                        email: r.email || (c && c.email) || '' } };
+  }), 'volta amanhã');
+  juntar((ilha.agora || []), 'na Ilha');
+
+  if (!gente.length) {
+    return B12.aviso('Não há ninguém na Ilha nem voltando nos próximos dias.', 'aviso');
+  }
+
+  var texto0 = msg && msg.texto ? msg.texto : '';
+  var temNome = /\{nome\}/i.test(texto0);
+
+  function linha(p, i) {
+    var canais = [];
+    if (p.whats) canais.push('WhatsApp');
+    if (p.clienteId) canais.push('app');
+    if (p.email && p.email.indexOf('@') > 0) canais.push('e-mail');
+    return '<label class="mp-linha">' +
+      '<input type="checkbox" class="mp-cx" data-i="' + i + '" checked>' +
+      '<span class="mp-txt"><b>' + escM(p.nome) + '</b>' +
+      '<small>' + p.pessoas + (p.pessoas > 1 ? ' pessoas' : ' pessoa') +
+      (p.etiquetas.length ? ' · ' + escM(p.etiquetas.join(' · ')) : '') +
+      (canais.length ? ' · ' + canais.join(', ') : ' · <b>sem contato</b>') +
+      '</small></span></label>';
+  }
+
+  var f = document.createElement('div');
+  f.className = 'folha';
+  f.innerHTML = '<div class="folha-fundo"></div><div class="folha-cx">' +
+    '<div class="folha-alca"></div>' +
+    '<div class="folha-topo"><div><h3>Mandar para várias pessoas</h3>' +
+    '<p>' + escM(msg && msg.nome ? msg.nome : 'escolha quem recebe') + '</p></div>' +
+    '<button type="button" class="folha-x" aria-label="Fechar">' +
+    '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" ' +
+    'stroke-width="2.2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>' +
+    '<div class="folha-corpo">' +
+      '<textarea class="balao balao-edit" id="mp-texto" rows="7" style="margin-bottom:10px" ' +
+      'aria-label="Texto da mensagem">' + escM(texto0) + '</textarea>' +
+      '<div class="ajuda" id="mp-aviso-nome" style="margin-bottom:14px">' + (temNome
+        ? 'O texto tem <b>{nome}</b>: cada pessoa recebe com o primeiro nome dela. ' +
+          'Pelo WhatsApp e pelo aviso no app a troca é feita uma a uma.'
+        : 'O texto não tem nome dentro: vai <b>igual para todos</b>.') + '</div>' +
+      '<div class="mp-cab"><b id="mp-conta"></b>' +
+        '<span><button type="button" class="mini-btn" id="mp-todos">Todos</button> ' +
+        '<button type="button" class="mini-btn" id="mp-nenhum">Nenhum</button></span></div>' +
+      '<div class="mp-lista">' + gente.map(linha).join('') + '</div>' +
+      '<div class="cx nota" style="margin-top:14px"><p><b>O WhatsApp não manda em lote.</b> ' +
+      'O app abre uma conversa de cada vez e <b>quem aperta enviar é você</b> — ele vai ' +
+      'marcando quem já foi. O aviso no app e o e-mail saem todos de uma vez.</p></div>' +
+    '</div>' +
+    '<div class="folha-pe"><div class="mp-bts">' +
+      '<button type="button" class="btn zap" style="margin:0" id="mp-zap">WhatsApp</button>' +
+      '<button type="button" class="btn sec" style="margin:0" id="mp-app">Aviso no app</button>' +
+      '<button type="button" class="btn sec" style="margin:0" id="mp-mail">E-mail</button>' +
+    '</div></div></div>';
+  document.body.appendChild(f);
+  document.body.style.overflow = 'hidden';
+  function fechar() { f.remove(); document.body.style.overflow = ''; }
+  f.querySelector('.folha-x').onclick = fechar;
+  f.querySelector('.folha-fundo').onclick = fechar;
+
+  function escolhidos() {
+    return [].slice.call(f.querySelectorAll('.mp-cx:checked'))
+      .map(function (c) { return gente[+c.dataset.i]; });
+  }
+  function recontar() {
+    var e = escolhidos();
+    var z = e.filter(function (p) { return p.whats; }).length;
+    var a = e.filter(function (p) { return p.clienteId; }).length;
+    var m = e.filter(function (p) { return p.email && p.email.indexOf('@') > 0; }).length;
+    f.querySelector('#mp-conta').textContent = e.length +
+      (e.length === 1 ? ' pessoa escolhida' : ' pessoas escolhidas');
+    f.querySelector('#mp-zap').textContent = 'WhatsApp · ' + z;
+    f.querySelector('#mp-app').textContent = 'Aviso no app · ' + a;
+    f.querySelector('#mp-mail').textContent = 'E-mail · ' + m;
+    f.querySelector('#mp-zap').disabled = !z;
+    f.querySelector('#mp-app').disabled = !a;
+    f.querySelector('#mp-mail').disabled = !m;
+  }
+  f.querySelectorAll('.mp-cx').forEach(function (c) { c.onchange = recontar; });
+  /* mexeu no texto: o aviso sobre o nome acompanha */
+  var cTexto = f.querySelector('#mp-texto'), avNome = f.querySelector('#mp-aviso-nome');
+  cTexto.addEventListener('input', function () {
+    avNome.innerHTML = /\{nome\}/i.test(cTexto.value)
+      ? 'O texto tem <b>{nome}</b>: cada pessoa recebe com o primeiro nome dela.'
+      : 'O texto não tem nome dentro: vai <b>igual para todos</b>.';
+  });
+  f.querySelector('#mp-todos').onclick = function () {
+    f.querySelectorAll('.mp-cx').forEach(function (c) { c.checked = true; }); recontar(); };
+  f.querySelector('#mp-nenhum').onclick = function () {
+    f.querySelectorAll('.mp-cx').forEach(function (c) { c.checked = false; }); recontar(); };
+  recontar();
+
+  /* lê o campo na hora de mandar: se ele ajustou a frase, é a ajustada que sai */
+  function textoDe(p) {
+    return B12.preencherMensagem(f.querySelector('#mp-texto').value,
+      { nome: p.nome, cod: p.cod, data: p.volta || '' });
+  }
+
+  f.querySelector('#mp-zap').onclick = function () {
+    var lista = escolhidos().filter(function (p) { return p.whats; })
+      .map(function (p) { return { zap: p.whats, nome: p.nome, texto: textoDe(p) }; });
+    fechar();
+    B12.filaWhats(lista);
+  };
+  f.querySelector('#mp-app').onclick = function () {
+    var alvos = escolhidos().filter(function (p) { return p.clienteId; });
+    var b = f.querySelector('#mp-app');
+    b.disabled = true; b.textContent = 'Mandando…';
+    var titulo = (msg && msg.nome) || 'Estação B12';
+    Promise.all(alvos.map(function (p) {
+      return B12.avEnviarPara({ clienteId: p.clienteId, titulo: titulo,
+        texto: textoDe(p).replace(/\*/g, '') });
+    })).then(function (rs) {
+      var chegou = rs.filter(function (r) { return r && r.enviados > 0; }).length;
+      fechar();
+      B12.aviso(chegou
+        ? 'Aviso no app entregue para ' + chegou + ' de ' + alvos.length + '.'
+        : 'Nenhuma dessas pessoas tem o app instalado. Use o WhatsApp.',
+        chegou ? 'bom' : 'aviso');
+    });
+  };
+  f.querySelector('#mp-mail').onclick = function () {
+    var alvos = escolhidos().filter(function (p) { return p.clienteId && p.email && p.email.indexOf('@') > 0; });
+    var b = f.querySelector('#mp-mail');
+    b.disabled = true; b.textContent = 'Mandando…';
+    B12.emailEnviar({ titulo: (msg && msg.nome) || 'Estação B12',
+      texto: B12.preencherMensagem(texto0, {}), para: 'escolhidos',
+      ids: alvos.map(function (p) { return p.clienteId; }) })
+      .then(function (r) {
+        fechar();
+        B12.aviso(r && r.ok ? 'E-mail enviado para ' + (r.enviados || 0) + '.'
+                            : (r && r.erro) || 'Não consegui mandar o e-mail.',
+                  r && r.ok ? 'bom' : 'ruim');
+      });
+  };
+};
+
+/* escolher qual mensagem mandar para alguém.
+
+   24/11/2026, "essas mensagens precisam estar dentro de cada cliente". Ele
+   tinha razão e era pior do que parecia: a aba Mensagens dizia, escrito na
+   tela, "quando você manda pela ficha dela" — e esse caminho NÃO EXISTIA.
+   As mensagens que ele escrevia só podiam ser lidas e copiadas na mão, numa
+   aba longe do cliente. E a ficha, ao tocar em WhatsApp, abria uma saudação
+   fixa de uma linha, ignorando tudo o que ele tinha escrito.
+
+   Agora as dele vêm primeiro, com as marcas já trocadas pelos dados da
+   pessoa, e os modelos de fábrica ficam embaixo. */
 B12.escolherMensagem = function (dados) {
+  var minhas = (B12.minhasMensagens ? B12.minhasMensagens() : []);
   var f = document.createElement('div');
   f.className = 'folha';
   f.innerHTML = '<div class="folha-fundo"></div><div class="folha-cx">' +
     '<div class="folha-alca"></div>' +
     '<div class="folha-topo"><div><h3>Mandar mensagem</h3>' +
-    '<p>' + (dados && dados.nome ? 'para ' + dados.nome : 'escolha o modelo') + '</p></div></div>' +
-    '<div class="folha-corpo acoes">' + B12.MODELOS.map(function (m) {
+    '<p>' + (dados && dados.nome ? 'para ' + escM(dados.nome) : 'escolha o modelo') + '</p></div>' +
+    '<button type="button" class="folha-x" aria-label="Fechar">' +
+    '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" ' +
+    'stroke-width="2.2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>' +
+    '<div class="folha-corpo acoes">' +
+    (minhas.length
+      ? '<div class="grupo" style="padding-left:0">Suas mensagens</div>' +
+        minhas.map(function (m) {
+          return '<button type="button" class="acao" data-minha="' + escM(m.id) + '">' +
+            '<span class="bolinha" style="background:var(--turq-600)"></span>' +
+            '<span class="txt"><b>' + escM(m.nome) + '</b><small>' + escM(m.quando || '') + '</small></span>' +
+            '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" ' +
+            'stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></button>';
+        }).join('') +
+        '<div class="grupo" style="padding-left:0">Modelos da casa</div>'
+      : '') +
+    B12.MODELOS.map(function (m) {
       return '<button type="button" class="acao" data-msg="' + m.id + '">' +
         '<span class="bolinha" style="background:' + m.cor + '"></span>' +
         '<span class="txt"><b>' + m.nome + '</b><small>' + m.quando + '</small></span>' +
@@ -338,8 +606,15 @@ B12.escolherMensagem = function (dados) {
   document.body.style.overflow = 'hidden';
   function fechar() { f.remove(); document.body.style.overflow = ''; }
   f.querySelector('.folha-fundo').onclick = fechar;
+  f.querySelector('.folha-x').onclick = fechar;
   f.querySelectorAll('[data-msg]').forEach(function (b) {
     b.onclick = function () { fechar(); B12.folhaMensagem(b.dataset.msg, dados || {}); };
+  });
+  f.querySelectorAll('[data-minha]').forEach(function (b) {
+    b.onclick = function () {
+      fechar();
+      B12.folhaMinhaMensagem(minhas.filter(function (x) { return x.id === b.dataset.minha; })[0], dados || {});
+    };
   });
 };
 

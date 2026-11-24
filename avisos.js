@@ -304,6 +304,149 @@ B12.avEnviar = function (o) {
   }).catch(function (e) { return { erro: String(e && e.message || e) }; });
 };
 
+/* O aviso para UMA pessoa. 24/11/2026: "tem que ter botão de notificação
+   fácil de cada cliente para chegar no app baixado".
+
+   Chega só nos aparelhos em que ESSA pessoa instalou o app. Se ela não
+   instalou, o carteiro devolve 0 — e quem chamou tem de DIZER isso na tela,
+   não fingir que mandou. É a diferença entre o app ser confiável e o Dhalsin
+   achar que avisou alguém que nunca soube de nada. */
+B12.avEnviarPara = function (o) {
+  o = o || {};
+  if (!o.clienteId) return Promise.resolve({ erro: 'Sem a ficha da pessoa não dá para avisar só ela.' });
+  return chamarCarteiro({
+    papel: 'turista',
+    cliente: o.clienteId,
+    tag: 'b12-pessoa-' + o.clienteId,
+    titulo: String(o.titulo || 'Estação B12').slice(0, 48),
+    texto: String(o.texto || '').slice(0, 180),
+    ir: o.ir || '/'
+  }).then(function (r) {
+    if (r && r.ok) {
+      var n = r.mandados || 0;
+      if (!n) return { ok: true, enviados: 0,
+        aviso: 'Essa pessoa ainda não instalou o app, ou não aceitou receber aviso. ' +
+               'Mande pelo WhatsApp.' };
+      return { ok: true, enviados: n, falhas: r.falhas || 0 };
+    }
+    return { erro: (r && (r.erro || r.mensagem)) || 'o carteiro não respondeu' };
+  }).catch(function (e) { return { erro: String(e && e.message || e) }; });
+};
+
+/* ================================================= O SININHO (a caixa de avisos)
+   24/11/2026: "ele mandou para o app, mas não mostrou o texto da notificação.
+   Será que vai lá no sininho? Manda para onde?"
+
+   Não ia para lugar nenhum. O service worker agora grava cada aviso num banco
+   do navegador (IndexedDB) antes de mostrar na bandeja — ver sw.js. Estas
+   funções leem essa caixa do lado do app.
+
+   Por que IndexedDB e não o resto do app: o service worker roda fora da
+   página e NÃO ENXERGA localStorage. É o único lugar onde os dois se
+   encontram. E é por aparelho, como tem de ser: o aviso chegou NESTE
+   celular. */
+var AV_BANCO = 'b12-avisos', AV_LOJA = 'recebidos';
+function avBanco() {
+  return new Promise(function (ok, nao) {
+    if (!window.indexedDB) return nao(new Error('sem IndexedDB'));
+    var p = indexedDB.open(AV_BANCO, 1);
+    p.onupgradeneeded = function () {
+      var db = p.result;
+      if (!db.objectStoreNames.contains(AV_LOJA))
+        db.createObjectStore(AV_LOJA, { keyPath: 'id' });
+    };
+    p.onsuccess = function () { ok(p.result); };
+    p.onerror = function () { nao(p.error); };
+  });
+}
+
+/* tudo que chegou neste aparelho, mais novo primeiro */
+B12.avRecebidos = function () {
+  return avBanco().then(function (db) {
+    return new Promise(function (ok) {
+      var t = db.transaction(AV_LOJA, 'readonly');
+      var pedido = t.objectStore(AV_LOJA).getAll();
+      pedido.onsuccess = function () {
+        ok((pedido.result || []).sort(function (a, b) {
+          return String(b.em) < String(a.em) ? -1 : 1; }));
+      };
+      pedido.onerror = function () { ok([]); };
+    });
+  }).catch(function () { return []; });
+};
+
+B12.avNaoLidos = function () {
+  return B12.avRecebidos().then(function (l) {
+    return l.filter(function (x) { return !x.lido; }).length;
+  });
+};
+
+B12.avMarcarLidos = function () {
+  return avBanco().then(function (db) {
+    return new Promise(function (ok) {
+      var t = db.transaction(AV_LOJA, 'readwrite');
+      var loja = t.objectStore(AV_LOJA), pedido = loja.getAll();
+      pedido.onsuccess = function () {
+        (pedido.result || []).forEach(function (x) {
+          if (!x.lido) { x.lido = true; loja.put(x); }
+        });
+      };
+      t.oncomplete = function () { ok(true); };
+      t.onerror = function () { ok(false); };
+    });
+  }).catch(function () { return false; });
+};
+
+/* a caixa não cresce para sempre: guarda os 60 mais novos */
+B12.avLimparAntigos = function (quantos) {
+  var teto = quantos || 60;
+  return B12.avRecebidos().then(function (l) {
+    if (l.length <= teto) return 0;
+    var fora = l.slice(teto);
+    return avBanco().then(function (db) {
+      return new Promise(function (ok) {
+        var t = db.transaction(AV_LOJA, 'readwrite');
+        var loja = t.objectStore(AV_LOJA);
+        fora.forEach(function (x) { loja.delete(x.id); });
+        t.oncomplete = function () { ok(fora.length); };
+        t.onerror = function () { ok(0); };
+      });
+    });
+  }).catch(function () { return 0; });
+};
+
+/* apagar a caixa inteira, quando ele quiser */
+B12.avApagarTudo = function () {
+  return avBanco().then(function (db) {
+    return new Promise(function (ok) {
+      var t = db.transaction(AV_LOJA, 'readwrite');
+      t.objectStore(AV_LOJA).clear();
+      t.oncomplete = function () { ok(true); };
+      t.onerror = function () { ok(false); };
+    });
+  }).catch(function () { return false; });
+};
+
+/* guardar um aviso pelo lado do app: é como o teste "mandar só para mim"
+   aparece no sininho mesmo com o app aberto, que é quando o navegador
+   costuma NÃO mostrar a bandeja */
+B12.avGuardarLocal = function (o) {
+  o = o || {};
+  return avBanco().then(function (db) {
+    return new Promise(function (ok) {
+      var t = db.transaction(AV_LOJA, 'readwrite');
+      t.objectStore(AV_LOJA).put({
+        id: 'av' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        titulo: o.titulo || 'Estação B12', texto: o.texto || '',
+        ir: o.ir || '/', importante: !!o.importante,
+        em: new Date().toISOString(), lido: false
+      });
+      t.oncomplete = function () { ok(true); };
+      t.onerror = function () { ok(false); };
+    });
+  }).catch(function () { return false; });
+};
+
 /* o service worker pede para reinscrever quando o navegador troca a assinatura */
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('message', function (ev) {
