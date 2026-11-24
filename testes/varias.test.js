@@ -38,7 +38,7 @@ console.log('\n— escolher quem recebe —');
 eh('a tela existe', /B12\.formMandarPara = function/.test(msg));
 eh('e tem porta na aba Mensagens', /id="b-varias"/.test(adm) && /B12\.formMandarPara\(m\)/.test(adm));
 eh('junta quem volta hoje, quem volta amanhã e quem está na Ilha',
-  /juntar\(\(ilha\.voltam \|\| \[\]\), 'volta hoje'\)/.test(msg) &&
+  /juntar\(\(ilha\.voltam \|\| \[\]\)\.map/.test(msg) &&
   /'volta amanhã'\)/.test(msg) &&
   /juntar\(\(ilha\.agora \|\| \[\]\), 'na Ilha'\)/.test(msg));
 eh('cada pessoa entra UMA vez, mesmo em duas listas',
@@ -94,8 +94,11 @@ eh('e o subtítulo mostra quais horários vão dentro',
 eh('sem a grade montada, avisa antes de mandar',
   /ainda não foram montados — o recado vai sair sem eles/.test(adm),
   'recado de retorno sem horário é o recado sem a informação que importa');
+/* 24/11: os ids viraram data-atributos, porque os blocos de hoje e de amanhã
+   geravam os MESMOS ids na mesma página. E o botão foi renomeado: o caminho
+   principal agora é o GRUPO, e este é o "um a um · no app". */
 eh('os blocos Voltam hoje / amanhã também mandam para vários',
-  /id="va-varios"/.test(adm) && /B12\.formMandarPara\(\{ id: '__retorno'/.test(adm));
+  /data-va="varios"/.test(adm) && /id: '__retorno', nome: 'Recado do retorno de '/.test(adm));
 
 console.log('\n— deixar genérico: um texto de uma pessoa vira texto de todas —');
 /* 24/11/2026, olhando o "Confirmar reserva" montado para a Ivone: "como seria

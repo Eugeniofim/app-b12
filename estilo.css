@@ -2074,3 +2074,23 @@ body:not(.adm) .sino-item p{color:var(--tinta-2)}
    é o único jeito de ganhar de uma classe que já venceu uma vez.
    ==================================================================== */
 [hidden]{display:none !important}
+
+/* 24/11/2026: nenhum caminho é o padrão — "as voltas são compartilhadas uma
+   vez ou outra; outras vezes são 2 ou 3 pessoas. Nada é muito fixo." Os
+   botões têm o mesmo peso e ele escolhe conforme o dia. */
+.va-acoes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
+.mp-bts-4{grid-template-columns:repeat(2,minmax(0,1fr))}
+.mp-bts-4 .btn:first-child{grid-column:auto}
+@media (max-width:430px){
+  .va-acoes{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .va-acoes .btn:last-child{grid-column:1 / -1}
+}
+.va-acoes-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+
+/* 24/11/2026, medido a 375px: os links da fonte da previsão tinham 34px, e o
+   "abrir no Windy" tinha 15 — a ponta do dedo cobre uns 44. São links de
+   crédito e de fonte, não botões, mas "abrir no Windy" é um toque que alguém
+   dá. Ganham área de toque sem inchar a tela de quem usa mouse. */
+@media (pointer: coarse){
+  .fonte-tempo a{display:inline-block;min-height:44px;line-height:44px;padding:0 2px}
+}

@@ -264,6 +264,47 @@ B12.modelo = function (id) {
   return B12.MODELOS.filter(function (m) { return m.id === id; })[0] || null;
 };
 
+/* ============================================ QUANDO ELE COMPRAR A LINHA
+   24/11/2026: "se ele comprar a linha do WhatsApp no futuro, ele possa enviar
+   em MASSA para os grupos dele".
+
+   Hoje o app faz o melhor possível SEM linha: `wa.me/?text=` abre o WhatsApp
+   com o texto pronto e ele escolhe o grupo — um toque, vinte pessoas. O que
+   falta para ser automático é a API oficial da Meta, que precisa de:
+
+     · uma linha de WhatsApp Business dedicada (número que não é o pessoal);
+     · conta na Meta e número verificado;
+     · modelos de mensagem APROVADOS pela Meta, um a um, antes de usar;
+     · custo POR CONVERSA (a Meta cobra; 1.000 por mês saem de graça).
+
+   A armadilha que vale escrever: **a API da Meta NÃO manda para grupos.**
+   Ela manda para números, um por um, automaticamente. Então, mesmo com a
+   linha, "o grupo" continua sendo o caminho de colar à mão — o que muda é
+   que o app passa a poder disparar os VINTE INDIVIDUAIS sozinho, cada um
+   com o nome da pessoa, sem ele tocar em nada.
+
+   Quando a hora chegar, o ponto de entrada é UM SÓ: `B12.whatsEmMassa`
+   abaixo. Ela já tem a assinatura certa e hoje devolve "sem linha". Ligar a
+   API é trocar o corpo dela — nenhuma tela precisa mudar, porque todas já
+   chamam por aqui. */
+B12.temLinhaWhats = function () {
+  var a = (B12.DB && B12.DB.ajustes) || {};
+  return !!(a.whatsApi && a.whatsApi.token && a.whatsApi.numeroId);
+};
+
+/* lista = [{zap, nome, texto}] — a MESMA forma que a fila de um a um usa */
+B12.whatsEmMassa = function (lista) {
+  if (!B12.temLinhaWhats()) {
+    return Promise.resolve({ erro: 'semLinha',
+      mensagem: 'O envio automático precisa de uma linha de WhatsApp Business. ' +
+                'Por enquanto: mande no grupo, ou um a um.' });
+  }
+  /* AQUI entra a chamada à API da Meta, quando a linha existir. Nada mais
+     na tela precisa mudar. */
+  return Promise.resolve({ erro: 'naoLigado',
+    mensagem: 'A linha está cadastrada mas o envio automático ainda não foi ligado.' });
+};
+
 /* monta o texto e abre o WhatsApp da pessoa (ou sem número, para copiar) */
 B12.abrirWhats = function (zap, texto) {
   var n = String(zap || '').replace(/\D/g, '');
@@ -443,6 +484,13 @@ B12.textoGenerico = function (texto) {
    também funciona e vai igual para todos. A tela diz qual dos dois é. */
 B12.formMandarPara = function (msg, opc) {
   opc = opc || {};
+  /* 24/11/2026. Ele perguntou "já tem essa mensagem padrão?" — tinha, e o
+     sistema inteiro também. O que faltava era ele SABER, e faltava isto:
+     quando o recado sai por aqui, quem chamou precisa marcar as pessoas como
+     avisadas. Sem este aviso de volta, ele mandava o push para os sete e a
+     tela continuava dizendo "faltam avisar 7". Perder a conta de quem já foi
+     é o jeito mais rápido de voltar a confiar no caderno. */
+  var aoMandar = typeof opc.aoMandar === 'function' ? opc.aoMandar : function () {};
   var hoje = B12.hoje(), amanha = B12.diaMais(hoje, 1);
   var ilha = B12.naIlha(hoje) || {};
 
@@ -468,12 +516,15 @@ B12.formMandarPara = function (msg, opc) {
       vistos[chave] = reg; gente.push(reg);
     });
   }
-  juntar((ilha.voltam || []), 'volta hoje');
+  /* naIlha devolve .volta em cada pessoa; quem volta HOJE tem volta = hoje */
+  juntar((ilha.voltam || []).map(function (p) {
+    return Object.assign({}, p, { volta: p.volta || hoje }); }), 'volta hoje');
   juntar(B12.DB.reservas.filter(function (r) {
     return r.situacao === 'confirmada' && !r.apagado && r.volta === amanha;
   }).map(function (r) {
     var c = r.clienteId ? B12.DB.clientes.filter(function (x) { return x.id === r.clienteId; })[0] : null;
     return { nome: r.nome, pessoas: r.pax, cod: r.cod, clienteId: r.clienteId,
+             volta: r.volta,          /* sem isto o filtro do dia não casa com ninguém */
              contato: { whats: (r.zap || (c && c.whats) || '').replace(/\D/g, ''),
                         email: r.email || (c && c.email) || '' } };
   }), 'volta amanhã');
@@ -489,13 +540,25 @@ B12.formMandarPara = function (msg, opc) {
      para trinta — mandar o código de uma para as outras é vazar cliente. */
   var temPessoal = B12.textoGenerico(texto0) !== texto0;
 
+  /* 24/11/2026, visto fazendo o caminho dele: ele toca em "Avisar os 4 que
+     voltam amanhã" e a lista vinha com 36 marcados — todo mundo que está na
+     Ilha. Mandaria o recado de AMANHÃ para quem volta HOJE.
+
+     Quando quem chamou diz de que dia se trata (`opc.dia`), só as pessoas
+     daquele dia começam marcadas. As outras continuam na lista, desmarcadas,
+     porque às vezes ele quer incluir alguém — mas incluir é decisão, não
+     descuido. */
+  function daquele(p) {
+    return !opc.dia || p.volta === opc.dia;
+  }
   function linha(p, i) {
     var canais = [];
     if (p.whats) canais.push('WhatsApp');
     if (p.clienteId) canais.push('app');
     if (p.email && p.email.indexOf('@') > 0) canais.push('e-mail');
     return '<label class="mp-linha">' +
-      '<input type="checkbox" class="mp-cx" data-i="' + i + '" checked>' +
+      '<input type="checkbox" class="mp-cx" data-i="' + i + '"' +
+      (daquele(p) ? ' checked' : '') + '>' +
       '<span class="mp-txt"><b>' + escM(p.nome) + '</b>' +
       '<small>' + p.pessoas + (p.pessoas > 1 ? ' pessoas' : ' pessoa') +
       (p.etiquetas.length ? ' · ' + escM(p.etiquetas.join(' · ')) : '') +
@@ -507,8 +570,9 @@ B12.formMandarPara = function (msg, opc) {
   f.className = 'folha';
   f.innerHTML = '<div class="folha-fundo"></div><div class="folha-cx">' +
     '<div class="folha-alca"></div>' +
-    '<div class="folha-topo"><div><h3>Mandar para várias pessoas</h3>' +
-    '<p>' + escM(msg && msg.nome ? msg.nome : 'escolha quem recebe') + '</p></div>' +
+    '<div class="folha-topo"><div><h3>' +
+    (opc.quando ? 'Avisar quem volta ' + escM(opc.quando) : 'Mandar para várias pessoas') +
+    '</h3><p>' + escM(msg && msg.nome ? msg.nome : 'escolha quem recebe') + '</p></div>' +
     '<button type="button" class="folha-x" aria-label="Fechar">' +
     '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" ' +
     'stroke-width="2.2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>' +
@@ -531,13 +595,47 @@ B12.formMandarPara = function (msg, opc) {
       '<div class="mp-cab"><b id="mp-conta"></b>' +
         '<span><button type="button" class="mini-btn" id="mp-todos">Todos</button> ' +
         '<button type="button" class="mini-btn" id="mp-nenhum">Nenhum</button></span></div>' +
-      '<div class="mp-lista">' + gente.map(linha).join('') + '</div>' +
-      '<div class="cx nota" style="margin-top:14px"><p><b>O WhatsApp não manda em lote.</b> ' +
-      'O app abre uma conversa de cada vez e <b>quem aperta enviar é você</b> — ele vai ' +
-      'marcando quem já foi. O aviso no app e o e-mail saem todos de uma vez.</p></div>' +
+      (opc.dia
+        ? '<div class="ajuda" style="margin:-4px 0 8px">Já vêm marcados os que voltam ' +
+          escM(opc.quando || 'nesse dia') + '. Os outros estão na lista, desmarcados.</div>'
+        : '') +
+      '<div class="mp-lista">' +
+      /* os do dia primeiro: é neles que ele vai olhar */
+      gente.map(function (p, i) { return { p: p, i: i }; })
+        .sort(function (a, b) { return (daquele(b.p) ? 1 : 0) - (daquele(a.p) ? 1 : 0); })
+        .map(function (x) { return linha(x.p, x.i); }).join('') + '</div>' +
+      '<div class="cx nota" style="margin-top:14px">' +
+      '<p><b>Num grupo:</b> o WhatsApp abre com o texto pronto e você escolhe o grupo. ' +
+      'Serve quando a volta é dividida por muita gente.</p>' +
+      '<p style="margin-top:8px"><b>Um a um:</b> o app abre uma conversa de cada vez e vai ' +
+      'marcando quem já foi. Serve quando são duas ou três pessoas — e quem aperta enviar ' +
+      'é você, sempre.</p>' +
+      '<p style="margin-top:8px"><b>Aviso no app</b> e <b>e-mail</b> saem todos de uma vez, ' +
+      'sozinhos.</p></div>' +
     '</div>' +
-    '<div class="folha-pe"><div class="mp-bts">' +
-      '<button type="button" class="btn zap" style="margin:0" id="mp-zap">WhatsApp</button>' +
+    /* 24/11/2026, depois de ele contar como trabalha de verdade:
+
+         "ele usa muito GRUPOS. Às vezes a volta é compartilhada e ele precisa
+          enviar para 20 clientes voltando — mandaria 20 WhatsApp. O certo
+          seria apertar um botão e enviar para todos."
+
+       E a resposta estava a uma linha de distância, escondida: `wa.me/?text=`
+       SEM número abre o WhatsApp com o texto pronto e deixa ELE escolher o
+       destino — inclusive um GRUPO. Um toque, vinte pessoas, hoje, sem API
+       nenhuma. O app já sabia fazer isso desde sempre (B12.abrirWhats aceita
+       zap vazio); ninguém tinha posto o botão.
+
+       E a correção dele, logo depois, que me fez desfazer meia escolha:
+
+         "as voltas são compartilhadas UMA VEZ OU OUTRA. Outras vezes é volta
+          de 2 ou 3 pessoas que já foi combinado. Nada é muito fixo."
+
+       Então NENHUM destes quatro é o padrão. Os dois de cima são os dois
+       jeitos de usar o WhatsApp — num grupo ou um a um —, e os dois de baixo
+       são os que saem sozinhos. Quem decide é o dia. */
+    '<div class="folha-pe"><div class="mp-bts mp-bts-4">' +
+      '<button type="button" class="btn sec" style="margin:0" id="mp-grupo">Num grupo</button>' +
+      '<button type="button" class="btn sec" style="margin:0" id="mp-zap">Um a um</button>' +
       '<button type="button" class="btn sec" style="margin:0" id="mp-app">Aviso no app</button>' +
       '<button type="button" class="btn sec" style="margin:0" id="mp-mail">E-mail</button>' +
     '</div></div></div>';
@@ -558,7 +656,7 @@ B12.formMandarPara = function (msg, opc) {
     var m = e.filter(function (p) { return p.email && p.email.indexOf('@') > 0; }).length;
     f.querySelector('#mp-conta').textContent = e.length +
       (e.length === 1 ? ' pessoa escolhida' : ' pessoas escolhidas');
-    f.querySelector('#mp-zap').textContent = 'WhatsApp · ' + z;
+    f.querySelector('#mp-zap').textContent = 'Um a um · ' + z;
     f.querySelector('#mp-app').textContent = 'Aviso no app · ' + a;
     f.querySelector('#mp-mail').textContent = 'E-mail · ' + m;
     f.querySelector('#mp-zap').disabled = !z;
@@ -602,11 +700,44 @@ B12.formMandarPara = function (msg, opc) {
       { nome: p.nome, cod: p.cod, data: p.volta || '' });
   }
 
+  /* O GRUPO. Texto único, sem nome de ninguém: num grupo não existe "cada um
+     recebe o seu". Se ainda houver dado de uma pessoa só dentro, isso vira o
+     código da Ivone no grupo dos vinte — então aqui o genérico não é sugestão,
+     é condição. */
+  f.querySelector('#mp-grupo').onclick = function () {
+    var t = cTexto.value;
+    var limpo = B12.textoGenerico(t);
+    if (limpo !== t) {
+      cTexto.value = limpo;
+      cTexto.dispatchEvent(new Event('input'));
+      B12.aviso('Tirei o nome, o código e o total: num grupo o texto é um só. ' +
+        'Confira e toque de novo.', 'aviso');
+      cTexto.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      return;
+    }
+    /* sem número: o WhatsApp abre e ELE escolhe o grupo */
+    B12.abrirWhats('', t);
+    aoMandar(escolhidos());
+    fechar();
+  };
+
   f.querySelector('#mp-zap').onclick = function () {
     var lista = escolhidos().filter(function (p) { return p.whats; })
       .map(function (p) { return { zap: p.whats, nome: p.nome, texto: textoDe(p) }; });
+    /* com a linha ligada um dia, estes mesmos vinte saem sozinhos, cada um
+       com o nome da pessoa. Sem ela, vai para a fila de um a um. */
+    if (B12.temLinhaWhats()) {
+      B12.whatsEmMassa(lista).then(function (r) {
+        if (r && r.ok) { fechar(); B12.aviso('Enviado para ' + r.enviados + '.', 'bom'); }
+        else { fechar(); B12.filaWhats(lista); }
+      });
+      return;
+    }
     fechar();
-    B12.filaWhats(lista);
+    B12.filaWhats(lista, aoMandar ? function (feitos) {
+      /* a fila devolve quem ele marcou como "já mandei" */
+      aoMandar(escolhidos().filter(function (p) { return feitos.indexOf(p.whats) >= 0; }));
+    } : null);
   };
   f.querySelector('#mp-app').onclick = function () {
     var alvos = escolhidos().filter(function (p) { return p.clienteId; });
@@ -618,6 +749,8 @@ B12.formMandarPara = function (msg, opc) {
         texto: textoDe(p).replace(/\*/g, '') });
     })).then(function (rs) {
       var chegou = rs.filter(function (r) { return r && r.enviados > 0; }).length;
+      /* só quem realmente recebeu conta como avisado */
+      aoMandar(alvos.filter(function (p, i) { return rs[i] && rs[i].enviados > 0; }));
       fechar();
       B12.aviso(chegou
         ? 'Aviso no app entregue para ' + chegou + ' de ' + alvos.length + '.'
@@ -633,6 +766,7 @@ B12.formMandarPara = function (msg, opc) {
       texto: B12.preencherMensagem(texto0, {}), para: 'escolhidos',
       ids: alvos.map(function (p) { return p.clienteId; }) })
       .then(function (r) {
+        if (r && r.ok) aoMandar(alvos);
         fechar();
         B12.aviso(r && r.ok ? 'E-mail enviado para ' + (r.enviados || 0) + '.'
                             : (r && r.erro) || 'Não consegui mandar o e-mail.',

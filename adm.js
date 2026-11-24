@@ -1977,7 +1977,7 @@ function blocoVoltamAmanha(raiz, amanha, quando) {
   var b = bloco(
     '<div class="cx ' + (rec.semGrade ? 'aviso' : 'nota') + ' entra entra-2">' +
     '<div class="cx-topo"><h3>Voltam ' + quando + '</h3>' +
-    '<button class="mini-btn" id="va-horarios">' + (rec.semGrade ? 'Montar horários' : 'Mudar horários') + '</button></div>' +
+    '<button class="mini-btn" data-va="horarios">' + (rec.semGrade ? 'Montar horários' : 'Mudar horários') + '</button></div>' +
     (rec.semGrade
       ? '<p><b>Os horários de retorno de ' + quando + ' ainda não foram montados.</b> ' +
         'Monte antes de mandar o recado — senão ele vai sem os horários, que é a ' +
@@ -2003,28 +2003,75 @@ function blocoVoltamAmanha(raiz, amanha, quando) {
         '</div></div>';
     }).join('') + '</div>' +
     (gente.length > 8 && !vaAbertos[amanha]
-      ? '<button type="button" class="btn sec" id="va-mais" style="margin-top:9px">Ver as outras ' +
+      ? '<button type="button" class="btn sec" data-va="mais" style="margin-top:9px">Ver as outras ' +
         (gente.length - 8) + '</button>'
       : '') +
-    '<div class="grade2" style="margin:9px 0 0">' +
-    '<button type="button" class="btn sec" style="margin:0" id="va-ver">Ver o recado</button>' +
-    '<button type="button" class="btn pri" style="margin:0" id="va-varios">Mandar para vários</button>' +
+    /* 24/11/2026, e esta é a correção dele depois que eu presumi demais:
+
+         "as voltas são compartilhadas UMA VEZ OU OUTRA. Outras vezes é volta
+          de 2 ou 3 pessoas que já foi combinado. Nada é muito fixo, é sempre
+          muito maleável."
+
+       Eu tinha posto o GRUPO como botão grande e verde — ou seja, como O
+       caminho. Não é: é UM caminho, para o dia em que a volta é dividida.
+       Nos outros dias são duas ou três pessoas, e aí o caminho é o botão de
+       WhatsApp na linha de cada uma, que já está logo acima.
+
+       Agora os três têm o mesmo peso e ele escolhe conforme o dia. Nenhum
+       deles é o padrão, porque não existe padrão. */
+    /* 24/11/2026. Ele perguntou se a mensagem padrão existia — existia, e o
+       caminho inteiro também. O problema era o NOME: "Escolher quem" fala do
+       mecanismo, não do que acontece. Quem está no balcão procura a AÇÃO.
+
+       Agora o botão diz quantos faltam e o que vai fazer. Quando não falta
+       ninguém, ele some e sobra o resto: já está feito, não precisa de
+       botão pedindo para refazer. */
+    '<div class="va-acoes' + (faltam.length ? '' : ' va-acoes-2') + '">' +
+    (faltam.length
+      ? '<button type="button" class="btn sec" style="margin:0" data-va="varios">' +
+        'Avisar ' + (faltam.length === gente.length ? 'os ' + faltam.length
+                     : 'os ' + faltam.length + ' que faltam') + '</button>'
+      : '') +
+    '<button type="button" class="btn sec" style="margin:0" data-va="grupo">Num grupo</button>' +
+    '<button type="button" class="btn sec" style="margin:0" data-va="ver">Ver o recado</button>' +
     '</div></div>');
 
-  b.querySelector('#va-varios').onclick = function () {
-    B12.formMandarPara({ id: '__retorno', nome: 'Recado do retorno (' + quando + ')',
-      quando: rec.semGrade ? '' : 'horários: ' + rec.horas.join(' · '), texto: rec.texto });
+  b.querySelector('[data-va=grupo]').onclick = function () {
+    if (rec.semGrade) return B12.aviso('Monte os horários de retorno antes — o recado ' +
+      'vai sem a parte que a pessoa precisa.', 'aviso');
+    /* o recado do retorno já nasce sem nome de ninguém: serve de grupo */
+    B12.abrirWhats('', rec.texto);
+    gente.forEach(function (p) { B12.marcarAvisoVolta(p.id); });
+    B12.admDesenhar('hoje');
   };
 
-  var bMais = b.querySelector('#va-mais');
+  var bVar = b.querySelector('[data-va=varios]');
+  if (bVar) bVar.onclick = function () {
+    B12.formMandarPara(
+      { id: '__retorno', nome: 'Recado do retorno de ' + quando,
+        quando: rec.semGrade ? 'FALTA MONTAR OS HORÁRIOS' : 'horários: ' + rec.horas.join(' · '),
+        texto: rec.texto },
+      { dia: amanha, quando: quando,
+        /* o que foi mandado risca da lista de pendentes */
+        aoMandar: function (quem) {
+          (quem || []).forEach(function (q) {
+            var p = gente.filter(function (x) { return x.clienteId === q.clienteId ||
+                                                       x.nome === q.nome; })[0];
+            if (p) B12.marcarAvisoVolta(p.id);
+          });
+          B12.admDesenhar('hoje');
+        } });
+  };
+
+  var bMais = b.querySelector('[data-va=mais]');
   if (bMais) bMais.onclick = function () { vaAbertos[amanha] = true; B12.admDesenhar('hoje'); };
 
   function acha(id) { return gente.filter(function (x) { return x.id === id; })[0]; }
 
-  b.querySelector('#va-horarios').onclick = function () {
+  b.querySelector('[data-va=horarios]').onclick = function () {
     B12.formHorariosDia(amanha, function () { B12.admDesenhar('hoje'); });
   };
-  b.querySelector('#va-ver').onclick = function () {
+  b.querySelector('[data-va=ver]').onclick = function () {
     B12.folha({ titulo: 'Recado do retorno', sub: 'o padrão da B12, com os horários de ' + quando,
       corpo: '<div class="balao">' + esc(rec.texto).replace(/\n/g, '<br>') + '</div>' +
         '<div class="ajuda" style="margin-top:12px">Os horários saem da grade de retorno de ' +
@@ -3926,7 +3973,7 @@ function textoVolta(nome, dia) {
    Agora é um painel na tela: a lista inteira, quem já foi, quem falta, e
    dois botões por pessoa — "Abrir" e "já mandei". A conta só anda quando ELE
    diz que mandou. */
-B12.filaWhats = function (lista) {
+B12.filaWhats = function (lista, aoFechar) {
   if (!lista || !lista.length) return;
   var feitos = {};
 
@@ -3976,7 +4023,14 @@ B12.filaWhats = function (lista) {
       };
     });
   }
-  function fechar() { f.remove(); document.body.style.overflow = ''; }
+  function fechar() {
+    f.remove(); document.body.style.overflow = '';
+    /* devolve os números que ELE marcou como mandados: quem chamou usa isso
+       para riscar da lista de pendentes (24/11/2026) */
+    if (typeof aoFechar === 'function') {
+      aoFechar(Object.keys(feitos).map(function (i) { return lista[+i].zap; }));
+    }
+  }
   document.body.appendChild(f);
   document.body.style.overflow = 'hidden';
   desenhar();
